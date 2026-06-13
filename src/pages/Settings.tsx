@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, AlertTriangle, LogOut, Trash2 } from 'lucide-react';
+import { Shield, AlertTriangle, LogOut, Trash2, RefreshCw } from 'lucide-react';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import { useAuthStore } from '../stores/authStore';
@@ -17,7 +17,7 @@ const SUPPORTED_BROKERS = [
 
 export default function Settings() {
   const { profile, signOut, updateProfile } = useAuthStore();
-  const { connections, fetchConnections, addConnection, removeConnection } = useBrokerStore();
+  const { connections, fetchConnections, addConnection, removeConnection, syncConnection } = useBrokerStore();
 
   useEffect(() => {
     fetchConnections();
@@ -29,6 +29,7 @@ export default function Settings() {
   const [apiSecret, setApiSecret] = useState('');
   const [clientId, setClientId] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
+  const [syncingBroker, setSyncingBroker] = useState<string | null>(null);
 
   // Profile fields
   const [profileName, setProfileName] = useState(profile?.fullName || '');
@@ -66,6 +67,17 @@ export default function Settings() {
     }
   };
 
+  const handleSync = async (brokerId: string) => {
+    setSyncingBroker(brokerId);
+    const { error, count } = await syncConnection(brokerId);
+    if (error) {
+      alert(error);
+    } else {
+      alert(`Successfully synced ${count} trades!`);
+    }
+    setSyncingBroker(null);
+  };
+
   return (
     <div className="max-w-[600px] space-y-5 page-enter font-ui pb-20">
       {/* Page Header */}
@@ -94,10 +106,16 @@ export default function Settings() {
                       <Badge variant="win">Connected</Badge>
                     </div>
                     {conn.clientId && <div className="text-tv-xs font-mono text-secondary mt-1">Client ID: {conn.clientId}</div>}
+                    {conn.lastSyncedAt && <div className="text-tv-xs text-secondary mt-1">Last synced: {new Date(conn.lastSyncedAt).toLocaleString()}</div>}
                   </div>
-                  <Button variant="danger" size="sm" className="w-full sm:w-auto" onClick={() => handleDisconnect(conn.broker)}>
-                    <Trash2 className="w-4 h-4 mr-1.5" /> Disconnect
-                  </Button>
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <Button variant="ghost" size="sm" onClick={() => handleSync(conn.broker)} disabled={syncingBroker === conn.broker}>
+                      <RefreshCw className={`w-4 h-4 mr-1.5 ${syncingBroker === conn.broker ? 'animate-spin' : ''}`} /> Sync Trades
+                    </Button>
+                    <Button variant="danger" size="sm" onClick={() => handleDisconnect(conn.broker)}>
+                      <Trash2 className="w-4 h-4 mr-1.5" /> Disconnect
+                    </Button>
+                  </div>
                 </div>
               );
             })}

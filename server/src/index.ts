@@ -8,6 +8,7 @@ import { db } from './db';
 import { users, trades, strategies, journalEntries, aiInsights, coachMemory, brokerConnections } from './db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { generateAIInsight } from './lib/ai/llm';
+import { syncDhanTrades } from './lib/brokers/dhan';
 
 dotenv.config();
 
@@ -113,6 +114,46 @@ app.delete('/api/brokers/:broker', authenticate, async (req: AuthRequest, res: R
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to delete broker configuration' });
+  }
+});
+
+app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res: Response): Promise<any> => {
+  try {
+    const broker = String(req.params.broker);
+    
+    const conn = await db.select().from(brokerConnections)
+      .where(and(eq(brokerConnections.userId, req.userId!), eq(brokerConnections.broker, broker)))
+      .limit(1);
+
+    if (conn.length === 0) {
+      return res.status(404).json({ error: 'Broker connection not found' });
+    }
+
+    const { apiKey, clientId } = conn[0];
+    if (!apiKey) {
+      return res.status(400).json({ error: 'API Key missing for broker' });
+    }
+
+    let parsedTrades: any[] = [];
+
+    if (broker === 'dhan') {
+      parsedTrades = await syncDhanTrades(clientId || '', apiKey, req.userId!);
+    } else {
+      return res.status(400).json({ error: `Sync not yet implemented for ${broker}` });
+    }
+
+    if (parsedTrades.length > 0) {
+      await db.insert(trades).values(parsedTrades);
+    }
+
+    await db.update(brokerConnections)
+      .set({ lastSyncedAt: new Date() })
+      .where(eq(brokerConnections.id, conn[0].id));
+
+    res.json({ success: true, count: parsedTrades.length });
+  } catch (err: any) {
+    console.error('Sync Error:', err);
+    res.status(500).json({ error: err.message || 'Failed to sync trades' });
   }
 });
 

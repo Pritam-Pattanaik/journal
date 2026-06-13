@@ -17,6 +17,7 @@ interface BrokerStore {
   fetchConnections: () => Promise<void>;
   addConnection: (payload: { broker: string; apiKey: string; apiSecret?: string; clientId?: string }) => Promise<{ error?: string }>;
   removeConnection: (broker: string) => Promise<{ error?: string }>;
+  syncConnection: (broker: string) => Promise<{ error?: string; count?: number }>;
 }
 
 export const useBrokerStore = create<BrokerStore>((set, get) => ({
@@ -53,6 +54,16 @@ export const useBrokerStore = create<BrokerStore>((set, get) => ({
       return {};
     } catch (err: any) {
       return { error: err.message || 'Failed to disconnect broker' };
+    }
+  },
+
+  syncConnection: async (broker) => {
+    try {
+      const data = await api.post<{ success: boolean; count: number }>(`/brokers/sync/${broker}`, {});
+      await get().fetchConnections();
+      return { count: data.count };
+    } catch (err: any) {
+      return { error: err.message || 'Failed to sync broker' };
     }
   }
 }));
