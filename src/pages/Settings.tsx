@@ -44,6 +44,10 @@ export default function Settings() {
       alert('API Key is required.');
       return;
     }
+    if (selectedBroker === 'dhan' && !clientId) {
+      alert('Client ID is strictly required for the DhanHQ API.');
+      return;
+    }
     setIsConnecting(true);
     const { error } = await addConnection({
       broker: selectedBroker,
@@ -187,7 +191,7 @@ export default function Settings() {
 
               <div className="space-y-1">
                 <label className="text-[11px] text-secondary font-medium uppercase tracking-wider block">
-                  Client ID <span className="text-muted normal-case">(Optional)</span>
+                  Client ID {selectedBroker !== 'dhan' && <span className="text-muted normal-case">(Optional)</span>}
                 </label>
                 <input
                   type="text"
@@ -195,6 +199,7 @@ export default function Settings() {
                   onChange={(e) => setClientId(e.target.value)}
                   placeholder="e.g. AB1234"
                   className="input-base font-mono"
+                  required={selectedBroker === 'dhan'}
                 />
               </div>
             </div>

@@ -7,33 +7,45 @@ export async function syncDhanTrades(clientId: string, apiKey: string, userId: s
 
   const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
-  const url = `https://api.dhan.co/v2/trades/${formatDate(fromDate)}/${formatDate(toDate)}/1`;
-
   try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'access-token': apiKey,
-        'client-id': clientId,
+    let allTrades: any[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const url = `https://api.dhan.co/v2/trades/${formatDate(fromDate)}/${formatDate(toDate)}/${page}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'access-token': apiKey,
+          'client-id': clientId,
+        }
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Dhan API error (${response.status}): ${errText}`);
       }
-    });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Dhan API error (${response.status}): ${errText}`);
-    }
+      const data = await response.json();
+      const tradesList = data.data || data;
 
-    const data = await response.json();
-    const tradesList = data.data || data;
+      if (!Array.isArray(tradesList)) {
+        console.warn('Dhan API returned non-array data:', data);
+        break;
+      }
 
-    if (!Array.isArray(tradesList)) {
-      console.warn('Dhan API returned non-array data:', data);
-      return [];
+      if (tradesList.length === 0) {
+        hasMore = false;
+      } else {
+        allTrades = allTrades.concat(tradesList);
+        page++;
+      }
     }
 
     // Map Dhan trades to our TradeVault schema
-    return tradesList.map((t: any) => {
+    return allTrades.map((t: any) => {
       const isSell = (t.transactionType || '').toLowerCase() === 'sell';
       
       return {
