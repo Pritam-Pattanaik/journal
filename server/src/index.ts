@@ -5,7 +5,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import path from 'path';
 import { db } from './db';
-import { users, trades, strategies, journalEntries, aiInsights, coachMemory } from './db/schema';
+import { users, trades, strategies, journalEntries, aiInsights, coachMemory, brokerConnections } from './db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { generateAIInsight } from './lib/ai/llm';
 
@@ -50,6 +50,69 @@ function authenticate(req: AuthRequest, res: Response, next: NextFunction): void
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// ─── BROKER CONFIGURATIONS ──────────────────────────────────────────────────
+app.get('/api/brokers', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const brokers = await db.select({
+      id: brokerConnections.id,
+      broker: brokerConnections.broker,
+      clientId: brokerConnections.clientId,
+      isActive: brokerConnections.isActive,
+      lastSyncedAt: brokerConnections.lastSyncedAt,
+      createdAt: brokerConnections.createdAt
+    }).from(brokerConnections).where(eq(brokerConnections.userId, req.userId!));
+    res.json(brokers);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to fetch brokers' });
+  }
+});
+
+app.post('/api/brokers', authenticate, async (req: AuthRequest, res: Response): Promise<any> => {
+  try {
+    const { broker, apiKey, apiSecret, clientId } = req.body;
+    if (!broker || !apiKey) {
+      return res.status(400).json({ error: 'Broker and API Key are required' });
+    }
+
+    const existing = await db.select().from(brokerConnections)
+      .where(and(eq(brokerConnections.userId, req.userId!), eq(brokerConnections.broker, broker)))
+      .limit(1);
+
+    if (existing.length > 0) {
+      const updated = await db.update(brokerConnections).set({
+        apiKey,
+        apiSecret,
+        clientId,
+        isActive: true,
+      }).where(eq(brokerConnections.id, existing[0].id)).returning();
+      res.json(updated[0]);
+    } else {
+      const inserted = await db.insert(brokerConnections).values({
+        userId: req.userId!,
+        broker,
+        apiKey,
+        apiSecret,
+        clientId,
+        isActive: true,
+      }).returning();
+      res.status(201).json(inserted[0]);
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to save broker configuration' });
+  }
+});
+
+app.delete('/api/brokers/:broker', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { broker } = req.params;
+    await db.delete(brokerConnections)
+      .where(and(eq(brokerConnections.userId, req.userId!), eq(brokerConnections.broker, broker)));
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to delete broker configuration' });
+  }
 });
 
 // ─── AUTH ROUTES ──────────────────────────────────────────────────────────────

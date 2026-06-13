@@ -1,54 +1,73 @@
-import React, { useState } from 'react';
-import { Shield, AlertTriangle, LogOut } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Shield, AlertTriangle, LogOut, Trash2 } from 'lucide-react';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import { useAuthStore } from '../stores/authStore';
+import { useBrokerStore } from '../stores/brokerStore';
+
+const SUPPORTED_BROKERS = [
+  { id: 'zerodha', name: 'Zerodha Kite', requiresSecret: true },
+  { id: 'angelone', name: 'Angel One', requiresSecret: false },
+  { id: 'dhan', name: 'DhanHQ', requiresSecret: false },
+  { id: 'groww', name: 'Groww API', requiresSecret: true },
+  { id: '5paisa', name: '5paisa Developer', requiresSecret: true },
+  { id: 'upstox', name: 'Upstox API', requiresSecret: true },
+  { id: 'bullforce', name: 'BullForce API', requiresSecret: true },
+];
 
 export default function Settings() {
   const { profile, signOut, updateProfile } = useAuthStore();
-  const [zerodhaConnected, setZerodhaConnected] = useState(false);
-  const [angelOneConnected, setAngelOneConnected] = useState(false);
+  const { connections, fetchConnections, addConnection, removeConnection } = useBrokerStore();
 
-  // AngelOne Form fields
-  const [angelKey, setAngelKey] = useState('');
-  const [angelClientId, setAngelClientId] = useState('');
-  const [angelMpin, setAngelMpin] = useState('');
+  useEffect(() => {
+    fetchConnections();
+  }, [fetchConnections]);
+
+  // Integration Form fields
+  const [selectedBroker, setSelectedBroker] = useState(SUPPORTED_BROKERS[0].id);
+  const [apiKey, setApiKey] = useState('');
+  const [apiSecret, setApiSecret] = useState('');
+  const [clientId, setClientId] = useState('');
+  const [isConnecting, setIsConnecting] = useState(false);
 
   // Profile fields
   const [profileName, setProfileName] = useState(profile?.fullName || '');
   const [timezone, setTimezone] = useState(profile?.timezone || 'Asia/Kolkata');
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleZerodhaToggle = () => {
-    if (zerodhaConnected) {
-      if (confirm('Disconnect Zerodha Kite account?')) {
-        setZerodhaConnected(false);
-      }
-    } else {
-      setZerodhaConnected(true);
-    }
-  };
+  const activeBrokerInfo = SUPPORTED_BROKERS.find(b => b.id === selectedBroker);
 
-  const handleAngelConnect = (e: React.FormEvent) => {
+  const handleConnect = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!angelKey || !angelClientId || !angelMpin) {
-      alert('Please fill in all AngelOne credentials.');
+    if (!apiKey) {
+      alert('API Key is required.');
       return;
     }
-    setAngelOneConnected(true);
+    setIsConnecting(true);
+    const { error } = await addConnection({
+      broker: selectedBroker,
+      apiKey,
+      apiSecret,
+      clientId,
+    });
+    if (error) {
+      alert(error);
+    } else {
+      setApiKey('');
+      setApiSecret('');
+      setClientId('');
+    }
+    setIsConnecting(false);
   };
 
-  const handleAngelDisconnect = () => {
-    if (confirm('Disconnect AngelOne account?')) {
-      setAngelOneConnected(false);
-      setAngelKey('');
-      setAngelClientId('');
-      setAngelMpin('');
+  const handleDisconnect = async (brokerId: string) => {
+    if (confirm(`Are you sure you want to disconnect ${brokerId}?`)) {
+      await removeConnection(brokerId);
     }
   };
 
   return (
-    <div className="max-w-[600px] space-y-5 page-enter font-ui">
+    <div className="max-w-[600px] space-y-5 page-enter font-ui pb-20">
       {/* Page Header */}
       <div>
         <h2 className="text-tv-lg font-bold text-primary">
@@ -61,129 +80,133 @@ export default function Settings() {
 
       {/* SECTION 1: BROKER CONNECTIONS */}
       <div className="space-y-3">
-        <span className="label-section text-muted block">Broker Connections</span>
+        <span className="label-section text-muted block">Connected Brokers</span>
 
-        {/* Zerodha Card */}
-        <div className="card space-y-3.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-tv-md text-primary">Zerodha Kite</span>
-              {zerodhaConnected ? (
-                <Badge variant="win">Connected</Badge>
-              ) : (
-                <Badge variant="accent">Disconnected</Badge>
-              )}
-            </div>
-            {zerodhaConnected ? (
-              <Button variant="danger" size="sm" onClick={handleZerodhaToggle}>
-                Disconnect
-              </Button>
-            ) : (
-              <Button variant="primary" size="sm" onClick={handleZerodhaToggle}>
-                Connect via Kite OAuth
-              </Button>
-            )}
-          </div>
-
-          {zerodhaConnected && (
-            <div className="text-tv-sm text-secondary space-y-1 bg-base/20 border border-tv-border rounded-tv-sm p-3 font-mono">
-              <div>Client ID: AB1234</div>
-              <div>Last Synced: 2026-06-06 15:45 PM IST</div>
-            </div>
-          )}
-
-          {/* Warning Banner */}
-          <div className="border border-gold-border bg-gold-dim/40 rounded-tv-lg p-3 flex gap-2.5 items-start">
-            <AlertTriangle className="h-4 w-4 text-gold shrink-0 mt-0.5" />
-            <div className="text-tv-xs text-secondary leading-relaxed">
-              <strong className="text-gold">Kite Token Expiry Warning:</strong> Zerodha Kite Connect access tokens expire daily at 6:00 AM IST. You must complete the OAuth authorization handshake again when you first login each day to maintain automatic sync.
-            </div>
-          </div>
-        </div>
-
-        {/* AngelOne Card */}
-        <div className="card space-y-3.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-tv-md text-primary">AngelOne SmartAPI</span>
-              {angelOneConnected ? (
-                <Badge variant="win">Connected</Badge>
-              ) : (
-                <Badge variant="accent">Disconnected</Badge>
-              )}
-            </div>
-            {angelOneConnected && (
-              <Button variant="danger" size="sm" onClick={handleAngelDisconnect}>
-                Disconnect
-              </Button>
-            )}
-          </div>
-
-          {angelOneConnected ? (
-            <div className="text-tv-sm text-secondary space-y-1 bg-base/20 border border-tv-border rounded-tv-sm p-3 font-mono">
-              <div>Client ID: ANG-9942</div>
-              <div>Last Synced: 2026-06-06 15:46 PM IST</div>
-            </div>
-          ) : (
-            <form onSubmit={handleAngelConnect} className="space-y-3 pt-1">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[11px] text-secondary font-medium uppercase tracking-wider block">
-                    API Key
-                  </label>
-                  <input
-                    type="text"
-                    value={angelKey}
-                    onChange={(e) => setAngelKey(e.target.value)}
-                    placeholder="Enter API Key"
-                    className="input-base font-mono"
-                  />
+        {connections.length > 0 ? (
+          <div className="space-y-3">
+            {connections.map((conn) => {
+              const brokerName = SUPPORTED_BROKERS.find(b => b.id === conn.broker)?.name || conn.broker;
+              return (
+                <div key={conn.id} className="card space-y-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-tv-md text-primary">{brokerName}</span>
+                      <Badge variant="win">Connected</Badge>
+                    </div>
+                    {conn.clientId && <div className="text-tv-xs font-mono text-secondary mt-1">Client ID: {conn.clientId}</div>}
+                  </div>
+                  <Button variant="danger" size="sm" className="w-full sm:w-auto" onClick={() => handleDisconnect(conn.broker)}>
+                    <Trash2 className="w-4 h-4 mr-1.5" /> Disconnect
+                  </Button>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[11px] text-secondary font-medium uppercase tracking-wider block">
-                    Client ID
-                  </label>
-                  <input
-                    type="text"
-                    value={angelClientId}
-                    onChange={(e) => setAngelClientId(e.target.value)}
-                    placeholder="Enter Client ID"
-                    className="input-base font-mono"
-                  />
-                </div>
-              </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-tv-sm text-secondary p-4 bg-base/50 rounded-tv-md border border-tv-border border-dashed text-center">
+            No brokers connected. Configure a new connection below.
+          </div>
+        )}
+
+        {/* Add New Connection Form */}
+        <div className="card space-y-4 mt-6">
+          <div>
+            <h3 className="font-semibold text-tv-md text-primary mb-1">Add Broker Integration</h3>
+            <p className="text-tv-xs text-secondary">Connect your broker account to sync trades automatically.</p>
+          </div>
+
+          <form onSubmit={handleConnect} className="space-y-4">
+            <div className="space-y-1">
+              <label className="text-[11px] text-secondary font-medium uppercase tracking-wider block">
+                Select Broker
+              </label>
+              <select
+                value={selectedBroker}
+                onChange={(e) => {
+                  setSelectedBroker(e.target.value);
+                  setApiKey('');
+                  setApiSecret('');
+                  setClientId('');
+                }}
+                className="input-base cursor-pointer bg-base"
+              >
+                {SUPPORTED_BROKERS.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[11px] text-secondary font-medium uppercase tracking-wider block">
-                  MPIN
+                  API Key
                 </label>
                 <input
-                  type="password"
-                  value={angelMpin}
-                  onChange={(e) => setAngelMpin(e.target.value)}
-                  placeholder="Enter 4-digit MPIN"
-                  maxLength={4}
+                  type="text"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="Enter API Key"
+                  className="input-base font-mono"
+                  required
+                />
+              </div>
+
+              {activeBrokerInfo?.requiresSecret && (
+                <div className="space-y-1">
+                  <label className="text-[11px] text-secondary font-medium uppercase tracking-wider block">
+                    API Secret
+                  </label>
+                  <input
+                    type="password"
+                    value={apiSecret}
+                    onChange={(e) => setApiSecret(e.target.value)}
+                    placeholder="Enter API Secret"
+                    className="input-base font-mono"
+                    required
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="text-[11px] text-secondary font-medium uppercase tracking-wider block">
+                  Client ID <span className="text-muted normal-case">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
+                  placeholder="e.g. AB1234"
                   className="input-base font-mono"
                 />
               </div>
-              <Button variant="primary" size="md" type="submit" className="w-full">
-                Connect AngelOne
-              </Button>
-            </form>
-          )}
+            </div>
+
+            <Button variant="primary" size="md" type="submit" disabled={isConnecting} className="w-full">
+              {isConnecting ? 'Connecting...' : `Connect ${activeBrokerInfo?.name}`}
+            </Button>
+          </form>
+
+          {/* Warning Banner */}
+          <div className="border border-gold-border bg-gold-dim/40 rounded-tv-lg p-3 flex gap-2.5 items-start mt-2">
+            <AlertTriangle className="h-4 w-4 text-gold shrink-0 mt-0.5" />
+            <div className="text-tv-xs text-secondary leading-relaxed">
+              <strong className="text-gold">Token Expiry:</strong> Some brokers (like Zerodha) expire tokens daily at 6:00 AM IST. You may need to manually authenticate the OAuth handshake every morning to continue receiving real-time fills.
+            </div>
+          </div>
         </div>
       </div>
 
       {/* SECTION 2: PROFILE */}
-      <div className="space-y-3">
+      <div className="space-y-3 pt-4">
         <span className="label-section text-muted block">User Profile</span>
 
         <div className="card space-y-3.5">
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-full bg-accent/20 border border-accent/40 flex items-center justify-center text-accent-light text-tv-md font-semibold">
-              VM
+            <div className="h-11 w-11 rounded-full bg-accent/20 border border-accent/40 flex items-center justify-center text-accent-light text-tv-md font-semibold uppercase">
+              {profileName ? profileName.slice(0, 2) : 'US'}
             </div>
             <div>
-              <div className="text-tv-base font-semibold text-primary">{profileName}</div>
+              <div className="text-tv-base font-semibold text-primary">{profileName || 'Trader'}</div>
               <div className="text-tv-xs text-secondary font-mono">{timezone}</div>
             </div>
           </div>
@@ -251,10 +274,10 @@ export default function Settings() {
       </div>
 
       {/* SECTION 3: OTHER NOTES */}
-      <div className="border border-gold-border bg-gold-dim/40 rounded-tv-lg p-3 flex gap-2.5 items-start">
+      <div className="border border-gold-border bg-gold-dim/40 rounded-tv-lg p-3 flex gap-2.5 items-start mt-4">
         <Shield className="h-4 w-4 text-gold shrink-0 mt-0.5" />
         <div className="text-tv-xs text-secondary leading-relaxed">
-          <strong className="text-gold">Exchange Limitations:</strong> TradeVault auto-sync currently supports Indian Stock Exchanges (NSE / F&O). Support for Crypto exchanges (Binance, Coinbase) is not available in Version 1. Crypto transactions must be logged manually via the Trade Log manual entry screen (Phase 2).
+          <strong className="text-gold">Security Notice:</strong> Your API Secrets are stored securely in our cloud vault. We never share your broker credentials with third parties.
         </div>
       </div>
     </div>

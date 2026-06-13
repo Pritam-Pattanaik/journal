@@ -16,6 +16,7 @@ export const brokerConnections = pgTable('broker_connections', {
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   broker: text('broker').notNull(),
   apiKey: text('api_key'),
+  apiSecret: text('api_secret'),
   accessToken: text('access_token'),
   refreshToken: text('refresh_token'),
   tokenExpiry: timestamp('token_expiry'),
