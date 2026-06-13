@@ -71,8 +71,9 @@ app.get('/api/brokers', authenticate, async (req: AuthRequest, res: Response) =>
 
 app.post('/api/brokers', authenticate, async (req: AuthRequest, res: Response): Promise<any> => {
   try {
-    const { broker, apiKey, apiSecret, clientId } = req.body;
-    if (!broker || !apiKey) {
+    const { apiKey, apiSecret, clientId } = req.body;
+    const broker = String(req.body.broker);
+    if (!req.body.broker || !apiKey) {
       return res.status(400).json({ error: 'Broker and API Key are required' });
     }
 
@@ -106,7 +107,7 @@ app.post('/api/brokers', authenticate, async (req: AuthRequest, res: Response): 
 
 app.delete('/api/brokers/:broker', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { broker } = req.params;
+    const broker = String(req.params.broker);
     await db.delete(brokerConnections)
       .where(and(eq(brokerConnections.userId, req.userId!), eq(brokerConnections.broker, broker)));
     res.json({ success: true });
