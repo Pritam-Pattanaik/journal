@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TradeVault API Tester</title>
+  <style>
+    :root {
+      --bg: #0a0d14;
+      --surface: #111620;
+      --card: #161c2a;
+      --border: #1e2a40;
+      --accent: #3b82f6;
+      --accent-dim: #1d3461;
+      --green: #22c55e;
+      --green-dim: #14532d;
+      --red: #ef4444;
+      --red-dim: #450a0a;
+      --yellow: #f59e0b;
+      --yellow-dim: #451a03;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+      --ui: 'Inter', system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--ui);
+      min-height: 100vh;
+      display: flex;
+    }
+
+    /* ─── Sidebar ─────────────────────────────── */
+    .sidebar {
+      width: 260px;
+      min-height: 100vh;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .sidebar-header {
+      padding: 20px 16px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-logo {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -.3px;
+    }
+
+    .sidebar-logo span { color: var(--accent); }
+
+    .sidebar-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .token-box {
+      margin: 12px 12px 0;
+      padding: 10px 12px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+    }
+
+    .token-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+
+    .token-value {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: #93c5fd;
+      word-break: break-all;
+      line-height: 1.5;
+    }
+
+    .token-none {
+      font-size: 11px;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .clear-btn {
+      margin-top: 6px;
+      font-size: 10px;
+      color: var(--red);
+      cursor: pointer;
+      text-decoration: underline;
+      background: none;
+      border: none;
+      padding: 0;
+    }
+
+    .nav-group {
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-group-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--muted);
+      padding: 0 16px 8px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #94a3b8;
+      transition: all .15s;
+      text-decoration: none;
+    }
+
+    .nav-item:hover { background: var(--card); color: var(--text); }
+    .nav-item.active { background: var(--accent-dim); color: #93c5fd; border-right: 2px solid var(--accent); }
+
+    .method-badge {
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      min-width: 38px;
+      text-align: center;
+    }
+
+    .method-get { background: #14532d; color: #86efac; }
+    .method-post { background: #1d3461; color: #93c5fd; }
+    .method-patch { background: #451a03; color: #fcd34d; }
+    .method-delete { background: #450a0a; color: #fca5a5; }
+
+    /* ─── Main Content ────────────────────────── */
+    .main {
+      flex: 1;
+      padding: 28px 32px;
+      max-width: 900px;
+    }
+
+    .page-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .page-desc {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 28px;
+    }
+
+    .endpoint-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 16px;
+      overflow: hidden;
+      scroll-margin-top: 24px;
+    }
+
+    .endpoint-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      cursor: pointer;
+      user-select: none;
+      border-bottom: 1px solid transparent;
+      transition: background .15s;
+    }
+
+    .endpoint-header:hover { background: rgba(255,255,255,.03); }
+    .endpoint-header.open { border-bottom-color: var(--border); }
+
+    .endpoint-path {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .endpoint-desc {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .chevron {
+      margin-left: 8px;
+      color: var(--muted);
+      transition: transform .2s;
+      font-size: 12px;
+    }
+
+    .chevron.open { transform: rotate(180deg); }
+
+    .endpoint-body {
+      display: none;
+      padding: 18px;
+      gap: 16px;
+      flex-direction: column;
+    }
+
+    .endpoint-body.open { display: flex; }
+
+    .field-group { display: flex; flex-direction: column; gap: 8px; }
+
+    .field-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: var(--muted);
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .field-row.single { grid-template-columns: 1fr; }
+    .field-row.triple { grid-template-columns: 1fr 1fr 1fr; }
+
+    .field-wrap { display: flex; flex-direction: column; gap: 4px; }
+
+    .field-name {
+      font-size: 11px;
+      color: #64748b;
+      font-family: var(--mono);
+    }
+
+    input, textarea, select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      padding: 8px 10px;
+      font-family: var(--ui);
+      outline: none;
+      transition: border-color .15s;
+      width: 100%;
+    }
+
+    input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+    textarea { min-height: 100px; resize: vertical; font-family: var(--mono); font-size: 12px; }
+
+    .send-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 20px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s, transform .1s;
+      align-self: flex-start;
+    }
+
+    .send-btn:hover { background: #2563eb; }
+    .send-btn:active { transform: scale(.98); }
+    .send-btn:disabled { background: #1e2a40; color: var(--muted); cursor: not-allowed; }
+
+    .send-btn .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: none;
+    }
+
+    .send-btn.loading .spinner { display: block; }
+    .send-btn.loading .btn-text { display: none; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── Response ────────────────────────────── */
+    .response-block {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .response-block.visible { display: flex; }
+
+    .response-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status-pill {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+
+    .status-ok { background: var(--green-dim); color: var(--green); }
+    .status-err { background: var(--red-dim); color: var(--red); }
+
+    .response-time {
+      font-size: 11px;
+      color: var(--muted);
+      margin-left: auto;
+    }
+
+    .response-body {
+      background: #06090f;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.7;
+      overflow-x: auto;
+      max-height: 340px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .copy-btn {
+      font-size: 11px;
+      padding: 4px 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all .15s;
+    }
+
+    .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ─── Syntax Highlighting ─────────────────── */
+    .json-key { color: #93c5fd; }
+    .json-str { color: #86efac; }
+    .json-num { color: #fcd34d; }
+    .json-bool { color: #f472b6; }
+    .json-null { color: #94a3b8; }
+
+    /* ─── Info Banner ─────────────────────────── */
+    .banner {
+      display: flex;
+      gap: 10px;
+      padding: 12px 16px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      font-size: 12.5px;
+      color: #93c5fd;
+      margin-bottom: 20px;
+    }
+
+    .banner-icon { font-size: 16px; flex-shrink: 0; }
+
+    /* ─── Section Title ───────────────────────── */
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--muted);
+      margin: 24px 0 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ─── Token Helper ────────────────────────── */
+    .use-token-btn {
+      font-size: 11px;
+      padding: 4px 10px;
+      background: #1d3461;
+      border: 1px solid var(--accent);
+      border-radius: 5px;
+      color: #93c5fd;
+      cursor: pointer;
+      transition: all .15s;
+    }
+
+    .use-token-btn:hover { background: #2a4a7f; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #1e2a40; border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- ─── Sidebar ──────────────────────────────────────────── -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">Trade<span>Vault</span></div>
+    <div class="sidebar-sub">API Tester · localhost:3000</div>
+  </div>
+
+  <div id="token-section" class="token-box">
+    <div class="token-label">JWT Token</div>
+    <div id="token-display" class="token-none">Not authenticated</div>
+    <button class="clear-btn" id="clear-token-btn" style="display:none" onclick="clearToken()">Clear token</button>
+  </div>
+
+  <nav style="flex:1;padding-top:4px">
+    <div class="nav-group">
+      <div class="nav-group-label">System</div>
+      <a class="nav-item" href="#health" onclick="scrollTo('health')">
+        <span class="method-badge method-get">GET</span> /health
+      </a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Auth</div>
+      <a class="nav-item" href="#signup" onclick="scrollTo('signup')">
+        <span class="method-badge method-post">POST</span> /auth/signup
+      </a>
+      <a class="nav-item" href="#login" onclick="scrollTo('login')">
+        <span class="method-badge method-post">POST</span> /auth/login
+      </a>
+      <a class="nav-item" href="#me" onclick="scrollTo('me')">
+        <span class="method-badge method-get">GET</span> /auth/me
+      </a>
+      <a class="nav-item" href="#profile" onclick="scrollTo('profile')">
+        <span class="method-badge method-patch">PATCH</span> /auth/profile
+      </a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Trades</div>
+      <a class="nav-item" href="#get-trades" onclick="scrollTo('get-trades')">
+        <span class="method-badge method-get">GET</span> /trades
+      </a>
+      <a class="nav-item" href="#create-trade" onclick="scrollTo('create-trade')">
+        <span class="method-badge method-post">POST</span> /trades
+      </a>
+      <a class="nav-item" href="#update-trade" onclick="scrollTo('update-trade')">
+        <span class="method-badge method-patch">PATCH</span> /trades/:id
+      </a>
+      <a class="nav-item" href="#delete-trade" onclick="scrollTo('delete-trade')">
+        <span class="method-badge method-delete">DEL</span> /trades/:id
+      </a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Strategies</div>
+      <a class="nav-item" href="#get-strategies" onclick="scrollTo('get-strategies')">
+        <span class="method-badge method-get">GET</span> /strategies
+      </a>
+      <a class="nav-item" href="#create-strategy" onclick="scrollTo('create-strategy')">
+        <span class="method-badge method-post">POST</span> /strategies
+      </a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Journal</div>
+      <a class="nav-item" href="#get-journal" onclick="scrollTo('get-journal')">
+        <span class="method-badge method-get">GET</span> /journal
+      </a>
+      <a class="nav-item" href="#create-journal" onclick="scrollTo('create-journal')">
+        <span class="method-badge method-post">POST</span> /journal
+      </a>
+    </div>
+  </nav>
+</aside>
+
+<!-- ─── Main ──────────────────────────────────────────────── -->
+<main class="main">
+  <div class="page-title">API Tester</div>
+  <div class="page-desc">Interactive tester for the TradeVault REST API. Sign up or log in first to get a JWT token — it will be saved automatically for subsequent requests.</div>
+
+  <div class="banner">
+    <span class="banner-icon">💡</span>
+    <span>After a successful <strong>signup</strong> or <strong>login</strong>, the JWT token is automatically stored and applied to all authenticated requests below.</span>
+  </div>
+
+  <!-- ═══ HEALTH ════════════════════════════════════════════ -->
+  <div class="section-title">System</div>
+
+  <div class="endpoint-card" id="health">
+    <div class="endpoint-header" onclick="toggle('health-body', this)">
+      <span class="method-badge method-get">GET</span>
+      <span class="endpoint-path">/api/health</span>
+      <span class="endpoint-desc">Server health check</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="endpoint-body" id="health-body">
+      <button class="send-btn" onclick="send('health-btn', 'GET', '/health', null, 'health-res')">
+        <div class="spinner"></div>
+        <span class="btn-text">▶ Send Request</span>
+      </button>
+      <div class="response-block" id="health-res">
+        <div class="response-header">
+          <div class="status-pill" id="health-res-status"></div>
+          <span class="response-time" id="health-res-time"></span>
+          <button class="copy-btn" onclick="copyResponse('health-res-body')">Copy</button>
+        </div>
+        <div class="response-body" id="health-res-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ AUTH ══════════════════════════════════════════════ -->
+  <div class="section-title">Authentication</div>
+
+  <!-- Signup -->
+  <div class="endpoint-card" id="signup">
+    <div class="endpoint-header open" onclick="toggle('signup-body', this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="endpoint-path">/api/auth/signup</span>
+      <span class="endpoint-desc">Create a new account</span>
+      <span class="chevron open">▼</span>
+    </div>
+    <div class="endpoint-body open" id="signup-body">
+      <div class="field-group">
+        <div class="field-label">Request Body</div>
+        <div class="field-row">
+          <div class="field-wrap">
+            <div class="field-name">email *</div>
+            <input type="email" id="signup-email" placeholder="you@example.com" value="trader@tradevault.com" />
+          </div>
+          <div class="field-wrap">
+            <div class="field-name">password *</div>
+            <input type="password" id="signup-password" placeholder="Min 6 characters" value="Trader@123" />
+          </div>
+        </div>
+        <div class="field-row single">
+          <div class="field-wrap">
+            <div class="field-name">fullName</div>
+            <input type="text" id="signup-name" placeholder="Your full name" value="Pritam Trader" />
+          </div>
+        </div>
+      </div>
+      <button class="send-btn" id="signup-btn" onclick="sendAuth('signup-btn', 'signup')">
+        <div class="spinner"></div>
+        <span class="btn-text">▶ Send Request</span>
+      </button>
+      <div class="response-block" id="signup-res">
+        <div class="response-header">
+          <div class="status-pill" id="signup-res-status"></div>
+          <span class="response-time" id="signup-res-time"></span>
+          <button class="copy-btn" onclick="copyResponse('signup-res-body')">Copy</button>
+        </div>
+        <div class="response-body" id="signup-res-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Login -->
+  <div class="endpoint-card" id="login">
+    <div class="endpoint-header" onclick="toggle('login-body', this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="endpoint-path">/api/auth/login</span>
+      <span class="endpoint-desc">Sign in to existing account</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="endpoint-body" id="login-body">
+      <div class="field-group">
+        <div class="field-label">Request Body</div>
+        <div class="field-row">
+          <div class="field-wrap">
+            <div class="field-name">email *</div>
+            <input type="email" id="login-email" placeholder="you@example.com" value="trader@tradevault.com" />
+          </div>
+          <div class="field-wrap">
+            <div class="field-name">password *</div>
+            <input type="password" id="login-password" placeholder="Your password" value="Trader@123" />
+          </div>
+        </div>
+      </div>
+      <button class="send-btn" id="login-btn" onclick="sendAuth('login-btn', 'login')">
+        <div class="spinner"></div>
+        <span class="btn-text">▶ Send Request</span>
+      </button>
+      <div class="response-block" id="login-res">
+        <div class="response-header">
+          <div class="status-pill" id="login-res-status"></div>
+          <span class="response-time" id="login-res-time"></span>
+          <button class="copy-btn" onclick="copyResponse('login-res-body')">Copy</button>
+        </div>
+        <div class="response-body" id="login-res-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Me -->
+  <div class="endpoint-card" id="me">
+    <div class="endpoint-header" onclick="toggle('me-body', this)">
+      <span class="method-badge method-get">GET</span>
+      <span class="endpoint-path">/api/auth/me</span>
+      <span class="endpoint-desc">Get current user profile</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="endpoint-body" id="me-body">
+      <button class="send-btn" id="me-btn" onclick="send('me-btn', 'GET', '/auth/me', null, 'me-res', true)">
+        <div class="spinner"></div>
+        <span class="btn-text">▶ Send Request</span>
+      </button>
+      <div class="response-block" id="me-res">
+        <div class="response-header">
+          <div class="status-pill" id="me-res-status"></div>
+          <span class="response-time" id="me-res-time"></span>
+          <button class="copy-btn" onclick="copyResponse('me-res-body')">Copy</button>
+        </div>
+        <div class="response-body" id="me-res-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Update Profile -->
+  <div class="endpoint-card" id="profile">
+    <div class="endpoint-header" onclick="toggle('profile-body', this)">
+      <span class="method-badge method-patch">PATCH</span>
+      <span class="endpoint-path">/api/auth/profile</span>
+      <span class="endpoint-desc">Update name / timezone</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="endpoint-body" id="profile-body">
+      <div class="field-group">
+        <div class="field-row">
+          <div class="field-wrap">
+            <div class="field-name">fullName</div>
+            <input type="text" id="profile-name" placeholder="Full name" value="Pritam Pattanaik" />
+          </div>
+          <div class="field-wrap">
+            <div class="field-name">timezone</div>
+            <select id="profile-timezone">
+              <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+              <option value="UTC">UTC</option>
+              <option value="America/New_York">America/New_York</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <button class="send-btn" id="profile-btn" onclick="sendProfile()">
+        <div class="spinner"></div>
+        <span class="btn-text">▶ Send Request</span>
+      </button>
+      <div class="response-block" id="profile-res">
+        <div class="response-header">
+          <div class="status-pill" id="profile-res-status"></div>
+          <span class="response-time" id="profile-res-time"></span>
+          <button class="copy-btn" onclick="copyResponse('profile-res-body')">Copy</button>
+        </div>
+        <div class="response-body" id="profile-res-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TRADES ════════════════════════════════════════════ -->
+  <div class="section-title">Trades</div>
+
+  <!-- GET Trades -->
+  <div class="endpoint-card" id="get-trades">
+    <div class="endpoint-header" onclick="toggle('get-trades-body', this)">
+      <span class="method-badge method-get">GET</span>
+      <span class="endpoint-path">/api/trades</span>
+      <span class="endpoint-desc">List all trades for current user</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="endpoint-body" id="get-trades-body">
+      <button class="send-btn" id="get-trades-btn" onclick="send('get-trades-btn', 'GET', '/trades', null, 'get-trades-res', true)">
+        <div class="spinner"></div>
+        <span class="btn-text">▶ Send Request</span>
+      </button>
+      <div class="response-block" id="get-trades-res">
+        <div class="response-header">
+          <div class="status-pill" id="get-trades-res-status"></div>
+          <span class="response-time" id="get-trades-res-time"></span>
+          <button class="copy-btn" onclick="copyResponse('get-trades-res-body')">Copy</button>
+        </div>
+        <div class="response-body" id="get-trades-res-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Trade -->
+  <div class="endpoint-card" id="create-trade">
+    <div class="endpoint-header" onclick="toggle('create-trade-body', this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="endpoint-path">/api/trades</span>
+      <span class="endpoint-desc">Log a new trade</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="endpoint-body" id="create-trade-body">
+      <div class="field-group">
+        <div class="field-label">Trade Details</div>
+        <div class="field-row triple">
+          <div class="field-wrap">
+            <div class="field-name">symbol *</div>
+            <input type="text" id="ct-symbol" value="NIFTY" />
+          </div>
+          <div class="field-wrap">
+            <div class="field-name">market *</div>
+            <select id="ct-market">
+              <option>F&amp;O</option><option>NSE</option><option>BSE</option><option>Crypto</option>
+            </select>
+          </div>
+          <div class="field-wrap">
+            <div class="field-name">instrumentType *</div>
+            <select id="ct-instrument">
+              <option>CE</option><option>PE</option><option>FUT</option><option>EQ</option><option>CRYPTO</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-row triple">
+          <div class="field-wrap">
+            <div class="field-name">direction</div>
+            <select id="ct-direction"><option>LONG</option><option>SHORT</option></select>
+          </div>
+          <div class="field-wrap">
+            <div class="field-name">status</div>
+            <select id="ct-status"><option>WIN</option><option>LOSS</option><option>BREAKEVEN</option></select>
+          </div>
+          <div class="field-wrap">
+            <div class="field-name">date *</div>
+            <input type="datetime-local" id="ct-date" />
+          </div>
+        </div>
+        <div class="field-row triple">
+          <div class="field-wrap">
+            <div class="field-name">entryPrice</div>
+            <input type="number" id="ct-entry" value="22500" />
+          </div>
+          <div class="field-wrap">
+            <div class="field-name">exitPrice</div>
+            <input type="number" id="ct-exit" value="22650" />
+          </div>
+          <div class="field-wrap">
+            <div class="field-name">quantity</div>
+            <input type="number" id="ct-qty" value="50" />
+          </div>
+        </div>
+        <div class="field-row triple">
+          <div class="field-wrap">
+            <div class="field-name">pnl</div>
+            <input type="number" id="ct-pnl" value="7500" />
+          </div>
+          <div class="field-wrap">
+            <div class="field-name">charges</div>
+            <input type="number" id="ct-charges" value="250" />
+          </div>
+          <div class="field-wrap">
+            <div class="field-name">netPnl</div>
+            <input type="number" id="ct-netpnl" value="7250" />
+          </div>
+        </div>
+        <div class="field-row single">
+          <div class="field-wrap">
+            <div class="field-name">setupDescription</div>
+            <input type="text" id="ct-setup" placeholder="Optional: describe your setup" />
+          </div>
+        </div>
+      </div>
+      <button class="send-btn" id="create-trade-btn" onclick="sendCreateTrade()">
+        <div class="spinner"></div>
+        <span class="btn-text">▶ Send Request</span>
+      </button>
+      <div class="response-block" id="create-trade-res">
+        <div class="response-header">
+          <div class="status-pill" id="create-trade-res-status"></div>
+          <span class="response-time" id="create-trade-res-time"></span>
+          <button class="copy-btn" onclick="copyResponse('create-trade-res-body')">Copy</button>
+        </div>
+        <div class="response-body" id="create-trade-res-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Update Trade -->
+  <div class="endpoint-card" id="update-trade">
+    <div class="endpoint-header" onclick="toggle('update-trade-body', this)">
+      <span class="method-badge method-patch">PATCH</span>
+      <span class="endpoint-path">/api/trades/:id</span>
+      <span class="endpoint-desc">Update fields on a trade</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="endpoint-body" id="update-trade-body">
+      <div class="field-group">
+        <div class="field-row single">
+          <div class="field-wrap">
+            <div class="field-name">trade id *</div>
+            <input type="text" id="ut-id" placeholder="Paste trade UUID from a GET /trades response" />
+          </div>
+        </div>
+        <div class="field-label" style="margin-top:4px">Fields to Update (leave blank to skip)</div>
+        <div class="field-row triple">
+          <div class="field-wrap">
+            <div class="field-name">status</div>
+            <select id="ut-status"><option value="">— unchanged —</option><option>WIN</option><option>LOSS</option><option>BREAKEVEN</option></select>
+          </div>
+          <div class="field-wrap">
+            <div class="field-name">netPnl</div>
+            <input type="number" id="ut-netpnl" placeholder="e.g. 5000" />
+          </div>
+          <div class="field-wrap">
+            <div class="field-name">disciplineScore</div>
+            <input type="number" id="ut-discipline" min="1" max="5" placeholder="1–5" />
+          </div>
+        </div>
+        <div class="field-row single">
+          <div class="field-wrap">
+            <div class="field-name">learnings</div>
+            <input type="text" id="ut-learnings" placeholder="What did you learn?" />
+          </div>
+        </div>
+      </div>
+      <button class="send-btn" id="update-trade-btn" onclick="sendUpdateTrade()">
+        <div class="spinner"></div>
+        <span class="btn-text">▶ Send Request</span>
+      </button>
+      <div class="response-block" id="update-trade-res">
+        <div class="response-header">
+          <div class="status-pill" id="update-trade-res-status"></div>
+          <span class="response-time" id="update-trade-res-time"></span>
+          <button class="copy-btn" onclick="copyResponse('update-trade-res-body')">Copy</button>
+        </div>
+        <div class="response-body" id="update-trade-res-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Trade -->
+  <div class="endpoint-card" id="delete-trade">
+    <div class="endpoint-header" onclick="toggle('delete-trade-body', this)">
+      <span class="method-badge method-delete">DEL</span>
+      <span class="endpoint-path">/api/trades/:id</span>
+      <span class="endpoint-desc">Delete a trade permanently</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="endpoint-body" id="delete-trade-body">
+      <div class="field-group">
+        <div class="field-row single">
+          <div class="field-wrap">
+            <div class="field-name">trade id *</div>
+            <input type="text" id="dt-id" placeholder="Paste trade UUID" />
+          </div>
+        </div>
+      </div>
+      <button class="send-btn" id="delete-trade-btn" onclick="sendDeleteTrade()">
+        <div class="spinner"></div>
+        <span class="btn-text">▶ Send Request</span>
+      </button>
+      <div class="response-block" id="delete-trade-res">
+        <div class="response-header">
+          <div class="status-pill" id="delete-trade-res-status"></div>
+          <span class="response-time" id="delete-trade-res-time"></span>
+          <button class="copy-btn" onclick="copyResponse('delete-trade-res-body')">Copy</button>
+        </div>
+        <div class="response-body" id="delete-trade-res-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ STRATEGIES ════════════════════════════════════════ -->
+  <div class="section-title">Strategies</div>
+
+  <div class="endpoint-card" id="get-strategies">
+    <div class="endpoint-header" onclick="toggle('get-strategies-body', this)">
+      <span class="method-badge method-get">GET</span>
+      <span class="endpoint-path">/api/strategies</span>
+      <span class="endpoint-desc">List all strategies</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="endpoint-body" id="get-strategies-body">
+      <button class="send-btn" id="get-strategies-btn" onclick="send('get-strategies-btn', 'GET', '/strategies', null, 'get-strategies-res', true)">
+        <div class="spinner"></div>
+        <span class="btn-text">▶ Send Request</span>
+      </button>
+      <div class="response-block" id="get-strategies-res">
+        <div class="response-header">
+          <div class="status-pill" id="get-strategies-res-status"></div>
+          <span class="response-time" id="get-strategies-res-time"></span>
+          <button class="copy-btn" onclick="copyResponse('get-strategies-res-body')">Copy</button>
+        </div>
+        <div class="response-body" id="get-strategies-res-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint-card" id="create-strategy">
+    <div class="endpoint-header" onclick="toggle('create-strategy-body', this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="endpoint-path">/api/strategies</span>
+      <span class="endpoint-desc">Create a new strategy</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="endpoint-body" id="create-strategy-body">
+      <div class="field-group">
+        <div class="field-row">
+          <div class="field-wrap">
+            <div class="field-name">name *</div>
+            <input type="text" id="cs-name" value="Opening Range Breakout" />
+          </div>
+          <div class="field-wrap">
+            <div class="field-name">timeframe</div>
+            <input type="text" id="cs-timeframe" value="15m" />
+          </div>
+        </div>
+        <div class="field-row single">
+          <div class="field-wrap">
+            <div class="field-name">description</div>
+            <input type="text" id="cs-desc" placeholder="Short description" value="Buy breakout of 9:15-9:30 range" />
+          </div>
+        </div>
+      </div>
+      <button class="send-btn" id="create-strategy-btn" onclick="sendCreateStrategy()">
+        <div class="spinner"></div>
+        <span class="btn-text">▶ Send Request</span>
+      </button>
+      <div class="response-block" id="create-strategy-res">
+        <div class="response-header">
+          <div class="status-pill" id="create-strategy-res-status"></div>
+          <span class="response-time" id="create-strategy-res-time"></span>
+          <button class="copy-btn" onclick="copyResponse('create-strategy-res-body')">Copy</button>
+        </div>
+        <div class="response-body" id="create-strategy-res-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ JOURNAL ═══════════════════════════════════════════ -->
+  <div class="section-title">Journal</div>
+
+  <div class="endpoint-card" id="get-journal">
+    <div class="endpoint-header" onclick="toggle('get-journal-body', this)">
+      <span class="method-badge method-get">GET</span>
+      <span class="endpoint-path">/api/journal</span>
+      <span class="endpoint-desc">List all journal entries</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="endpoint-body" id="get-journal-body">
+      <button class="send-btn" id="get-journal-btn" onclick="send('get-journal-btn', 'GET', '/journal', null, 'get-journal-res', true)">
+        <div class="spinner"></div>
+        <span class="btn-text">▶ Send Request</span>
+      </button>
+      <div class="response-block" id="get-journal-res">
+        <div class="response-header">
+          <div class="status-pill" id="get-journal-res-status"></div>
+          <span class="response-time" id="get-journal-res-time"></span>
+          <button class="copy-btn" onclick="copyResponse('get-journal-res-body')">Copy</button>
+        </div>
+        <div class="response-body" id="get-journal-res-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint-card" id="create-journal">
+    <div class="endpoint-header" onclick="toggle('create-journal-body', this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="endpoint-path">/api/journal</span>
+      <span class="endpoint-desc">Create a journal entry</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="endpoint-body" id="create-journal-body">
+      <div class="field-group">
+        <div class="field-row">
+          <div class="field-wrap">
+            <div class="field-name">date *</div>
+            <input type="date" id="cj-date" />
+          </div>
+          <div class="field-wrap">
+            <div class="field-name">marketBias</div>
+            <select id="cj-bias"><option value="">—</option><option>bullish</option><option>bearish</option><option>neutral</option></select>
+          </div>
+        </div>
+        <div class="field-row single">
+          <div class="field-wrap">
+            <div class="field-name">reflection</div>
+            <textarea id="cj-reflection" placeholder="How did the day go?">Good discipline today. Waited for confirmation before entry.</textarea>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field-wrap">
+            <div class="field-name">whatWentWell</div>
+            <input type="text" id="cj-well" value="Stuck to the plan" />
+          </div>
+          <div class="field-wrap">
+            <div class="field-name">whatToImprove</div>
+            <input type="text" id="cj-improve" value="Cut losses faster" />
+          </div>
+        </div>
+      </div>
+      <button class="send-btn" id="create-journal-btn" onclick="sendCreateJournal()">
+        <div class="spinner"></div>
+        <span class="btn-text">▶ Send Request</span>
+      </button>
+      <div class="response-block" id="create-journal-res">
+        <div class="response-header">
+          <div class="status-pill" id="create-journal-res-status"></div>
+          <span class="response-time" id="create-journal-res-time"></span>
+          <button class="copy-btn" onclick="copyResponse('create-journal-res-body')">Copy</button>
+        </div>
+        <div class="response-body" id="create-journal-res-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:60px"></div>
+</main>
+
+<script>
+  const BASE = 'http://localhost:3000/api';
+  let jwtToken = localStorage.getItem('tv_api_tester_token') || '';
+
+  // Set default date values
+  document.getElementById('ct-date').value = new Date().toISOString().slice(0,16);
+  document.getElementById('cj-date').value = new Date().toISOString().slice(0,10);
+
+  // ─── Token Management ────────────────────────────────────
+  function updateTokenUI() {
+    const el = document.getElementById('token-display');
+    const btn = document.getElementById('clear-token-btn');
+    if (jwtToken) {
+      el.className = 'token-value';
+      el.textContent = jwtToken.slice(0, 40) + '...' + jwtToken.slice(-10);
+      btn.style.display = 'block';
+    } else {
+      el.className = 'token-none';
+      el.textContent = 'Not authenticated';
+      btn.style.display = 'none';
+    }
+  }
+
+  function clearToken() {
+    jwtToken = '';
+    localStorage.removeItem('tv_api_tester_token');
+    updateTokenUI();
+  }
+
+  updateTokenUI();
+
+  // ─── Accordion Toggle ────────────────────────────────────
+  function toggle(bodyId, header) {
+    const body = document.getElementById(bodyId);
+    const chevron = header.querySelector('.chevron');
+    const isOpen = body.classList.contains('open');
+    body.classList.toggle('open', !isOpen);
+    header.classList.toggle('open', !isOpen);
+    chevron.classList.toggle('open', !isOpen);
+  }
+
+  function scrollTo(id) {
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  }
+
+  // ─── JSON Syntax Highlighter ─────────────────────────────
+  function highlight(json) {
+    return json
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, (match) => {
+        let cls = 'json-num';
+        if (/^"/.test(match)) cls = /:$/.test(match) ? 'json-key' : 'json-str';
+        else if (/true|false/.test(match)) cls = 'json-bool';
+        else if (/null/.test(match)) cls = 'json-null';
+        return `<span class="${cls}">${match}</span>`;
+      });
+  }
+
+  // ─── Show Response ───────────────────────────────────────
+  function showResponse(resId, status, data, elapsed) {
+    const block = document.getElementById(resId);
+    const statusEl = document.getElementById(resId + '-status');
+    const timeEl = document.getElementById(resId + '-time');
+    const bodyEl = document.getElementById(resId + '-body');
+
+    block.classList.add('visible');
+    const isOk = status >= 200 && status < 300;
+    statusEl.className = 'status-pill ' + (isOk ? 'status-ok' : 'status-err');
+    statusEl.textContent = status + ' ' + (isOk ? 'OK' : 'Error');
+    timeEl.textContent = elapsed + 'ms';
+
+    try {
+      const pretty = JSON.stringify(typeof data === 'string' ? JSON.parse(data) : data, null, 2);
+      bodyEl.innerHTML = highlight(pretty);
+    } catch {
+      bodyEl.textContent = data;
+    }
+  }
+
+  function copyResponse(bodyId) {
+    const el = document.getElementById(bodyId);
+    navigator.clipboard.writeText(el.textContent).then(() => {
+      const btn = el.previousElementSibling?.querySelector('.copy-btn');
+    });
+    alert('Copied to clipboard!');
+  }
+
+  // ─── Core Request Function ───────────────────────────────
+  async function send(btnId, method, path, body, resId, auth = false) {
+    const btn = document.getElementById(btnId);
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    const headers = { 'Content-Type': 'application/json' };
+    if (auth && jwtToken) headers['Authorization'] = 'Bearer ' + jwtToken;
+
+    const t0 = Date.now();
+    try {
+      const opts = { method, headers };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(BASE + path, opts);
+      const elapsed = Date.now() - t0;
+      const data = await res.json();
+      showResponse(resId, res.status, data, elapsed);
+      return { ok: res.ok, data, status: res.status };
+    } catch (err) {
+      showResponse(resId, 0, { error: err.message || 'Network error — is the backend running?' }, Date.now() - t0);
+      return { ok: false };
+    } finally {
+      btn.classList.remove('loading');
+      btn.disabled = false;
+    }
+  }
+
+  // ─── Auth ────────────────────────────────────────────────
+  async function sendAuth(btnId, type) {
+    const isLogin = type === 'login';
+    const body = {
+      email: document.getElementById(type + '-email').value,
+      password: document.getElementById(type + '-password').value,
+    };
+    if (!isLogin) body.fullName = document.getElementById('signup-name').value;
+
+    const result = await send(btnId, 'POST', '/auth/' + (isLogin ? 'login' : 'signup'), body, type + '-res');
+
+    if (result.ok && result.data?.token) {
+      jwtToken = result.data.token;
+      localStorage.setItem('tv_api_tester_token', jwtToken);
+      updateTokenUI();
+    }
+  }
+
+  async function sendProfile() {
+    const body = {
+      fullName: document.getElementById('profile-name').value,
+      timezone: document.getElementById('profile-timezone').value,
+    };
+    await send('profile-btn', 'PATCH', '/auth/profile', body, 'profile-res', true);
+  }
+
+  // ─── Trades ──────────────────────────────────────────────
+  async function sendCreateTrade() {
+    const body = {
+      date: new Date(document.getElementById('ct-date').value).toISOString(),
+      symbol: document.getElementById('ct-symbol').value,
+      market: document.getElementById('ct-market').value,
+      instrumentType: document.getElementById('ct-instrument').value,
+      direction: document.getElementById('ct-direction').value,
+      status: document.getElementById('ct-status').value,
+      entryPrice: parseFloat(document.getElementById('ct-entry').value) || 0,
+      exitPrice: parseFloat(document.getElementById('ct-exit').value) || 0,
+      quantity: parseFloat(document.getElementById('ct-qty').value) || 0,
+      pnl: parseFloat(document.getElementById('ct-pnl').value) || 0,
+      charges: parseFloat(document.getElementById('ct-charges').value) || 0,
+      netPnl: parseFloat(document.getElementById('ct-netpnl').value) || 0,
+      setupDescription: document.getElementById('ct-setup').value || null,
+      source: 'manual',
+    };
+    const result = await send('create-trade-btn', 'POST', '/trades', body, 'create-trade-res', true);
+    // Auto-fill the trade ID fields for update/delete
+    if (result.ok && result.data?.id) {
+      document.getElementById('ut-id').value = result.data.id;
+      document.getElementById('dt-id').value = result.data.id;
+    }
+  }
+
+  async function sendUpdateTrade() {
+    const id = document.getElementById('ut-id').value.trim();
+    if (!id) { alert('Please enter a trade ID'); return; }
+    const body = {};
+    const status = document.getElementById('ut-status').value;
+    const netPnl = document.getElementById('ut-netpnl').value;
+    const discipline = document.getElementById('ut-discipline').value;
+    const learnings = document.getElementById('ut-learnings').value;
+    if (status) body.status = status;
+    if (netPnl) body.netPnl = parseFloat(netPnl);
+    if (discipline) body.disciplineScore = parseInt(discipline);
+    if (learnings) body.learnings = learnings;
+    await send('update-trade-btn', 'PATCH', '/trades/' + id, body, 'update-trade-res', true);
+  }
+
+  async function sendDeleteTrade() {
+    const id = document.getElementById('dt-id').value.trim();
+    if (!id) { alert('Please enter a trade ID'); return; }
+    if (!confirm('Delete trade ' + id + '?')) return;
+    await send('delete-trade-btn', 'DELETE', '/trades/' + id, null, 'delete-trade-res', true);
+  }
+
+  // ─── Strategies ──────────────────────────────────────────
+  async function sendCreateStrategy() {
+    const body = {
+      name: document.getElementById('cs-name').value,
+      description: document.getElementById('cs-desc').value,
+      timeframe: document.getElementById('cs-timeframe').value,
+    };
+    await send('create-strategy-btn', 'POST', '/strategies', body, 'create-strategy-res', true);
+  }
+
+  // ─── Journal ─────────────────────────────────────────────
+  async function sendCreateJournal() {
+    const body = {
+      date: document.getElementById('cj-date').value,
+      marketBias: document.getElementById('cj-bias').value || null,
+      reflection: document.getElementById('cj-reflection').value,
+      whatWentWell: document.getElementById('cj-well').value,
+      whatToImprove: document.getElementById('cj-improve').value,
+    };
+    await send('create-journal-btn', 'POST', '/journal', body, 'create-journal-res', true);
+  }
+</script>
+</body>
+</html>
