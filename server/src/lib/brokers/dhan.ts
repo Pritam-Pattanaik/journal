@@ -1,43 +1,49 @@
 /**
  * Maps Dhan exchangeSegment values to TradeVault market categories.
+ * Must match the frontend Trade type: 'NSE' | 'BSE' | 'F&O' | 'MCX' | 'Crypto'
  */
 function mapExchangeSegmentToMarket(segment: string): string {
   const segmentMap: Record<string, string> = {
     'NSE_EQ': 'NSE',
     'BSE_EQ': 'BSE',
-    'NSE_FNO': 'NSE F&O',
-    'BSE_FNO': 'BSE F&O',
+    'NSE_FNO': 'F&O',
+    'BSE_FNO': 'F&O',
     'MCX_COMM': 'MCX',
-    'NSE_CURRENCY': 'NSE Currency',
-    'BSE_CURRENCY': 'BSE Currency',
-    'IDX_I': 'INDEX',
+    'NSE_CURRENCY': 'F&O',
+    'BSE_CURRENCY': 'F&O',
+    'IDX_I': 'NSE',
   };
   return segmentMap[segment] || segment || 'NSE';
 }
 
 /**
- * Maps Dhan instrument field to TradeVault instrumentType.
+ * Maps Dhan instrument field + exchangeSegment to TradeVault instrumentType.
+ * Must match the frontend Trade type: 'EQ' | 'CE' | 'PE' | 'FUT' | 'CRYPTO'
  */
-function mapInstrumentType(instrument: string | null | undefined, exchangeSegment: string): string {
-  if (instrument) {
-    const lower = instrument.toLowerCase();
-    if (lower === 'equity') return 'equity';
-    if (lower === 'derivatives') {
-      // Infer from exchangeSegment
-      if (exchangeSegment?.includes('FNO')) return 'futures';
-      if (exchangeSegment?.includes('CURRENCY')) return 'currency';
-      if (exchangeSegment?.includes('COMM')) return 'commodity';
-      return 'options';
-    }
-    return instrument.toLowerCase();
+function mapInstrumentType(instrument: string | null | undefined, exchangeSegment: string, drvOptionType: string | null | undefined): string {
+  // For derivatives, check option type first
+  if (drvOptionType) {
+    const opt = drvOptionType.toUpperCase();
+    if (opt === 'CALL') return 'CE';
+    if (opt === 'PUT') return 'PE';
   }
 
-  // Fallback: infer from exchangeSegment
-  if (exchangeSegment?.includes('EQ')) return 'equity';
-  if (exchangeSegment?.includes('FNO')) return 'futures';
-  if (exchangeSegment?.includes('CURRENCY')) return 'currency';
-  if (exchangeSegment?.includes('COMM')) return 'commodity';
-  return 'equity';
+  // Check instrument field
+  if (instrument) {
+    const lower = instrument.toLowerCase();
+    if (lower === 'equity') return 'EQ';
+    if (lower === 'derivatives') {
+      if (exchangeSegment?.includes('FNO')) return 'FUT';
+      return 'FUT';
+    }
+  }
+
+  // Fallback from exchangeSegment
+  if (exchangeSegment?.includes('EQ')) return 'EQ';
+  if (exchangeSegment?.includes('FNO')) return 'FUT';
+  if (exchangeSegment?.includes('CURRENCY')) return 'FUT';
+  if (exchangeSegment?.includes('COMM')) return 'FUT';
+  return 'EQ';
 }
 
 /**
@@ -99,7 +105,7 @@ export async function syncDhanTrades(clientId: string, accessToken: string, user
 
     // Map Dhan trade history response to TradeVault trades table schema
     return allTrades.map((t: any) => {
-      const direction = (t.transactionType || '').toUpperCase() === 'SELL' ? 'short' : 'long';
+      const direction = (t.transactionType || '').toUpperCase() === 'SELL' ? 'SHORT' : 'LONG';
       const tradedPrice = parseFloat(t.tradedPrice || 0);
       const tradedQty = parseInt(t.tradedQuantity || 0, 10);
       const exchangeSegment = t.exchangeSegment || '';
@@ -121,7 +127,7 @@ export async function syncDhanTrades(clientId: string, accessToken: string, user
         date: parseDhanTime(t.exchangeTime || t.createTime || t.updateTime),
         symbol: t.tradingSymbol || t.customSymbol || `SID:${t.securityId}` || 'UNKNOWN',
         market: mapExchangeSegmentToMarket(exchangeSegment),
-        instrumentType: mapInstrumentType(t.instrument, exchangeSegment),
+        instrumentType: mapInstrumentType(t.instrument, exchangeSegment, t.drvOptionType),
         direction,
         entryPrice: tradedPrice.toString(),
         exitPrice: null,
@@ -129,7 +135,7 @@ export async function syncDhanTrades(clientId: string, accessToken: string, user
         pnl: null,
         charges: charges > 0 ? charges.toFixed(4) : null,
         netPnl: null,
-        status: 'closed',
+        status: 'OPEN',
         source: 'broker_sync',
       };
     });

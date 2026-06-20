@@ -2,16 +2,16 @@ export interface Trade {
   id: string;
   date: string;
   symbol: string;
-  market: 'NSE' | 'BSE' | 'F&O' | 'Crypto';
-  instrumentType: 'EQ' | 'CE' | 'PE' | 'FUT' | 'CRYPTO';
-  direction: 'LONG' | 'SHORT';
+  market: string;
+  instrumentType: string;
+  direction: string;
   entryPrice: number;
   exitPrice: number;
   quantity: number;
   pnl: number;
   charges: number;
   netPnl: number;
-  status: 'WIN' | 'LOSS' | 'BREAKEVEN';
+  status: string;
   strategyId?: string;
   strategyName?: string;
   setupDescription?: string;
@@ -20,7 +20,7 @@ export interface Trade {
   learnings?: string;
   disciplineScore?: number;
   tags?: string[];
-  source: 'broker_sync' | 'manual';
+  source: string;
 }
 
 export interface Strategy {

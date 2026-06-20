@@ -18,8 +18,8 @@ export default function FilterBar({
   statusFilter,
   onStatusChange
 }: FilterBarProps) {
-  const markets = ['All', 'NSE', 'F&O', 'Crypto'];
-  const statuses = ['All', 'WIN', 'LOSS', 'BREAKEVEN'];
+  const markets = ['All', 'NSE', 'F&O', 'BSE', 'MCX', 'Crypto'];
+  const statuses = ['All', 'WIN', 'LOSS', 'BREAKEVEN', 'OPEN'];
 
   return (
     <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 w-full bg-surface/25 border border-tv-border rounded-tv-lg p-3">

@@ -4,6 +4,7 @@ import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import { useAuthStore } from '../stores/authStore';
 import { useBrokerStore } from '../stores/brokerStore';
+import { useTradeStore } from '../stores/tradeStore';
 
 const SUPPORTED_BROKERS = [
   { id: 'zerodha', name: 'Zerodha Kite', requiresSecret: true },
@@ -18,6 +19,7 @@ const SUPPORTED_BROKERS = [
 export default function Settings() {
   const { profile, signOut, updateProfile } = useAuthStore();
   const { connections, fetchConnections, addConnection, removeConnection, syncConnection } = useBrokerStore();
+  const fetchTrades = useTradeStore(state => state.fetchTrades);
 
   useEffect(() => {
     fetchConnections();
@@ -78,6 +80,8 @@ export default function Settings() {
       alert(error);
     } else {
       alert(`Successfully synced ${count} trades!`);
+      // Refresh the trades store so the Trades page shows new data
+      await fetchTrades();
     }
     setSyncingBroker(null);
   };
