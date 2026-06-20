@@ -161,13 +161,13 @@ export default function Settings() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[11px] text-secondary font-medium uppercase tracking-wider block">
-                  API Key
+                  {selectedBroker === 'dhan' ? 'Access Token (JWT)' : 'API Key'}
                 </label>
                 <input
                   type="text"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="Enter API Key"
+                  placeholder={selectedBroker === 'dhan' ? "Enter Access Token" : "Enter API Key"}
                   className="input-base font-mono"
                   required
                 />
