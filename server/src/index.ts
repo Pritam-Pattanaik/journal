@@ -136,6 +136,7 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
 
     let tradesToInsert: any[] = [];
     let tradesToUpdate: any[] = [];
+    let newLastSyncedAt: Date | null = null;
 
     if (broker === 'dhan') {
       // Fetch existing OPEN trades for this broker
@@ -148,9 +149,10 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
           )
         );
 
-      const result = await syncDhanTrades(clientId || '', apiKey, req.userId!, existingOpenTrades);
+      const result = await syncDhanTrades(clientId || '', apiKey, req.userId!, existingOpenTrades, conn[0].lastSyncedAt);
       tradesToInsert = result.tradesToInsert;
       tradesToUpdate = result.tradesToUpdate;
+      newLastSyncedAt = result.latestTradeTime;
     } else {
       return res.status(400).json({ error: `Sync not yet implemented for ${broker}` });
     }
@@ -182,7 +184,7 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
     }
 
     await db.update(brokerConnections)
-      .set({ lastSyncedAt: new Date() })
+      .set({ lastSyncedAt: newLastSyncedAt || conn[0].lastSyncedAt || new Date() })
       .where(eq(brokerConnections.id, conn[0].id));
 
     res.json({ success: true, count: tradesToInsert.length + tradesToUpdate.length });

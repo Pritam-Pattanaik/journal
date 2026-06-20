@@ -58,7 +58,13 @@ function parseDhanTime(timeStr: string | null | undefined): Date {
   return isNaN(d.getTime()) ? new Date() : d;
 }
 
-export async function syncDhanTrades(clientId: string, accessToken: string, userId: string, existingOpenTrades: any[] = []) {
+export async function syncDhanTrades(
+  clientId: string,
+  accessToken: string,
+  userId: string,
+  existingOpenTrades: any[] = [],
+  lastSyncedAt: Date | null = null
+) {
   // Dhan Trade History API requires From Date and To Date
   // Fetching last 30 days
   const toDate = new Date();
@@ -109,6 +115,21 @@ export async function syncDhanTrades(clientId: string, accessToken: string, user
       const timeB = parseDhanTime(b.exchangeTime || b.createTime || b.updateTime).getTime();
       return timeA - timeB;
     });
+
+    // Deduplicate: Filter out executions we have already processed
+    if (lastSyncedAt) {
+      const cutoffTime = lastSyncedAt.getTime();
+      allTrades = allTrades.filter(t => {
+        const tradeTime = parseDhanTime(t.exchangeTime || t.createTime || t.updateTime).getTime();
+        return tradeTime > cutoffTime;
+      });
+    }
+
+    let latestTradeTime: Date | null = null;
+    if (allTrades.length > 0) {
+      const lastTrade = allTrades[allTrades.length - 1];
+      latestTradeTime = parseDhanTime(lastTrade.exchangeTime || lastTrade.createTime || lastTrade.updateTime);
+    }
 
     // --- Position Aggregator ---
     const openPositions: Record<string, any> = {};
@@ -288,6 +309,7 @@ export async function syncDhanTrades(clientId: string, accessToken: string, user
     return {
       tradesToInsert: tradesToInsert.map(mapToSchema),
       tradesToUpdate: tradesToUpdate.map(mapToSchema),
+      latestTradeTime,
     };
   } catch (err: any) {
     console.error('Failed to sync Dhan trades:', err);
