@@ -91,41 +91,33 @@ export default function TradeModal({ trade, isOpen, onClose, onEdit, onDelete }:
 
         {/* Annotations Section */}
         <div className="space-y-4">
-          {trade.setupDescription && (
-            <div>
-              <span className="label-section block text-accent-light mb-1">Setup</span>
-              <div className="bg-base/20 border border-tv-border rounded-tv-sm p-3 text-tv-sm text-primary leading-relaxed whitespace-pre-wrap">
-                {trade.setupDescription}
-              </div>
+          <div>
+            <span className="label-section block text-accent-light mb-1">Setup</span>
+            <div className={`bg-base/20 border border-tv-border rounded-tv-sm p-3 text-tv-sm leading-relaxed whitespace-pre-wrap ${trade.setupDescription ? 'text-primary' : 'text-muted italic'}`}>
+              {trade.setupDescription || 'No setup description provided.'}
             </div>
-          )}
+          </div>
 
-          {trade.mindset && (
-            <div>
-              <span className="label-section block text-secondary mb-1">Mindset</span>
-              <div className="bg-base/20 border border-tv-border rounded-tv-sm p-3 text-tv-sm text-primary leading-relaxed whitespace-pre-wrap">
-                {trade.mindset}
-              </div>
+          <div>
+            <span className="label-section block text-secondary mb-1">Mindset</span>
+            <div className={`bg-base/20 border border-tv-border rounded-tv-sm p-3 text-tv-sm leading-relaxed whitespace-pre-wrap ${trade.mindset ? 'text-primary' : 'text-muted italic'}`}>
+              {trade.mindset || 'No mindset notes provided.'}
             </div>
-          )}
+          </div>
 
-          {trade.decisionNotes && (
-            <div>
-              <span className="label-section block text-accent mb-1">Decision Notes</span>
-              <div className="bg-base/20 border border-tv-border rounded-tv-sm p-3 text-tv-sm text-primary leading-relaxed whitespace-pre-wrap">
-                {trade.decisionNotes}
-              </div>
+          <div>
+            <span className="label-section block text-accent mb-1">Decision Notes</span>
+            <div className={`bg-base/20 border border-tv-border rounded-tv-sm p-3 text-tv-sm leading-relaxed whitespace-pre-wrap ${trade.decisionNotes ? 'text-primary' : 'text-muted italic'}`}>
+              {trade.decisionNotes || 'No decision notes provided.'}
             </div>
-          )}
+          </div>
 
-          {trade.learnings && (
-            <div>
-              <span className="label-section block text-gold mb-1">Learnings</span>
-              <div className="bg-base/20 border border-tv-border rounded-tv-sm p-3 text-tv-sm text-primary leading-relaxed whitespace-pre-wrap">
-                {trade.learnings}
-              </div>
+          <div>
+            <span className="label-section block text-gold mb-1">Learnings</span>
+            <div className={`bg-base/20 border border-tv-border rounded-tv-sm p-3 text-tv-sm leading-relaxed whitespace-pre-wrap ${trade.learnings ? 'text-primary' : 'text-muted italic'}`}>
+              {trade.learnings || 'No learnings provided.'}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Footer Meta */}
