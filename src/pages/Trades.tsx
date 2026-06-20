@@ -88,7 +88,8 @@ export default function Trades() {
   };
 
   return (
-    <div className="space-y-4 page-enter">
+    <>
+      <div className="space-y-4 page-enter">
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -172,6 +173,8 @@ export default function Trades() {
         </div>
       </div>
 
+      </div>
+
       {/* Trade Detail Modal */}
       <TradeModal
         trade={selectedTrade}
@@ -206,6 +209,6 @@ export default function Trades() {
           }
         }}
       />
-    </div>
+    </>
   );
 }
