@@ -58,7 +58,7 @@ function parseDhanTime(timeStr: string | null | undefined): Date {
   return isNaN(d.getTime()) ? new Date() : d;
 }
 
-export async function syncDhanTrades(clientId: string, accessToken: string, userId: string) {
+export async function syncDhanTrades(clientId: string, accessToken: string, userId: string, existingOpenTrades: any[] = []) {
   // Dhan Trade History API requires From Date and To Date
   // Fetching last 30 days
   const toDate = new Date();
@@ -103,42 +103,192 @@ export async function syncDhanTrades(clientId: string, accessToken: string, user
       }
     }
 
-    // Map Dhan trade history response to TradeVault trades table schema
-    return allTrades.map((t: any) => {
-      const direction = (t.transactionType || '').toUpperCase() === 'SELL' ? 'SHORT' : 'LONG';
-      const tradedPrice = parseFloat(t.tradedPrice || 0);
-      const tradedQty = parseInt(t.tradedQuantity || 0, 10);
-      const exchangeSegment = t.exchangeSegment || '';
+    // Sort all fetched raw trades chronologically
+    allTrades.sort((a, b) => {
+      const timeA = parseDhanTime(a.exchangeTime || a.createTime || a.updateTime).getTime();
+      const timeB = parseDhanTime(b.exchangeTime || b.createTime || b.updateTime).getTime();
+      return timeA - timeB;
+    });
 
-      // Calculate total charges from the trade history breakdown
-      const charges = (
-        parseFloat(t.sebiTax || 0) +
-        parseFloat(t.stt || 0) +
-        parseFloat(t.brokerageCharges || 0) +
-        parseFloat(t.serviceTax || 0) +
-        parseFloat(t.exchangeTransactionCharges || 0) +
-        parseFloat(t.stampDuty || 0)
+    // --- Position Aggregator ---
+    const openPositions: Record<string, any> = {};
+    const tradesToInsert: any[] = [];
+    const tradesToUpdate: any[] = [];
+
+    // 1. Seed with existing OPEN positions from DB
+    for (const t of existingOpenTrades) {
+      openPositions[t.symbol] = {
+        dbId: t.id,
+        userId: t.userId,
+        broker: t.broker,
+        brokerTradeId: t.brokerTradeId,
+        date: new Date(t.date),
+        symbol: t.symbol,
+        market: t.market,
+        instrumentType: t.instrumentType,
+        direction: t.direction,
+        entryPrice: parseFloat(t.entryPrice || '0'),
+        quantity: parseFloat(t.quantity || '0'),
+        currentQty: parseFloat(t.quantity || '0'), // Assuming DB quantity is current open qty for fully OPEN trades
+        exitPrice: parseFloat(t.exitPrice || '0'),
+        exitQty: 0, // Since we only get total exit price so far, track new exits
+        realizedPnl: parseFloat(t.pnl || '0'),
+        charges: parseFloat(t.charges || '0'),
+        status: 'OPEN',
+        isModified: false,
+      };
+    }
+
+    // 2. Process chronological raw executions
+    for (const rawTrade of allTrades) {
+      const symbol = rawTrade.tradingSymbol || rawTrade.customSymbol || `SID:${rawTrade.securityId}` || 'UNKNOWN';
+      const txType = (rawTrade.transactionType || '').toUpperCase();
+      const tradePrice = parseFloat(rawTrade.tradedPrice || 0);
+      const tradeQty = parseInt(rawTrade.tradedQuantity || 0, 10);
+      const exchangeSegment = rawTrade.exchangeSegment || '';
+
+      const tradeCharges = (
+        parseFloat(rawTrade.sebiTax || 0) +
+        parseFloat(rawTrade.stt || 0) +
+        parseFloat(rawTrade.brokerageCharges || 0) +
+        parseFloat(rawTrade.serviceTax || 0) +
+        parseFloat(rawTrade.exchangeTransactionCharges || 0) +
+        parseFloat(rawTrade.stampDuty || 0)
       );
 
-      return {
-        userId,
-        broker: 'dhan',
-        brokerTradeId: t.exchangeTradeId || t.orderId || null,
-        date: parseDhanTime(t.exchangeTime || t.createTime || t.updateTime),
-        symbol: t.tradingSymbol || t.customSymbol || `SID:${t.securityId}` || 'UNKNOWN',
-        market: mapExchangeSegmentToMarket(exchangeSegment),
-        instrumentType: mapInstrumentType(t.instrument, exchangeSegment, t.drvOptionType),
-        direction,
-        entryPrice: tradedPrice.toString(),
-        exitPrice: null,
-        quantity: tradedQty.toString(),
-        pnl: null,
-        charges: charges > 0 ? charges.toFixed(4) : null,
-        netPnl: null,
-        status: 'OPEN',
-        source: 'broker_sync',
-      };
+      let pos = openPositions[symbol];
+
+      if (!pos) {
+        // Open a new position
+        pos = {
+          userId,
+          broker: 'dhan',
+          brokerTradeId: rawTrade.exchangeTradeId || rawTrade.orderId || null,
+          date: parseDhanTime(rawTrade.exchangeTime || rawTrade.createTime || rawTrade.updateTime),
+          symbol,
+          market: mapExchangeSegmentToMarket(exchangeSegment),
+          instrumentType: mapInstrumentType(rawTrade.instrument, exchangeSegment, rawTrade.drvOptionType),
+          direction: txType === 'SELL' ? 'SHORT' : 'LONG',
+          entryPrice: tradePrice,
+          quantity: tradeQty,
+          currentQty: tradeQty,
+          exitPrice: 0,
+          exitQty: 0,
+          realizedPnl: 0,
+          charges: tradeCharges,
+          status: 'OPEN',
+          isModified: true,
+        };
+        openPositions[symbol] = pos;
+      } else {
+        // Position exists, apply execution
+        pos.isModified = true;
+        pos.charges += tradeCharges;
+
+        const isSameDirection = (pos.direction === 'LONG' && txType === 'BUY') || (pos.direction === 'SHORT' && txType === 'SELL');
+
+        if (isSameDirection) {
+          // Scale In
+          const newTotalQty = pos.currentQty + tradeQty;
+          pos.entryPrice = ((pos.entryPrice * pos.currentQty) + (tradePrice * tradeQty)) / newTotalQty;
+          pos.quantity += tradeQty; // Increase max position size (for DB)
+          pos.currentQty = newTotalQty;
+        } else {
+          // Scale Out / Close
+          const closeQty = Math.min(pos.currentQty, tradeQty);
+          
+          // Update average exit price
+          const totalExitValue = (pos.exitPrice * pos.exitQty) + (tradePrice * closeQty);
+          pos.exitQty += closeQty;
+          pos.exitPrice = totalExitValue / pos.exitQty;
+
+          // Add to Realized PnL
+          const pnlMultiplier = pos.direction === 'LONG' ? 1 : -1;
+          const tradePnl = (tradePrice - pos.entryPrice) * closeQty * pnlMultiplier;
+          pos.realizedPnl += tradePnl;
+
+          pos.currentQty -= closeQty;
+          
+          const remainingQty = tradeQty - closeQty;
+
+          if (pos.currentQty === 0) {
+            // Position Fully Closed
+            const net = pos.realizedPnl - pos.charges;
+            pos.status = net > 0 ? 'WIN' : (net < 0 ? 'LOSS' : 'BREAKEVEN');
+            
+            // Archive closed position
+            if (pos.dbId) {
+              tradesToUpdate.push(pos);
+            } else {
+              tradesToInsert.push(pos);
+            }
+            delete openPositions[symbol];
+
+            // If execution flipped direction, open a new position
+            if (remainingQty > 0) {
+              const newPos = {
+                userId,
+                broker: 'dhan',
+                brokerTradeId: rawTrade.exchangeTradeId || rawTrade.orderId || null,
+                date: parseDhanTime(rawTrade.exchangeTime || rawTrade.createTime || rawTrade.updateTime),
+                symbol,
+                market: mapExchangeSegmentToMarket(exchangeSegment),
+                instrumentType: mapInstrumentType(rawTrade.instrument, exchangeSegment, rawTrade.drvOptionType),
+                direction: txType === 'SELL' ? 'SHORT' : 'LONG',
+                entryPrice: tradePrice,
+                quantity: remainingQty,
+                currentQty: remainingQty,
+                exitPrice: 0,
+                exitQty: 0,
+                realizedPnl: 0,
+                charges: 0,
+                status: 'OPEN',
+                isModified: true,
+              };
+              openPositions[symbol] = newPos;
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Collect remaining open positions that were modified
+    for (const symbol in openPositions) {
+      const pos = openPositions[symbol];
+      if (pos.isModified) {
+        if (pos.dbId) {
+          tradesToUpdate.push(pos);
+        } else {
+          tradesToInsert.push(pos);
+        }
+      }
+    }
+
+    // Prepare final objects for database schema mapping
+    const mapToSchema = (p: any) => ({
+      userId: p.userId,
+      broker: p.broker,
+      brokerTradeId: p.brokerTradeId,
+      date: p.date,
+      symbol: p.symbol,
+      market: p.market,
+      instrumentType: p.instrumentType,
+      direction: p.direction,
+      entryPrice: p.entryPrice.toString(),
+      exitPrice: p.exitPrice > 0 ? p.exitPrice.toString() : null,
+      quantity: p.quantity.toString(),
+      pnl: p.realizedPnl !== 0 ? p.realizedPnl.toFixed(4) : null,
+      charges: p.charges > 0 ? p.charges.toFixed(4) : null,
+      netPnl: (p.realizedPnl - p.charges).toFixed(4),
+      status: p.status,
+      source: 'broker_sync',
+      ...(p.dbId ? { dbId: p.dbId } : {})
     });
+
+    return {
+      tradesToInsert: tradesToInsert.map(mapToSchema),
+      tradesToUpdate: tradesToUpdate.map(mapToSchema),
+    };
   } catch (err: any) {
     console.error('Failed to sync Dhan trades:', err);
     throw err;

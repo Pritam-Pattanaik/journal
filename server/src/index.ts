@@ -134,23 +134,58 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
       return res.status(400).json({ error: 'API Key missing for broker' });
     }
 
-    let parsedTrades: any[] = [];
+    let tradesToInsert: any[] = [];
+    let tradesToUpdate: any[] = [];
 
     if (broker === 'dhan') {
-      parsedTrades = await syncDhanTrades(clientId || '', apiKey, req.userId!);
+      // Fetch existing OPEN trades for this broker
+      const existingOpenTrades = await db.select().from(trades)
+        .where(
+          and(
+            eq(trades.userId, req.userId!),
+            eq(trades.broker, 'dhan'),
+            eq(trades.status, 'OPEN')
+          )
+        );
+
+      const result = await syncDhanTrades(clientId || '', apiKey, req.userId!, existingOpenTrades);
+      tradesToInsert = result.tradesToInsert;
+      tradesToUpdate = result.tradesToUpdate;
     } else {
       return res.status(400).json({ error: `Sync not yet implemented for ${broker}` });
     }
 
-    if (parsedTrades.length > 0) {
-      await db.insert(trades).values(parsedTrades);
+    if (tradesToInsert.length > 0) {
+      await db.insert(trades).values(tradesToInsert.map((t: any) => {
+        const { dbId, ...rest } = t;
+        return rest;
+      }));
+    }
+
+    if (tradesToUpdate.length > 0) {
+      // Process updates individually
+      for (const t of tradesToUpdate) {
+        if (!t.dbId) continue;
+        const { dbId, ...rest } = t;
+        await db.update(trades)
+          .set({
+            exitPrice: rest.exitPrice,
+            quantity: rest.quantity,
+            pnl: rest.pnl,
+            charges: rest.charges,
+            netPnl: rest.netPnl,
+            status: rest.status,
+            updatedAt: new Date()
+          })
+          .where(eq(trades.id, dbId));
+      }
     }
 
     await db.update(brokerConnections)
       .set({ lastSyncedAt: new Date() })
       .where(eq(brokerConnections.id, conn[0].id));
 
-    res.json({ success: true, count: parsedTrades.length });
+    res.json({ success: true, count: tradesToInsert.length + tradesToUpdate.length });
   } catch (err: any) {
     console.error('Sync Error:', err);
     res.status(500).json({ error: err.message || 'Failed to sync trades' });
