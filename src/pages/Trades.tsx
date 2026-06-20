@@ -13,6 +13,7 @@ export default function Trades() {
   const [searchQuery, setSearchQuery] = useState('');
   const [marketFilter, setMarketFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [dateFilter, setDateFilter] = useState('all');
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [tradeToEdit, setTradeToEdit] = useState<Trade | null>(null);
@@ -29,7 +30,30 @@ export default function Trades() {
       // Status match
       const matchesStatus = statusFilter === 'All' || trade.status === statusFilter;
 
-      return matchesSearch && matchesMarket && matchesStatus;
+      // Date match
+      let matchesDate = true;
+      if (dateFilter !== 'all') {
+        const tradeDate = new Date(trade.date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (dateFilter === 'today') {
+          matchesDate = tradeDate >= today;
+        } else if (dateFilter === 'week') {
+          const firstDayOfWeek = new Date(today);
+          firstDayOfWeek.setDate(today.getDate() - today.getDay());
+          matchesDate = tradeDate >= firstDayOfWeek;
+        } else if (dateFilter === 'month') {
+          const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+          matchesDate = tradeDate >= firstDayOfMonth;
+        } else if (dateFilter === 'last_month') {
+          const firstDayOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+          const lastDayOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59, 999);
+          matchesDate = tradeDate >= firstDayOfLastMonth && tradeDate <= lastDayOfLastMonth;
+        }
+      }
+
+      return matchesSearch && matchesMarket && matchesStatus && matchesDate;
     })
     // Sort by date desc
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -106,6 +130,8 @@ export default function Trades() {
         onMarketChange={setMarketFilter}
         statusFilter={statusFilter}
         onStatusChange={setStatusFilter}
+        dateFilter={dateFilter}
+        onDateChange={setDateFilter}
       />
 
       {/* Trade Count */}
