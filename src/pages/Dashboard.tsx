@@ -24,10 +24,34 @@ import CalendarHeatmap from '../components/dashboard/CalendarHeatmap';
 
 export default function Dashboard() {
   const { trades } = useTradeStore();
-  const stats = computeStats(trades);
-  const pnlCurveData = computeCumulativePnl(trades);
-  const strategyPnlData = computeStrategyPnl(trades);
-  const disciplineDistribution = computeDisciplineDistribution(trades);
+  const [dateFilter, setDateFilter] = React.useState<'week' | 'month' | 'all'>('week');
+
+  const filteredTrades = React.useMemo(() => {
+    if (dateFilter === 'all') return trades;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return trades.filter((trade) => {
+      const tradeDate = new Date(trade.date);
+      if (dateFilter === 'week') {
+        const firstDayOfWeek = new Date(today);
+        firstDayOfWeek.setDate(today.getDate() - today.getDay());
+        return tradeDate >= firstDayOfWeek;
+      } else if (dateFilter === 'month') {
+        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        return tradeDate >= firstDayOfMonth;
+      }
+      return true;
+    });
+  }, [trades, dateFilter]);
+
+  const stats = computeStats(filteredTrades);
+  const pnlCurveData = computeCumulativePnl(filteredTrades);
+  const strategyPnlData = computeStrategyPnl(filteredTrades);
+  const disciplineDistribution = computeDisciplineDistribution(filteredTrades);
+  
+  // Always compute streak on ALL trades so it doesn't artificially reset if you view 'This Week'
   const streak = computeCurrentStreak(trades);
 
   return (
@@ -35,9 +59,24 @@ export default function Dashboard() {
       {/* Date Range & Streak Row */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 stagger-1">
         <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 w-full sm:w-auto">
-           <button className="filter-pill active shrink-0">This Week</button>
-           <button className="filter-pill shrink-0">This Month</button>
-           <button className="filter-pill shrink-0">All Time</button>
+           <button 
+             onClick={() => setDateFilter('week')}
+             className={`filter-pill shrink-0 ${dateFilter === 'week' ? 'active' : ''}`}
+           >
+             This Week
+           </button>
+           <button 
+             onClick={() => setDateFilter('month')}
+             className={`filter-pill shrink-0 ${dateFilter === 'month' ? 'active' : ''}`}
+           >
+             This Month
+           </button>
+           <button 
+             onClick={() => setDateFilter('all')}
+             className={`filter-pill shrink-0 ${dateFilter === 'all' ? 'active' : ''}`}
+           >
+             All Time
+           </button>
         </div>
         <div className="text-tv-sm text-secondary font-mono bg-surface border border-tv-border px-3 py-1.5 rounded-tv-lg whitespace-nowrap">
            Current Streak:{' '}

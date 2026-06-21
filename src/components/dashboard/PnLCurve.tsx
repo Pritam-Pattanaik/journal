@@ -48,19 +48,19 @@ export default function PnLCurve({ data }: PnLCurveProps) {
               <XAxis
                 dataKey="date"
                 tickFormatter={(date) => formatDate(date)}
-                tick={{ fill: '#475569', fontSize: 9, fontFamily: 'JetBrains Mono' }}
+                tick={{ fill: '#94a3b8', fontSize: 9, fontFamily: 'JetBrains Mono' }}
                 axisLine={false}
                 tickLine={false}
               />
 
               <YAxis
                 tickFormatter={(val) => formatCurrency(val)}
-                tick={{ fill: '#475569', fontSize: 9, fontFamily: 'JetBrains Mono' }}
+                tick={{ fill: '#94a3b8', fontSize: 9, fontFamily: 'JetBrains Mono' }}
                 axisLine={false}
                 tickLine={false}
               />
 
-              <ReferenceLine y={0} stroke="#475569" strokeDasharray="3 3" />
+              <ReferenceLine y={0} stroke="#64748b" strokeDasharray="3 3" strokeOpacity={0.5} />
 
               <Tooltip
                 content={({ active, payload }) => {

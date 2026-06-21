@@ -36,7 +36,7 @@ export default function StrategyBar({ data }: StrategyBarProps) {
               <XAxis
                 type="number"
                 tickFormatter={(val) => formatCurrency(val)}
-                tick={{ fill: '#475569', fontSize: 9, fontFamily: 'JetBrains Mono' }}
+                tick={{ fill: '#94a3b8', fontSize: 9, fontFamily: 'JetBrains Mono' }}
                 axisLine={false}
                 tickLine={false}
               />
