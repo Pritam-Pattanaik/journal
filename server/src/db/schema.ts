@@ -23,6 +23,7 @@ export const brokerConnections = pgTable('broker_connections', {
   clientId: text('client_id'),
   isActive: boolean('is_active').default(false),
   lastSyncedAt: timestamp('last_synced_at'),
+  metadata: text('metadata'), // JSON stringified for SQLite/Postgres compatibility if not using jsonb explicitly, but let's use jsonb if imported, wait schema imports text, lets just use text('metadata') and parse JSON.
   createdAt: timestamp('created_at').defaultNow(),
 });
 

@@ -72,9 +72,9 @@ app.get('/api/brokers', authenticate, async (req: AuthRequest, res: Response) =>
 
 app.post('/api/brokers', authenticate, async (req: AuthRequest, res: Response): Promise<any> => {
   try {
-    const { apiKey, apiSecret, clientId } = req.body;
-    const broker = String(req.body.broker);
-    if (!req.body.broker || !apiKey) {
+    const { broker, apiKey, apiSecret, clientId, metadata } = req.body;
+    
+    if (!broker || !apiKey) {
       return res.status(400).json({ error: 'Broker and API Key are required' });
     }
 
@@ -87,6 +87,7 @@ app.post('/api/brokers', authenticate, async (req: AuthRequest, res: Response): 
         apiKey,
         apiSecret,
         clientId,
+        metadata,
         isActive: true,
       }).where(eq(brokerConnections.id, existing[0].id)).returning();
       res.json(updated[0]);
@@ -97,6 +98,7 @@ app.post('/api/brokers', authenticate, async (req: AuthRequest, res: Response): 
         apiKey,
         apiSecret,
         clientId,
+        metadata,
         isActive: true,
       }).returning();
       res.status(201).json(inserted[0]);
@@ -153,6 +155,45 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
       tradesToInsert = result.tradesToInsert;
       tradesToUpdate = result.tradesToUpdate;
       newLastSyncedAt = result.latestTradeTime;
+    } else if (broker === 'angelone') {
+      let { accessToken } = conn[0];
+      const metadata = conn[0].metadata ? JSON.parse(conn[0].metadata) : {};
+      
+      const doSync = async (token: string) => {
+        const { syncAngelOneTrades } = await import('./lib/brokers/angelone');
+        return await syncAngelOneTrades(clientId || '', token, apiKey, req.userId!, [], conn[0].lastSyncedAt);
+      };
+
+      try {
+        if (!accessToken) throw new Error('TOKEN_EXPIRED');
+        const result = await doSync(accessToken);
+        tradesToInsert = result.tradesToInsert;
+        tradesToUpdate = result.tradesToUpdate;
+        newLastSyncedAt = result.latestTradeTime;
+      } catch (err: any) {
+        if (err.message === 'TOKEN_EXPIRED') {
+          if (!metadata.password || !metadata.totpSecret) {
+            return res.status(400).json({ error: 'Angel One requires Password and TOTP Secret for auto-login. Please update your broker settings.' });
+          }
+          // Auto-login
+          const { loginAngelOne } = await import('./lib/brokers/angelone');
+          const tokens = await loginAngelOne(clientId || '', metadata.password, metadata.totpSecret, apiKey);
+          accessToken = tokens.jwtToken;
+          
+          // Save new tokens to DB
+          await db.update(brokerConnections)
+            .set({ accessToken: tokens.jwtToken, refreshToken: tokens.refreshToken })
+            .where(eq(brokerConnections.id, conn[0].id));
+
+          // Retry sync
+          const result = await doSync(accessToken);
+          tradesToInsert = result.tradesToInsert;
+          tradesToUpdate = result.tradesToUpdate;
+          newLastSyncedAt = result.latestTradeTime;
+        } else {
+          throw err;
+        }
+      }
     } else {
       return res.status(400).json({ error: `Sync not yet implemented for ${broker}` });
     }

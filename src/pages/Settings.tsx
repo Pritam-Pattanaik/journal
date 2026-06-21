@@ -30,6 +30,8 @@ export default function Settings() {
   const [apiKey, setApiKey] = useState('');
   const [apiSecret, setApiSecret] = useState('');
   const [clientId, setClientId] = useState('');
+  const [apiPassword, setApiPassword] = useState('');
+  const [totpSecret, setTotpSecret] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [syncingBroker, setSyncingBroker] = useState<string | null>(null);
 
@@ -50,12 +52,22 @@ export default function Settings() {
       alert('Client ID is strictly required for the DhanHQ API.');
       return;
     }
+    if (selectedBroker === 'angelone' && (!apiPassword || !totpSecret || !clientId)) {
+      alert('Angel One requires Client Code, Password, and TOTP Secret for automated login.');
+      return;
+    }
+    
     setIsConnecting(true);
+    const metadataObj: any = {};
+    if (apiPassword) metadataObj.password = apiPassword;
+    if (totpSecret) metadataObj.totpSecret = totpSecret;
+
     const { error } = await addConnection({
       broker: selectedBroker,
       apiKey,
       apiSecret,
       clientId,
+      metadata: Object.keys(metadataObj).length > 0 ? JSON.stringify(metadataObj) : undefined,
     });
     if (error) {
       alert(error);
@@ -63,6 +75,8 @@ export default function Settings() {
       setApiKey('');
       setApiSecret('');
       setClientId('');
+      setApiPassword('');
+      setTotpSecret('');
     }
     setIsConnecting(false);
   };
@@ -195,17 +209,48 @@ export default function Settings() {
 
               <div className="space-y-1">
                 <label className="text-[11px] text-secondary font-medium uppercase tracking-wider block">
-                  Client ID {selectedBroker !== 'dhan' && <span className="text-muted normal-case">(Optional)</span>}
+                  Client ID {selectedBroker !== 'dhan' && selectedBroker !== 'angelone' && <span className="text-muted normal-case">(Optional)</span>}
                 </label>
                 <input
                   type="text"
                   value={clientId}
                   onChange={(e) => setClientId(e.target.value)}
-                  placeholder="e.g. AB1234"
+                  placeholder={selectedBroker === 'angelone' ? "Enter Client Code" : "e.g. AB1234"}
                   className="input-base font-mono"
-                  required={selectedBroker === 'dhan'}
+                  required={selectedBroker === 'dhan' || selectedBroker === 'angelone'}
                 />
               </div>
+
+              {selectedBroker === 'angelone' && (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-secondary font-medium uppercase tracking-wider block">
+                      Angel One Password
+                    </label>
+                    <input
+                      type="password"
+                      value={apiPassword}
+                      onChange={(e) => setApiPassword(e.target.value)}
+                      placeholder="Enter Password"
+                      className="input-base font-mono"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-secondary font-medium uppercase tracking-wider block">
+                      TOTP Secret (Auth Token)
+                    </label>
+                    <input
+                      type="password"
+                      value={totpSecret}
+                      onChange={(e) => setTotpSecret(e.target.value)}
+                      placeholder="e.g. JBSWY3DPEHPK3PXP"
+                      className="input-base font-mono"
+                      required
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             <Button variant="primary" size="md" type="submit" disabled={isConnecting} className="w-full">

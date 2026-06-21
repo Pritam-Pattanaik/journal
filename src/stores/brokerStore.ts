@@ -15,7 +15,7 @@ interface BrokerStore {
   isLoading: boolean;
   error: string | null;
   fetchConnections: () => Promise<void>;
-  addConnection: (payload: { broker: string; apiKey: string; apiSecret?: string; clientId?: string }) => Promise<{ error?: string }>;
+  addConnection: (payload: { broker: string; apiKey: string; apiSecret?: string; clientId?: string; metadata?: string }) => Promise<{ error?: string }>;
   removeConnection: (broker: string) => Promise<{ error?: string }>;
   syncConnection: (broker: string) => Promise<{ error?: string; count?: number }>;
 }
