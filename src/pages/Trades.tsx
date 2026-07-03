@@ -18,6 +18,7 @@ export default function Trades() {
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [tradeToEdit, setTradeToEdit] = useState<Trade | null>(null);
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
 
   // Filter logic
   const filteredTrades = trades
@@ -171,22 +172,37 @@ export default function Trades() {
               return (
                 <div key={dateKey} className="flex flex-col">
                   {/* Day Header */}
-                  <div className="px-4 py-2 bg-base/50 border-b border-tv-border flex justify-between items-center text-tv-sm font-ui text-secondary">
-                    <span>{formatDateFull(dayTrades[0].date)}</span>
+                  <div 
+                    className="px-4 py-2 bg-base/50 border-b border-tv-border flex justify-between items-center text-tv-sm font-ui text-secondary cursor-pointer hover:bg-base/70 transition-colors"
+                    onClick={() => {
+                      setExpandedDates(prev => {
+                        const next = new Set(prev);
+                        if (next.has(dateKey)) next.delete(dateKey);
+                        else next.add(dateKey);
+                        return next;
+                      });
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                       <span>{formatDateFull(dayTrades[0].date)}</span>
+                       <span className="text-tv-xs text-muted">({dayTrades.length} trades)</span>
+                    </div>
                     <span className={`font-mono font-medium ${isProfit ? 'text-profit' : 'text-loss'}`}>
                       {isProfit ? '+' : ''}{formatCurrency(dayPnl)}
                     </span>
                   </div>
                   {/* Trades for this day */}
-                  <div className="divide-y divide-tv-border">
-                    {dayTrades.map((trade) => (
-                      <TradeRow
-                        key={trade.id}
-                        trade={trade}
-                        onClick={() => setSelectedTrade(trade)}
-                      />
-                    ))}
-                  </div>
+                  {expandedDates.has(dateKey) && (
+                    <div className="divide-y divide-tv-border">
+                      {dayTrades.map((trade) => (
+                        <TradeRow
+                          key={trade.id}
+                          trade={trade}
+                          onClick={() => setSelectedTrade(trade)}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })

@@ -168,10 +168,21 @@ export async function syncDhanTrades(
       const tradeQty = parseInt(rawTrade.tradedQuantity || 0, 10);
       const exchangeSegment = rawTrade.exchangeSegment || '';
 
+      let parsedBrokerage = parseFloat(rawTrade.brokerageCharges || 0);
+      
+      // Inject Rs 20 brokerage if Dhan API returns 0 for F&O, Currency, Commodity
+      if (parsedBrokerage === 0 && (
+        exchangeSegment.includes('FNO') ||
+        exchangeSegment.includes('COMM') ||
+        exchangeSegment.includes('CURRENCY')
+      )) {
+        parsedBrokerage = 20;
+      }
+
       const tradeCharges = (
         parseFloat(rawTrade.sebiTax || 0) +
         parseFloat(rawTrade.stt || 0) +
-        parseFloat(rawTrade.brokerageCharges || 0) +
+        parsedBrokerage +
         parseFloat(rawTrade.serviceTax || 0) +
         parseFloat(rawTrade.exchangeTransactionCharges || 0) +
         parseFloat(rawTrade.stampDuty || 0)
