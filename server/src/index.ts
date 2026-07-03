@@ -6,7 +6,7 @@ import jwt from 'jsonwebtoken';
 import path from 'path';
 import { db } from './db';
 import { users, trades, strategies, journalEntries, aiInsights, coachMemory, brokerConnections } from './db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { generateAIInsight } from './lib/ai/llm';
 import { syncDhanTrades } from './lib/brokers/dhan';
 
@@ -30,6 +30,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_please_change';
 // ─── Auth Middleware ──────────────────────────────────────────────────────────
 interface AuthRequest extends Request {
   userId?: string;
+  role?: string;
 }
 
 function authenticate(req: AuthRequest, res: Response, next: NextFunction): void {
@@ -46,6 +47,22 @@ function authenticate(req: AuthRequest, res: Response, next: NextFunction): void
   } catch {
     res.status(401).json({ error: 'Invalid or expired token' });
   }
+}
+
+function requireRoles(allowedRoles: string[]) {
+  return async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, req.userId!));
+      if (!user || !allowedRoles.includes(user.role)) {
+        res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
+        return;
+      }
+      req.role = user.role;
+      next();
+    } catch (err) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  };
 }
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
@@ -262,7 +279,7 @@ app.post('/api/auth/signup', async (req: Request, res: Response): Promise<void> 
     const token = jwt.sign({ userId: newUser.id }, JWT_SECRET, { expiresIn: '30d' });
     res.status(201).json({
       token,
-      user: { id: newUser.id, email: newUser.email, fullName: newUser.fullName, avatarUrl: newUser.avatarUrl, timezone: newUser.timezone },
+      user: { id: newUser.id, email: newUser.email, fullName: newUser.fullName, avatarUrl: newUser.avatarUrl, timezone: newUser.timezone, role: newUser.role },
     });
   } catch (err: any) {
     console.error('Signup error:', err);
@@ -294,7 +311,7 @@ app.post('/api/auth/login', async (req: Request, res: Response): Promise<void> =
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '30d' });
     res.json({
       token,
-      user: { id: user.id, email: user.email, fullName: user.fullName, avatarUrl: user.avatarUrl, timezone: user.timezone },
+      user: { id: user.id, email: user.email, fullName: user.fullName, avatarUrl: user.avatarUrl, timezone: user.timezone, role: user.role },
     });
   } catch (err: any) {
     console.error('Login error:', err);
@@ -311,7 +328,7 @@ app.get('/api/auth/me', authenticate, async (req: AuthRequest, res: Response): P
       return;
     }
     res.json({
-      user: { id: user.id, email: user.email, fullName: user.fullName, avatarUrl: user.avatarUrl, timezone: user.timezone },
+      user: { id: user.id, email: user.email, fullName: user.fullName, avatarUrl: user.avatarUrl, timezone: user.timezone, role: user.role },
     });
   } catch (err: any) {
     console.error('Me error:', err);
@@ -327,7 +344,7 @@ app.patch('/api/auth/profile', authenticate, async (req: AuthRequest, res: Respo
       .set({ fullName, avatarUrl, timezone, updatedAt: new Date() })
       .where(eq(users.id, req.userId!))
       .returning();
-    res.json({ user: { id: updated.id, email: updated.email, fullName: updated.fullName, avatarUrl: updated.avatarUrl, timezone: updated.timezone } });
+    res.json({ user: { id: updated.id, email: updated.email, fullName: updated.fullName, avatarUrl: updated.avatarUrl, timezone: updated.timezone, role: updated.role } });
   } catch (err: any) {
     console.error('Update profile error:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -684,6 +701,66 @@ app.get('/api/coach-memory', authenticate, async (req: AuthRequest, res: Respons
     res.json(memories);
   } catch (err: any) {
     console.error('Coach memory error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── ADMIN ROUTES ─────────────────────────────────────────────────────────────
+
+// GET /api/admin/users
+app.get('/api/admin/users', authenticate, requireRoles(['SUB_ADMIN', 'ADMIN', 'SUPER_ADMIN']), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const result = await db.select({
+      id: users.id,
+      email: users.email,
+      fullName: users.fullName,
+      role: users.role,
+      createdAt: users.createdAt,
+      totalTrades: sql<number>`count(${trades.id})`.mapWith(Number),
+      netPnl: sql<number>`sum(${trades.netPnl})`.mapWith(Number),
+    }).from(users)
+      .leftJoin(trades, eq(trades.userId, users.id))
+      .groupBy(users.id)
+      .orderBy(desc(users.createdAt));
+    res.json(result);
+  } catch (err: any) {
+    console.error('Get all users error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/admin/users/:id/role
+app.patch('/api/admin/users/:id/role', authenticate, requireRoles(['SUPER_ADMIN']), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const targetUserId = req.params.id as string;
+    const { role } = req.body;
+
+    if (!['USER', 'SUB_ADMIN', 'ADMIN', 'SUPER_ADMIN'].includes(role)) {
+      res.status(400).json({ error: 'Invalid role' });
+      return;
+    }
+
+    // Prevent Super Admin from demoting themselves, or add logic if needed.
+    // Assuming simple RBAC for now.
+
+    const [updated] = await db.update(users)
+      .set({ role, updatedAt: new Date() })
+      .where(eq(users.id, targetUserId))
+      .returning();
+
+    if (!updated) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    res.json({
+      id: updated.id,
+      email: updated.email,
+      fullName: updated.fullName,
+      role: updated.role
+    });
+  } catch (err: any) {
+    console.error('Update user role error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

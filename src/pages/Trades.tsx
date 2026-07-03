@@ -7,6 +7,7 @@ import TradeModal from '../components/trade/TradeModal';
 import TradeFormModal from '../components/trade/TradeFormModal';
 import Button from '../components/ui/Button';
 import { useTradeStore } from '../stores/tradeStore';
+import { formatCurrency, formatDateFull } from '../lib/analytics';
 
 export default function Trades() {
   const { trades, addTrade, updateTrade, deleteTrade } = useTradeStore();
@@ -162,13 +163,33 @@ export default function Trades() {
               No trades match your active filters. Try searching for a different ticker.
             </div>
           ) : (
-            filteredTrades.map((trade) => (
-              <TradeRow
-                key={trade.id}
-                trade={trade}
-                onClick={() => setSelectedTrade(trade)}
-              />
-            ))
+            Array.from(new Set(filteredTrades.map(t => t.date.split('T')[0]))).map(dateKey => {
+              const dayTrades = filteredTrades.filter(t => t.date.split('T')[0] === dateKey);
+              const dayPnl = dayTrades.reduce((sum, t) => sum + t.netPnl, 0);
+              const isProfit = dayPnl >= 0;
+              
+              return (
+                <div key={dateKey} className="flex flex-col">
+                  {/* Day Header */}
+                  <div className="px-4 py-2 bg-base/50 border-b border-tv-border flex justify-between items-center text-tv-sm font-ui text-secondary">
+                    <span>{formatDateFull(dayTrades[0].date)}</span>
+                    <span className={`font-mono font-medium ${isProfit ? 'text-profit' : 'text-loss'}`}>
+                      {isProfit ? '+' : ''}{formatCurrency(dayPnl)}
+                    </span>
+                  </div>
+                  {/* Trades for this day */}
+                  <div className="divide-y divide-tv-border">
+                    {dayTrades.map((trade) => (
+                      <TradeRow
+                        key={trade.id}
+                        trade={trade}
+                        onClick={() => setSelectedTrade(trade)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
       </div>

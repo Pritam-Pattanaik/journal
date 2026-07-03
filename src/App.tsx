@@ -16,11 +16,14 @@ import About from './pages/marketing/About';
 import Pricing from './pages/marketing/Pricing';
 import MarketingLayout from './components/layout/MarketingLayout';
 import ProtectedRoute from './components/layout/ProtectedRoute';
+import AdminRoute from './components/layout/AdminRoute';
+import AdminDashboard from './pages/AdminDashboard';
 import { useAuthStore } from './stores/authStore';
 import { useTradeStore } from './stores/tradeStore';
 
 function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { profile } = useAuthStore();
 
   const toggleSidebar = () => {
     setSidebarCollapsed((prev) => !prev);
@@ -39,12 +42,17 @@ function MainLayout() {
         {/* Scrollable Page Wrapper */}
         <PageWrapper>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/" element={profile?.role === 'SUPER_ADMIN' ? <AdminDashboard /> : <Dashboard />} />
             <Route path="/trades" element={<Trades />} />
             <Route path="/journal" element={<Journal />} />
             <Route path="/ai-coach" element={<AICoach />} />
             <Route path="/strategies" element={<Strategies />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/admin" element={
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
+            } />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </PageWrapper>

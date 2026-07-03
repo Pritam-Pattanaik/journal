@@ -7,6 +7,7 @@ interface Profile {
   fullName: string | null;
   avatarUrl: string | null;
   timezone: string | null;
+  role: 'USER' | 'SUB_ADMIN' | 'ADMIN' | 'SUPER_ADMIN';
 }
 
 interface AuthState {

@@ -7,6 +7,7 @@ export const users = pgTable('users', {
   fullName: text('full_name'),
   avatarUrl: text('avatar_url'),
   timezone: text('timezone').default('Asia/Kolkata'),
+  role: text('role').default('USER').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });

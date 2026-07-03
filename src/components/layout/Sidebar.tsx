@@ -10,6 +10,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Shield,
   X
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
@@ -25,14 +26,27 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { profile } = useAuthStore();
   const { sidebarOpen, setSidebarOpen } = useUIStore();
 
-  const navItems = [
-    { name: 'Dashboard', path: '/app', icon: LayoutDashboard },
-    { name: 'Trades', path: '/app/trades', icon: BarChart3 },
-    { name: 'Journal', path: '/app/journal', icon: BookOpen },
-    { name: 'AI Coach', path: '/app/ai-coach', icon: Brain },
-    { name: 'Strategies', path: '/app/strategies', icon: Target },
-    { name: 'Settings', path: '/app/settings', icon: Settings },
-  ];
+  let navItems = [];
+
+  if (profile?.role === 'SUPER_ADMIN') {
+    navItems = [
+      { name: 'System Overview', path: '/app', icon: Shield },
+      { name: 'Settings', path: '/app/settings', icon: Settings },
+    ];
+  } else {
+    navItems = [
+      { name: 'Dashboard', path: '/app', icon: LayoutDashboard },
+      { name: 'Trades', path: '/app/trades', icon: BarChart3 },
+      { name: 'Journal', path: '/app/journal', icon: BookOpen },
+      { name: 'AI Coach', path: '/app/ai-coach', icon: Brain },
+      { name: 'Strategies', path: '/app/strategies', icon: Target },
+      { name: 'Settings', path: '/app/settings', icon: Settings },
+    ];
+    
+    if (profile?.role === 'ADMIN' || profile?.role === 'SUB_ADMIN') {
+      navItems.push({ name: 'Admin Panel', path: '/app/admin', icon: Shield });
+    }
+  }
 
   return (
     <>
