@@ -24,7 +24,7 @@ import CalendarHeatmap from '../components/dashboard/CalendarHeatmap';
 
 export default function Dashboard() {
   const { trades } = useTradeStore();
-  const [dateFilter, setDateFilter] = React.useState<'week' | 'month' | 'all'>('week');
+  const [dateFilter, setDateFilter] = React.useState<'week' | 'month' | 'last_month' | 'all'>('week');
 
   const filteredTrades = React.useMemo(() => {
     if (dateFilter === 'all') return trades;
@@ -41,6 +41,10 @@ export default function Dashboard() {
       } else if (dateFilter === 'month') {
         const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
         return tradeDate >= firstDayOfMonth;
+      } else if (dateFilter === 'last_month') {
+        const firstDayOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const lastDayOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59, 999);
+        return tradeDate >= firstDayOfLastMonth && tradeDate <= lastDayOfLastMonth;
       }
       return true;
     });
@@ -70,6 +74,12 @@ export default function Dashboard() {
              className={`filter-pill shrink-0 ${dateFilter === 'month' ? 'active' : ''}`}
            >
              This Month
+           </button>
+           <button 
+             onClick={() => setDateFilter('last_month')}
+             className={`filter-pill shrink-0 ${dateFilter === 'last_month' ? 'active' : ''}`}
+           >
+             Last Month
            </button>
            <button 
              onClick={() => setDateFilter('all')}
