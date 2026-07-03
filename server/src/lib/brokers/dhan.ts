@@ -109,6 +109,17 @@ export async function syncDhanTrades(
       }
     }
 
+    // Deduplicate raw executions to prevent overlapping pages causing double counting
+    const uniqueExecutions = new Map();
+    for (const t of allTrades) {
+      // Use exchangeTradeId or orderId as a unique key per execution
+      const uniqueKey = t.exchangeTradeId || t.orderId || t.createTime;
+      if (uniqueKey && !uniqueExecutions.has(uniqueKey)) {
+        uniqueExecutions.set(uniqueKey, t);
+      }
+    }
+    allTrades = Array.from(uniqueExecutions.values());
+
     // Sort all fetched raw trades chronologically
     allTrades.sort((a, b) => {
       const timeA = parseDhanTime(a.exchangeTime || a.createTime || a.updateTime).getTime();
