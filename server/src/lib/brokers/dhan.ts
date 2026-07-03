@@ -65,48 +65,68 @@ export async function syncDhanTrades(
   existingOpenTrades: any[] = [],
   lastSyncedAt: Date | null = null
 ) {
-  // Dhan Trade History API requires From Date and To Date
-  // Fetching last 30 days
-  const toDate = new Date();
-  const fromDate = new Date();
-  fromDate.setDate(fromDate.getDate() - 30);
-
   const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
   try {
     let allTrades: any[] = [];
-    let page = 0; // Dhan API pagination starts at 0
-    let hasMore = true;
+    
+    // Determine the overall start date
+    let overallFromDate = new Date();
+    if (lastSyncedAt) {
+      overallFromDate = new Date(lastSyncedAt);
+    } else {
+      overallFromDate.setDate(overallFromDate.getDate() - 90); // Fetch 90 days for fresh connections
+    }
+    
+    const overallToDate = new Date();
+    
+    // Process in 30-day chunks to respect potential API limits
+    let currentChunkStart = new Date(overallFromDate);
+    
+    while (currentChunkStart < overallToDate) {
+      let currentChunkEnd = new Date(currentChunkStart);
+      currentChunkEnd.setDate(currentChunkEnd.getDate() + 30);
+      if (currentChunkEnd > overallToDate) {
+        currentChunkEnd = overallToDate;
+      }
+      
+      let page = 0;
+      let hasMore = true;
 
-    while (hasMore) {
-      const url = `https://api.dhan.co/v2/trades/${formatDate(fromDate)}/${formatDate(toDate)}/${page}`;
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'access-token': accessToken,
+      while (hasMore) {
+        const url = `https://api.dhan.co/v2/trades/${formatDate(currentChunkStart)}/${formatDate(currentChunkEnd)}/${page}`;
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'access-token': accessToken,
+          }
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Dhan API error (${response.status}): ${errText}`);
         }
-      });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Dhan API error (${response.status}): ${errText}`);
+        const data = await response.json();
+        const tradesList = data.data || data;
+
+        if (!Array.isArray(tradesList)) {
+          console.warn('Dhan API returned non-array data:', data);
+          break;
+        }
+
+        if (tradesList.length === 0) {
+          hasMore = false;
+        } else {
+          allTrades = allTrades.concat(tradesList);
+          page++;
+        }
       }
-
-      const data = await response.json();
-      const tradesList = data.data || data;
-
-      if (!Array.isArray(tradesList)) {
-        console.warn('Dhan API returned non-array data:', data);
-        break;
-      }
-
-      if (tradesList.length === 0) {
-        hasMore = false;
-      } else {
-        allTrades = allTrades.concat(tradesList);
-        page++;
-      }
+      
+      // Move to the next chunk
+      currentChunkStart = new Date(currentChunkEnd);
+      currentChunkStart.setDate(currentChunkStart.getDate() + 1); // Avoid overlapping days
     }
 
     // Deduplicate raw executions to prevent overlapping pages causing double counting
