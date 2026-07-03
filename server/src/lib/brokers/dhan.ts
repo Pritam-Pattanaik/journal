@@ -132,8 +132,9 @@ export async function syncDhanTrades(
     // Deduplicate raw executions to prevent overlapping pages causing double counting
     const uniqueExecutions = new Map();
     for (const t of allTrades) {
-      // Use exchangeTradeId or orderId as a unique key per execution
-      const uniqueKey = t.exchangeTradeId || t.orderId || t.createTime;
+      // Use a robust compound key to uniquely identify an execution leg
+      // This prevents squashing different legs of the same basket order
+      const uniqueKey = t.exchangeTradeId || `${t.orderId}_${t.tradingSymbol}_${t.transactionType}_${t.tradedQuantity}_${t.tradedPrice}_${t.exchangeTime || t.createTime}`;
       if (uniqueKey && !uniqueExecutions.has(uniqueKey)) {
         uniqueExecutions.set(uniqueKey, t);
       }
