@@ -158,17 +158,18 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
     let newLastSyncedAt: Date | null = null;
 
     if (broker === 'dhan') {
-      // Fetch existing OPEN trades for this broker
-      const existingOpenTrades = await db.select().from(trades)
+      // Dhan sync always fetches full 90-day history and re-aggregates from scratch.
+      // Delete all existing broker_sync trades for this user+broker to avoid duplicates.
+      await db.delete(trades)
         .where(
           and(
             eq(trades.userId, req.userId!),
             eq(trades.broker, 'dhan'),
-            eq(trades.status, 'OPEN')
+            eq(trades.source, 'broker_sync')
           )
         );
 
-      const result = await syncDhanTrades(clientId || '', apiKey, req.userId!, existingOpenTrades, conn[0].lastSyncedAt);
+      const result = await syncDhanTrades(clientId || '', apiKey, req.userId!, [], null);
       tradesToInsert = result.tradesToInsert;
       tradesToUpdate = result.tradesToUpdate;
       newLastSyncedAt = result.latestTradeTime;
