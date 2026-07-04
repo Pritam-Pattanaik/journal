@@ -77,6 +77,17 @@ export interface UserProfile {
   timezone: string;
 }
 
+export interface TradingRules {
+  id?: string;
+  windowStart?: string | null;           // "10:00" (IST 24h)
+  windowEnd?: string | null;             // "14:00" (IST 24h)
+  maxTradesPerDay?: number | null;
+  maxDailyLoss?: number | null;          // INR
+  maxLossPerTrade?: number | null;       // INR
+  allowedInstruments?: string[] | null;  // CE | PE | FUT | EQ
+  allowedMarkets?: string[] | null;      // F&O | NSE | BSE | MCX
+}
+
 export interface DashboardStats {
   totalPnl: number;
   winRate: number;

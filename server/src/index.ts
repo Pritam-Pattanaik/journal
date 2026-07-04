@@ -5,7 +5,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import path from 'path';
 import { db } from './db';
-import { users, trades, strategies, journalEntries, aiInsights, coachMemory, brokerConnections } from './db/schema';
+import { users, trades, strategies, journalEntries, aiInsights, coachMemory, brokerConnections, tradingRules } from './db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { generateAIInsight } from './lib/ai/llm';
 import { syncDhanTrades } from './lib/brokers/dhan';
@@ -169,7 +169,22 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
           )
         );
 
-      const result = await syncDhanTrades(clientId || '', apiKey, req.userId!, [], null);
+      // Fetch user's personal trading rules (may be null if not configured yet)
+      const [userRules] = await db.select().from(tradingRules)
+        .where(eq(tradingRules.userId, req.userId!))
+        .limit(1);
+
+      const personalRules = userRules ? {
+        windowStart: userRules.windowStart,
+        windowEnd: userRules.windowEnd,
+        maxTradesPerDay: userRules.maxTradesPerDay,
+        maxDailyLoss: userRules.maxDailyLoss ? parseFloat(userRules.maxDailyLoss) : null,
+        maxLossPerTrade: userRules.maxLossPerTrade ? parseFloat(userRules.maxLossPerTrade) : null,
+        allowedInstruments: userRules.allowedInstruments,
+        allowedMarkets: userRules.allowedMarkets,
+      } : null;
+
+      const result = await syncDhanTrades(clientId || '', apiKey, req.userId!, [], null, personalRules);
       tradesToInsert = result.tradesToInsert;
       tradesToUpdate = result.tradesToUpdate;
       newLastSyncedAt = result.latestTradeTime;
@@ -254,6 +269,62 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
   } catch (err: any) {
     console.error('Sync Error:', err);
     res.status(500).json({ error: err.message || 'Failed to sync trades' });
+  }
+});
+
+// ─── TRADING RULES ROUTES ─────────────────────────────────────────────────────
+
+// GET /api/trading-rules — fetch current user's personal rules
+app.get('/api/trading-rules', authenticate, async (req: AuthRequest, res: Response): Promise<any> => {
+  try {
+    const [rules] = await db.select().from(tradingRules)
+      .where(eq(tradingRules.userId, req.userId!))
+      .limit(1);
+    res.json(rules || null);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/trading-rules — create or update personal rules (upsert)
+app.post('/api/trading-rules', authenticate, async (req: AuthRequest, res: Response): Promise<any> => {
+  try {
+    const {
+      windowStart, windowEnd,
+      maxTradesPerDay, maxDailyLoss, maxLossPerTrade,
+      allowedInstruments, allowedMarkets,
+    } = req.body;
+
+    const [existing] = await db.select({ id: tradingRules.id })
+      .from(tradingRules)
+      .where(eq(tradingRules.userId, req.userId!))
+      .limit(1);
+
+    const payload = {
+      windowStart: windowStart || null,
+      windowEnd: windowEnd || null,
+      maxTradesPerDay: maxTradesPerDay || null,
+      maxDailyLoss: maxDailyLoss ? String(maxDailyLoss) : null,
+      maxLossPerTrade: maxLossPerTrade ? String(maxLossPerTrade) : null,
+      allowedInstruments: allowedInstruments?.length ? allowedInstruments : null,
+      allowedMarkets: allowedMarkets?.length ? allowedMarkets : null,
+      updatedAt: new Date(),
+    };
+
+    if (existing) {
+      const [updated] = await db.update(tradingRules)
+        .set(payload)
+        .where(eq(tradingRules.id, existing.id))
+        .returning();
+      res.json(updated);
+    } else {
+      const [created] = await db.insert(tradingRules)
+        .values({ userId: req.userId!, ...payload })
+        .returning();
+      res.json(created);
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 

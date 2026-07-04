@@ -1,4 +1,4 @@
-import { assignDisciplineScores } from '../ai/disciplineScorer';
+import { assignDisciplineScores, PersonalRules } from '../ai/disciplineScorer';
 
 /**
  * Maps Dhan exchangeSegment values to TradeVault market categories.
@@ -76,7 +76,8 @@ export async function syncDhanTrades(
   accessToken: string,
   userId: string,
   existingOpenTrades: any[] = [],
-  lastSyncedAt: Date | null = null
+  lastSyncedAt: Date | null = null,
+  personalRules?: PersonalRules | null
 ) {
   const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
@@ -320,8 +321,9 @@ export async function syncDhanTrades(
     console.log(`[Dhan Sync] Built ${tradesToInsert.length} position records`);
 
     // ── Discipline Scoring Pass ────────────────────────────────────────────
-    // Run the 5-signal scorer over all trades using rolling day-by-day context
-    assignDisciplineScores(tradesToInsert);
+    // Layer 1: Universal behavioral signals (always)
+    // Layer 2: Personal rule compliance (if user has configured rules)
+    assignDisciplineScores(tradesToInsert, personalRules ?? null);
 
     console.log(
       `[Dhan Sync] Discipline scores assigned. Sample:`,

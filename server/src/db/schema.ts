@@ -112,3 +112,21 @@ export const coachMemory = pgTable('coach_memory', {
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 
+export const tradingRules = pgTable('trading_rules', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull().unique(),
+  // Trading window (24h IST, e.g. "10:00")
+  windowStart: text('window_start'),
+  windowEnd: text('window_end'),
+  // Quantity / session limits
+  maxTradesPerDay: integer('max_trades_per_day'),
+  // Loss limits in INR
+  maxDailyLoss: numeric('max_daily_loss'),
+  maxLossPerTrade: numeric('max_loss_per_trade'),
+  // Allowed instruments: CE | PE | FUT | EQ
+  allowedInstruments: text('allowed_instruments').array(),
+  // Allowed markets: F&O | NSE | BSE | MCX
+  allowedMarkets: text('allowed_markets').array(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
