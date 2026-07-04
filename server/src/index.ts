@@ -219,9 +219,13 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
     if (tradesToInsert.length > 0) {
       await db.insert(trades).values(tradesToInsert.map((t: any) => {
         const { dbId, ...rest } = t;
-        return rest;
+        return {
+          ...rest,
+          disciplineScore: rest.disciplineScore ?? null,
+        };
       }));
     }
+
 
     if (tradesToUpdate.length > 0) {
       // Process updates individually
