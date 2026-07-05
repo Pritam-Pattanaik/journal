@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, AlertTriangle, LogOut, Trash2, RefreshCw, BookOpen, Check } from 'lucide-react';
+import { Shield, AlertTriangle, LogOut, Trash2, RefreshCw, BookOpen, Check, CheckCircle2 } from 'lucide-react';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import { useAuthStore } from '../stores/authStore';
@@ -81,8 +81,9 @@ export default function Settings() {
     });
     setIsSavingRules(false);
     if (error) {
-      alert('Failed to save rules: ' + error);
+      notify('error', 'Failed to save rules: ' + error);
     } else {
+      notify('success', 'Rules updated successfully');
       setRulesSaved(true);
       setTimeout(() => setRulesSaved(false), 2500);
     }
@@ -97,6 +98,12 @@ export default function Settings() {
   const [totpSecret, setTotpSecret] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [syncingBroker, setSyncingBroker] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ type: 'error' | 'success', message: string } | null>(null);
+
+  const notify = (type: 'error' | 'success', message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 5000);
+  };
 
   // Profile fields
   const [profileName, setProfileName] = useState(profile?.fullName || '');
@@ -108,15 +115,15 @@ export default function Settings() {
   const handleConnect = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!apiKey) {
-      alert('API Key is required.');
+      notify('error', 'API Key is required.');
       return;
     }
     if (selectedBroker === 'dhan' && !clientId) {
-      alert('Client ID is strictly required for the DhanHQ API.');
+      notify('error', 'Client ID is strictly required for the DhanHQ API.');
       return;
     }
     if (selectedBroker === 'angelone' && (!apiPassword || !totpSecret || !clientId)) {
-      alert('Angel One requires Client Code, Password, and TOTP Secret for automated login.');
+      notify('error', 'Angel One requires Client Code, Password, and TOTP Secret for automated login.');
       return;
     }
     
@@ -133,8 +140,9 @@ export default function Settings() {
       metadata: Object.keys(metadataObj).length > 0 ? JSON.stringify(metadataObj) : undefined,
     });
     if (error) {
-      alert(error);
+      notify('error', error);
     } else {
+      notify('success', `Successfully connected to ${activeBrokerInfo?.name}!`);
       setApiKey('');
       setApiSecret('');
       setClientId('');
@@ -154,9 +162,9 @@ export default function Settings() {
     setSyncingBroker(brokerId);
     const { error, count } = await syncConnection(brokerId);
     if (error) {
-      alert(error);
+      notify('error', error);
     } else {
-      alert(`Successfully synced ${count} trades!`);
+      notify('success', `Successfully synced ${count} trades!`);
       // Refresh the trades store so the Trades page shows new data
       await fetchTrades();
     }
@@ -174,6 +182,14 @@ export default function Settings() {
           Configure broker API connections, sync preferences, and update profile parameters.
         </p>
       </div>
+
+      {/* Notification Banner */}
+      {notification && (
+        <div className={`p-4 rounded-tv-md flex items-start gap-3 border animate-in slide-in-from-top-2 fade-in duration-300 ${notification.type === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-500' : 'bg-green-500/10 border-green-500/20 text-green-500'}`}>
+          {notification.type === 'error' ? <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" /> : <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />}
+          <div className="text-sm font-medium leading-relaxed">{notification.message}</div>
+        </div>
+      )}
 
       {/* SECTION 1: BROKER CONNECTIONS */}
       <div className="space-y-3">
@@ -527,9 +543,9 @@ export default function Settings() {
                 try {
                   const { error } = await updateProfile({ fullName: profileName, timezone });
                   if (error) throw new Error(error);
-                  alert('Profile details saved.');
+                  notify('success', 'Profile details saved successfully.');
                 } catch (err: any) {
-                  alert('Failed to save profile: ' + err.message);
+                  notify('error', 'Failed to save profile: ' + err.message);
                 } finally {
                   setIsSaving(false);
                 }

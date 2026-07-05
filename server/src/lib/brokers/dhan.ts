@@ -113,7 +113,14 @@ export async function syncDhanTrades(
 
         if (!response.ok) {
           const errText = await response.text();
-          throw new Error(`Dhan API error (${response.status}): ${errText}`);
+          let cleanError = `Dhan API error (${response.status})`;
+          try {
+            const errJson = JSON.parse(errText);
+            if (errJson.errorMessage) {
+              cleanError = `DhanHQ: ${errJson.errorMessage}`;
+            }
+          } catch(e) {}
+          throw new Error(cleanError);
         }
 
         const data = await response.json();
