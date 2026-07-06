@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Trade } from '../../types';
+import { getLocalYYYYMMDD } from '../../lib/dateUtils';
 
 interface CalendarHeatmapProps {
   trades: Trade[];
@@ -12,12 +13,13 @@ export default function CalendarHeatmap({ trades }: CalendarHeatmapProps) {
   for (let i = 89; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    days.push(d.toISOString().split('T')[0]);
+    days.push(getLocalYYYYMMDD(d));
   }
 
   const pnlMap = new Map<string, number>();
   trades.forEach(t => {
-    const dateOnly = t.date.split('T')[0];
+    const d = new Date(t.date);
+    const dateOnly = getLocalYYYYMMDD(d);
     pnlMap.set(dateOnly, (pnlMap.get(dateOnly) || 0) + t.netPnl);
   });
 

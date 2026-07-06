@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Trade } from '../../types';
 import Button from '../ui/Button';
+import { getLocalDateTimeString } from '../../lib/dateUtils';
 
 interface TradeFormModalProps {
   isOpen: boolean;
@@ -21,7 +22,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave, initialData }:
     quantity: '',
     charges: '',
     strategyName: '',
-    date: new Date().toISOString().slice(0, 16),
+    date: getLocalDateTimeString(),
     notes: '',
     setupDescription: '',
     mindset: '',
@@ -41,7 +42,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave, initialData }:
         quantity: initialData.quantity.toString(),
         charges: initialData.charges.toString(),
         strategyName: initialData.strategyName || '',
-        date: initialData.date.slice(0, 16), // datetime-local format
+        date: getLocalDateTimeString(new Date(initialData.date)),
         notes: initialData.decisionNotes || '',
         setupDescription: initialData.setupDescription || '',
         mindset: initialData.mindset || '',
@@ -59,7 +60,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave, initialData }:
         quantity: '',
         charges: '',
         strategyName: '',
-        date: new Date().toISOString().slice(0, 16),
+        date: getLocalDateTimeString(),
         notes: '',
         setupDescription: '',
         mindset: '',

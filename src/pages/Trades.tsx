@@ -8,6 +8,7 @@ import TradeFormModal from '../components/trade/TradeFormModal';
 import Button from '../components/ui/Button';
 import { useTradeStore } from '../stores/tradeStore';
 import { formatCurrency, formatDateFull } from '../lib/analytics';
+import { getLocalYYYYMMDD } from '../lib/dateUtils';
 
 export default function Trades() {
   const { trades, addTrade, updateTrade, deleteTrade } = useTradeStore();
@@ -66,7 +67,7 @@ export default function Trades() {
     if (filteredTrades.length === 0) return;
     const headers = ['Date', 'Symbol', 'Market', 'Direction', 'Status', 'Entry', 'Exit', 'Net P&L', 'Strategy'];
     const rows = filteredTrades.map(t => [
-      t.date.split('T')[0],
+      getLocalYYYYMMDD(new Date(t.date)),
       t.symbol,
       t.market,
       t.direction,
@@ -85,7 +86,7 @@ export default function Trades() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `tradevault_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `tradevault_export_${getLocalYYYYMMDD()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

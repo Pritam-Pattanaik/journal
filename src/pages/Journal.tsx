@@ -4,6 +4,7 @@ import { useJournalStore } from '../stores/journalStore';
 import { JournalEntry } from '../types';
 import DisciplineRater from '../components/ui/DisciplineRater';
 import Button from '../components/ui/Button';
+import { getLocalYYYYMMDD } from '../lib/dateUtils';
 
 const moodOptions = [
   { emoji: '🚀', value: 'Excellent' },
@@ -17,8 +18,7 @@ const moodOptions = [
 export default function Journal() {
   const { entries, fetchEntries, addEntry, updateEntry, loading } = useJournalStore();
   const [selectedDate, setSelectedDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
+    return getLocalYYYYMMDD();
   });
   
   // Form state
@@ -69,12 +69,10 @@ export default function Journal() {
 
   // Navigate date offset
   const shiftDate = (days: number) => {
-    const date = new Date(selectedDate);
+    const [y, m, d] = selectedDate.split('-');
+    const date = new Date(Number(y), Number(m) - 1, Number(d));
     date.setDate(date.getDate() + days);
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const dd = String(date.getDate()).padStart(2, '0');
-    setSelectedDate(`${yyyy}-${mm}-${dd}`);
+    setSelectedDate(getLocalYYYYMMDD(date));
   };
 
   const handleSave = async () => {
