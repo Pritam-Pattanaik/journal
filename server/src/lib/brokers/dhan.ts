@@ -120,7 +120,7 @@ export async function syncDhanTrades(
         currentChunkEnd = overallToDate;
       }
 
-      let page = 0;
+      let page = 1;
       let hasMore = true;
 
       while (hasMore) {
@@ -160,12 +160,17 @@ export async function syncDhanTrades(
       currentChunkStart.setDate(currentChunkStart.getDate() + 1);
     }
 
-    // Deduplicate by orderId (exchangeTradeId is unreliable — always 0 for F&O)
+    // Deduplicate executions properly using a composite key
+    // exchangeTradeId is often 0 or null for F&O, so we combine orderId with execution details
     const uniqueExecutions = new Map<string, any>();
     for (const t of allTrades) {
-      const uniqueKey =
-        t.orderId ||
-        `${t.exchangeTime}_${t.securityId}_${t.tradedPrice}_${t.tradedQuantity}`;
+      // If exchangeTradeId is valid and non-zero, use it. Otherwise fallback to composite.
+      const hasValidTradeId = t.exchangeTradeId && String(t.exchangeTradeId) !== "0" && String(t.exchangeTradeId) !== "";
+      
+      const uniqueKey = hasValidTradeId 
+        ? String(t.exchangeTradeId)
+        : `${t.orderId}_${t.tradedQuantity}_${t.tradedPrice}_${t.exchangeTime || t.createTime || t.updateTime}`;
+        
       if (!uniqueExecutions.has(uniqueKey)) {
         uniqueExecutions.set(uniqueKey, t);
       }
