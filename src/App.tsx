@@ -20,6 +20,7 @@ import AdminRoute from './components/layout/AdminRoute';
 import AdminDashboard from './pages/AdminDashboard';
 import { useAuthStore } from './stores/authStore';
 import { useTradeStore } from './stores/tradeStore';
+import { useBrokerStore } from './stores/brokerStore';
 
 function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -71,11 +72,34 @@ export default function App() {
   }, [initialize]);
 
   // Fetch trades whenever user logs in (token changes to a real value)
+  const fetchConnections = useBrokerStore(state => state.fetchConnections);
+  const syncConnection = useBrokerStore(state => state.syncConnection);
+
+  // Fetch connections, auto-sync active brokers, then fetch trades whenever user logs in
   useEffect(() => {
-    if (token) {
-      fetchTrades();
-    }
-  }, [token, fetchTrades]);
+    const autoSyncAndFetch = async () => {
+      if (token) {
+        try {
+          await fetchConnections();
+          const { connections } = useBrokerStore.getState();
+          
+          const syncPromises = connections
+            .filter(conn => conn.isActive)
+            .map(conn => syncConnection(conn.broker));
+            
+          if (syncPromises.length > 0) {
+            await Promise.allSettled(syncPromises);
+          }
+        } catch (error) {
+          console.error("Auto-sync failed:", error);
+        } finally {
+          fetchTrades();
+        }
+      }
+    };
+    
+    autoSyncAndFetch();
+  }, [token, fetchTrades, fetchConnections, syncConnection]);
 
   return (
     <Routes>

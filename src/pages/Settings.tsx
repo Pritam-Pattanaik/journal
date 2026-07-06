@@ -142,12 +142,15 @@ export default function Settings() {
     if (error) {
       notify('error', error);
     } else {
-      notify('success', `Successfully connected to ${activeBrokerInfo?.name}!`);
+      notify('success', `Successfully connected to ${activeBrokerInfo?.name}! Syncing trades in the background...`);
       setApiKey('');
       setApiSecret('');
       setClientId('');
       setApiPassword('');
       setTotpSecret('');
+      
+      // Fire and forget auto-sync, or await if preferred. Here we just trigger it.
+      handleSync(selectedBroker).catch(err => console.error("Auto-sync error:", err));
     }
     setIsConnecting(false);
   };
