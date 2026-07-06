@@ -158,17 +158,6 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
     let newLastSyncedAt: Date | null = null;
 
     if (broker === 'dhan') {
-      // Dhan sync always fetches full 90-day history and re-aggregates from scratch.
-      // Delete all existing broker_sync trades for this user+broker to avoid duplicates.
-      await db.delete(trades)
-        .where(
-          and(
-            eq(trades.userId, req.userId!),
-            eq(trades.broker, 'dhan'),
-            eq(trades.source, 'broker_sync')
-          )
-        );
-
       // Fetch user's personal trading rules (may be null if not configured yet)
       const [userRules] = await db.select().from(tradingRules)
         .where(eq(tradingRules.userId, req.userId!))
@@ -184,7 +173,19 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
         allowedMarkets: userRules.allowedMarkets,
       } : null;
 
+      // Fetch from broker FIRST so if it throws (e.g., token expired), we don't wipe existing trades
       const result = await syncDhanTrades(clientId || '', apiKey, req.userId!, [], null, personalRules);
+
+      // Dhan sync always fetches full 90-day history and re-aggregates from scratch.
+      // Delete all existing broker_sync trades for this user+broker to avoid duplicates.
+      await db.delete(trades)
+        .where(
+          and(
+            eq(trades.userId, req.userId!),
+            eq(trades.broker, 'dhan'),
+            eq(trades.source, 'broker_sync')
+          )
+        );
       tradesToInsert = result.tradesToInsert;
       tradesToUpdate = result.tradesToUpdate;
       newLastSyncedAt = result.latestTradeTime;
@@ -233,7 +234,7 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
 
     if (tradesToInsert.length > 0) {
       await db.insert(trades).values(tradesToInsert.map((t: any) => {
-        const { dbId, ...rest } = t;
+        const { dbId, _ruleViolations, ...rest } = t;
         return {
           ...rest,
           disciplineScore: rest.disciplineScore ?? null,

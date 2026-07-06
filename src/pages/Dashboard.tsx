@@ -36,7 +36,10 @@ export default function Dashboard() {
       const tradeDate = new Date(trade.date);
       if (dateFilter === 'week') {
         const firstDayOfWeek = new Date(today);
-        firstDayOfWeek.setDate(today.getDate() - today.getDay());
+        // Treat Monday as first day of the week for trading
+        const day = today.getDay();
+        const diff = today.getDate() - day + (day === 0 ? -6 : 1); 
+        firstDayOfWeek.setDate(diff);
         return tradeDate >= firstDayOfWeek;
       } else if (dateFilter === 'month') {
         const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);

@@ -84,7 +84,29 @@ export async function syncDhanTrades(
   try {
     let allTrades: any[] = [];
 
-    // Always fetch last 90 days in 30-day chunks to get full history
+    // 1. Fetch Today's Trades
+    try {
+      const todayUrl = `https://api.dhan.co/v2/trades`;
+      const todayRes = await fetch(todayUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'access-token': accessToken,
+          'client-id': clientId,
+        }
+      });
+      if (todayRes.ok) {
+        const data = await todayRes.json();
+        const todayTrades = data.data || data;
+        if (Array.isArray(todayTrades)) {
+          allTrades = allTrades.concat(todayTrades);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch today's trades from DhanHQ", e);
+    }
+
+    // 2. Fetch Historical Trades
     let overallFromDate = new Date();
     overallFromDate.setDate(overallFromDate.getDate() - 90);
     const overallToDate = new Date();

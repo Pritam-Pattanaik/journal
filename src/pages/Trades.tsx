@@ -43,7 +43,9 @@ export default function Trades() {
           matchesDate = tradeDate >= today;
         } else if (dateFilter === 'week') {
           const firstDayOfWeek = new Date(today);
-          firstDayOfWeek.setDate(today.getDate() - today.getDay());
+          const day = today.getDay();
+          const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+          firstDayOfWeek.setDate(diff);
           matchesDate = tradeDate >= firstDayOfWeek;
         } else if (dateFilter === 'month') {
           const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
