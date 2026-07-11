@@ -45,30 +45,52 @@ function mapInstrumentType(
 }
 
 /**
+ * FIX #3: Resolve the best available timestamp from a raw Dhan trade object.
+ * Priority: exchangeTime > createTime > updateTime
+ * All three fields can be "NA" or null in certain Dhan API responses.
+ * Returns null only if ALL three fields are absent/NA.
+ */
+function getBestTime(rawTrade: any): string | null {
+  const candidates = [rawTrade.exchangeTime, rawTrade.createTime, rawTrade.updateTime];
+  for (const candidate of candidates) {
+    if (candidate && String(candidate).toUpperCase() !== 'NA' && String(candidate).trim() !== '') {
+      return String(candidate);
+    }
+  }
+  return null;
+}
+
+/**
  * Parses a Dhan time string into a valid Date object.
- * Handles: "2021-03-10 11:20:06", "2026-07-02T11:14:43", "NA"
+ * Handles: "2021-03-10 11:20:06", "2026-07-02T11:14:43"
+ * NEVER returns current time as a fallback — returns epoch (1970) so broken
+ * timestamps sort first and are clearly identifiable.
  */
 function parseDhanTime(timeStr: string | null | undefined): Date {
-  if (!timeStr || timeStr === 'NA') return new Date();
+  if (!timeStr) return new Date(0);
   let isoStr = timeStr;
-  if (timeStr.includes(' ') && !timeStr.includes('T')) {
-    isoStr = timeStr.replace(' ', 'T');
+  if (isoStr.includes(' ') && !isoStr.includes('T')) {
+    isoStr = isoStr.replace(' ', 'T');
   }
   if (!isoStr.includes('+') && !isoStr.includes('Z')) {
     isoStr += '+05:30';
   }
   const d = new Date(isoStr);
-  return isNaN(d.getTime()) ? new Date() : d;
+  return isNaN(d.getTime()) ? new Date(0) : d;
 }
 
 /**
- * Extracts the trading date (YYYY-MM-DD) from a Dhan time string.
+ * Extracts the trading date (YYYY-MM-DD) from a resolved time string.
+ * Uses getBestTime() result — never falls back to today's date.
  */
-function extractTradeDate(timeStr: string | null | undefined): string {
-  if (!timeStr || timeStr === 'NA') return new Date().toISOString().split('T')[0];
-  if (timeStr.includes('T')) return timeStr.split('T')[0];
-  if (timeStr.includes(' ')) return timeStr.split(' ')[0];
-  return timeStr;
+function extractTradeDate(bestTimeStr: string | null): string {
+  if (!bestTimeStr) {
+    // Truly unknown date — use a sentinel so it doesn't pollute real dates
+    return '1970-01-01';
+  }
+  if (bestTimeStr.includes('T')) return bestTimeStr.split('T')[0];
+  if (bestTimeStr.includes(' ')) return bestTimeStr.split(' ')[0];
+  return bestTimeStr;
 }
 
 export async function syncDhanTrades(
@@ -84,29 +106,19 @@ export async function syncDhanTrades(
   try {
     let allTrades: any[] = [];
 
-    // 1. Fetch Today's Trades
-    try {
-      const todayUrl = `https://api.dhan.co/v2/trades`;
-      const todayRes = await fetch(todayUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'access-token': accessToken,
-          'client-id': clientId,
-        }
-      });
-      if (todayRes.ok) {
-        const data = await todayRes.json();
-        const todayTrades = data.data || data;
-        if (Array.isArray(todayTrades)) {
-          allTrades = allTrades.concat(todayTrades);
-        }
-      }
-    } catch (e) {
-      console.error("Failed to fetch today's trades from DhanHQ", e);
-    }
+    // ── FIX #1: Only use the historical endpoint ──────────────────────────────
+    // The previous code fetched from BOTH /v2/trades (today) AND the historical
+    // paginated endpoint. Since the historical range ends at today, both return
+    // today's trades. For F&O trades with exchangeTradeId=0, the dedup key
+    // included the timestamp — but today's API returns exchangeTime:"NA" while
+    // historical returns a real timestamp, so the same execution had two different
+    // keys and was NOT deduplicated → appeared twice → doubled P&L.
+    //
+    // The historical endpoint already covers today (overallToDate = new Date()),
+    // so the today's endpoint is entirely redundant. Removing it eliminates
+    // all double-counting at the source.
 
-    // 2. Fetch Historical Trades
+    // ── Historical Trades (full 90-day window including today) ────────────────
     let overallFromDate = new Date();
     overallFromDate.setDate(overallFromDate.getDate() - 90);
     const overallToDate = new Date();
@@ -161,27 +173,37 @@ export async function syncDhanTrades(
       currentChunkStart.setDate(currentChunkStart.getDate() + 1);
     }
 
-    // Deduplicate executions properly using a composite key
-    // exchangeTradeId is often 0 or null for F&O, so we combine orderId with execution details
+    // ── FIX #2: Stable deduplication key (no timestamp component) ────────────
+    // Previously the composite key for F&O trades included exchangeTime, which
+    // differs between API calls (e.g. "NA" vs real timestamp). The new key uses
+    // only orderId + exchangeTradeId + quantity + price — all of which are stable
+    // across any API call that returns the same execution.
     const uniqueExecutions = new Map<string, any>();
     for (const t of allTrades) {
-      // If exchangeTradeId is valid and non-zero, use it. Otherwise fallback to composite.
-      const hasValidTradeId = t.exchangeTradeId && String(t.exchangeTradeId) !== "0" && String(t.exchangeTradeId) !== "";
-      
-      const uniqueKey = hasValidTradeId 
+      const hasValidTradeId =
+        t.exchangeTradeId &&
+        String(t.exchangeTradeId) !== '0' &&
+        String(t.exchangeTradeId) !== '';
+
+      const uniqueKey = hasValidTradeId
         ? String(t.exchangeTradeId)
-        : `${t.orderId}_${t.tradedQuantity}_${t.tradedPrice}_${t.exchangeTime || t.createTime || t.updateTime}`;
-        
+        : `${t.orderId}_${t.tradedQuantity}_${t.tradedPrice}_${t.customSymbol || t.securityId || ''}`;
+
       if (!uniqueExecutions.has(uniqueKey)) {
         uniqueExecutions.set(uniqueKey, t);
       }
     }
     allTrades = Array.from(uniqueExecutions.values());
 
-    // Sort chronologically
+    // ── FIX #3: Sort using getBestTime() — never use raw exchangeTime alone ───
+    // parseDhanTime("NA") previously returned new Date() (now), causing those
+    // trades to sort LAST. getBestTime() falls through exchangeTime → createTime
+    // → updateTime to find a real timestamp. parseDhanTime now returns epoch for
+    // truly missing times so they sort FIRST (not last), making their ordering
+    // predictable and easy to debug.
     allTrades.sort((a, b) => {
-      const tA = parseDhanTime(a.exchangeTime || a.createTime || a.updateTime).getTime();
-      const tB = parseDhanTime(b.exchangeTime || b.createTime || b.updateTime).getTime();
+      const tA = parseDhanTime(getBestTime(a)).getTime();
+      const tB = parseDhanTime(getBestTime(b)).getTime();
       return tA - tB;
     });
 
@@ -190,27 +212,54 @@ export async function syncDhanTrades(
     let latestTradeTime: Date | null = null;
     if (allTrades.length > 0) {
       const lastRaw = allTrades[allTrades.length - 1];
-      latestTradeTime = parseDhanTime(
-        lastRaw.exchangeTime || lastRaw.createTime || lastRaw.updateTime
-      );
+      latestTradeTime = parseDhanTime(getBestTime(lastRaw));
     }
 
     // ── Per-Day Position Aggregator ─────────────────────────────────────────
-    // Group raw executions by calendar date so each day's trades are independent.
+    // Group raw executions by calendar date.
+    // FIX #3 (continued): extractTradeDate now receives the resolved bestTime
+    // string (never "NA"), so trades are always placed in the correct date bucket.
     const tradesToInsert: any[] = [];
 
     const executionsByDate = new Map<string, any[]>();
     for (const rawTrade of allTrades) {
-      const tradeDate = extractTradeDate(
-        rawTrade.exchangeTime || rawTrade.createTime || rawTrade.updateTime
-      );
+      const tradeDate = extractTradeDate(getBestTime(rawTrade));
+      // Skip sentinel date (trades with no resolvable timestamp)
+      if (tradeDate === '1970-01-01') {
+        console.warn('[Dhan Sync] Skipping execution with no resolvable timestamp:', rawTrade.orderId);
+        continue;
+      }
       if (!executionsByDate.has(tradeDate)) executionsByDate.set(tradeDate, []);
       executionsByDate.get(tradeDate)!.push(rawTrade);
     }
 
-    for (const [_tradeDate, dayExecutions] of executionsByDate) {
-      // Per-day open positions keyed by symbol
-      const openPositions: Record<string, any> = {};
+    // ── FIX #4: Sort within each day BEFORE aggregating ───────────────────────
+    // After the Map is built, each day's list must be sorted chronologically so
+    // the opening leg (BUY or SELL that initiates a position) always comes before
+    // the closing leg. Out-of-order processing flips the direction and inverts
+    // the P&L sign (e.g. showing -₹1,485 instead of +₹1,485).
+    for (const dayExecutions of executionsByDate.values()) {
+      dayExecutions.sort((a, b) =>
+        parseDhanTime(getBestTime(a)).getTime() - parseDhanTime(getBestTime(b)).getTime()
+      );
+    }
+
+    // ── FIX #5: Carry open positions across day boundaries ────────────────────
+    // F&O overnight positions opened on Day N and closed on Day N+1 were
+    // previously broken: Day N+1's aggregator had no knowledge of the open
+    // position, so the closing SELL was misread as a new SHORT entry.
+    // We now carry the openPositions map into the next day so multi-day
+    // positions aggregate correctly.
+    const sortedDates = Array.from(executionsByDate.keys()).sort();
+
+    // Carry-forward bucket: positions still open at end of a trading day
+    let carryForwardPositions: Record<string, any> = {};
+
+    for (const tradeDate of sortedDates) {
+      const dayExecutions = executionsByDate.get(tradeDate)!;
+
+      // Seed today's open positions from the prior day's carry-forward
+      const openPositions: Record<string, any> = { ...carryForwardPositions };
 
       for (const rawTrade of dayExecutions) {
         // Prefer customSymbol (Dhan's reliable field). tradingSymbol is often null.
@@ -222,9 +271,7 @@ export async function syncDhanTrades(
         const tradePrice = parseFloat(rawTrade.tradedPrice || 0);
         const tradeQty = parseInt(rawTrade.tradedQuantity || 0, 10);
         const exchangeSegment = rawTrade.exchangeSegment || '';
-        const execTime = parseDhanTime(
-          rawTrade.exchangeTime || rawTrade.createTime || rawTrade.updateTime
-        );
+        const execTime = parseDhanTime(getBestTime(rawTrade));
 
         let parsedBrokerage = parseFloat(rawTrade.brokerageCharges || 0);
         // Inject ₹20 flat brokerage for F&O/COMM/CURRENCY where API returns 0
@@ -303,7 +350,6 @@ export async function syncDhanTrades(
               (tradePrice - pos.entryPrice) * closeQty * pnlMultiplier;
 
             pos.currentQty -= closeQty;
-            // ✅ Track exit time for discipline scorer
             pos.exitTime = execTime;
 
             const remainingQty = tradeQty - closeQty;
@@ -347,10 +393,27 @@ export async function syncDhanTrades(
         }
       }
 
-      // Collect remaining open positions at end of day
+      // FIX #5 (continued): Carry truly open (not yet closed) positions forward
+      // to the next day instead of immediately flushing them as OPEN records.
+      // Only positions that remain open after ALL dates are processed get flushed.
+      carryForwardPositions = {};
       for (const symbol in openPositions) {
-        tradesToInsert.push(openPositions[symbol]);
+        const pos = openPositions[symbol];
+        // Check if this position has a corresponding date in a future day
+        const hasMoreDays = sortedDates.some(d => d > tradeDate);
+        if (hasMoreDays) {
+          // Carry forward — don't insert yet
+          carryForwardPositions[symbol] = pos;
+        } else {
+          // Last trading day in the dataset — flush as OPEN
+          tradesToInsert.push(pos);
+        }
       }
+    }
+
+    // Flush any remaining carry-forward positions (open at end of full sync window)
+    for (const symbol in carryForwardPositions) {
+      tradesToInsert.push(carryForwardPositions[symbol]);
     }
 
     console.log(`[Dhan Sync] Built ${tradesToInsert.length} position records`);

@@ -167,8 +167,12 @@ export default function Trades() {
               No trades match your active filters. Try searching for a different ticker.
             </div>
           ) : (
-            Array.from(new Set(filteredTrades.map(t => t.date.split('T')[0]))).map(dateKey => {
-              const dayTrades = filteredTrades.filter(t => t.date.split('T')[0] === dateKey);
+            Array.from(
+              new Set(filteredTrades.map(t => getLocalYYYYMMDD(new Date(t.date))))
+            )
+              .sort((a, b) => b.localeCompare(a))
+              .map(dateKey => {
+              const dayTrades = filteredTrades.filter(t => getLocalYYYYMMDD(new Date(t.date)) === dateKey);
               const dayPnl = dayTrades.reduce((sum, t) => sum + t.netPnl, 0);
               const isProfit = dayPnl >= 0;
               

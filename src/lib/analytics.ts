@@ -1,5 +1,16 @@
 import type { Trade, DashboardStats } from '../types';
 
+/** Convert any date value to a local-timezone YYYY-MM-DD string.
+ *  Using new Date(str).toLocaleDateString ensures the calendar date
+ *  matches the user's IST clock, not the UTC offset of the ISO string. */
+function getLocalDateKey(date: string | Date): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const yyyy = d.getFullYear();
+  const mm   = String(d.getMonth() + 1).padStart(2, '0');
+  const dd   = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export function formatCurrency(value: number): string {
   const absVal = Math.abs(value);
   if (absVal >= 100000) {
@@ -142,8 +153,7 @@ export function computeCurrentStreak(trades: Trade[]): { type: 'WIN' | 'LOSS' | 
   
   const dailyPnl = new Map<string, number>();
   sorted.forEach(t => {
-    // Only date part
-    const dateOnly = t.date.split('T')[0];
+    const dateOnly = getLocalDateKey(t.date);
     dailyPnl.set(dateOnly, (dailyPnl.get(dateOnly) || 0) + t.netPnl);
   });
   
