@@ -118,12 +118,29 @@ export async function syncDhanTrades(
     // so the today's endpoint is entirely redundant. Removing it eliminates
     // all double-counting at the source.
 
-    // ── Historical Trades (full 90-day window including today) ────────────────
-    let overallFromDate = new Date();
-    overallFromDate.setDate(overallFromDate.getDate() - 90);
+    // ── Incremental vs Full Sync ──────────────────────────────────────────────
+    // On the first sync (lastSyncedAt = null): full 90-day backfill.
+    // On subsequent syncs: only fetch from 2 days before lastSyncedAt to
+    // catch late-arriving executions. This cuts routine sync time from
+    // 30–90s (3 paginated chunks) to 2–10s (1 small chunk) — essential
+    // for Vercel serverless which times out on long-running functions.
     const overallToDate = new Date();
+    let overallFromDate: Date;
+
+    if (lastSyncedAt) {
+      // Incremental: go back 2 days from last sync as an overlap buffer
+      overallFromDate = new Date(lastSyncedAt);
+      overallFromDate.setDate(overallFromDate.getDate() - 2);
+      console.log(`[Dhan Sync] Incremental mode: ${formatDate(overallFromDate)} → ${formatDate(overallToDate)}`);
+    } else {
+      // First-time full backfill: 90 days
+      overallFromDate = new Date();
+      overallFromDate.setDate(overallFromDate.getDate() - 90);
+      console.log(`[Dhan Sync] Full backfill: ${formatDate(overallFromDate)} → ${formatDate(overallToDate)}`);
+    }
 
     let currentChunkStart = new Date(overallFromDate);
+
 
     while (currentChunkStart < overallToDate) {
       let currentChunkEnd = new Date(currentChunkStart);

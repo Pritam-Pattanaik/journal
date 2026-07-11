@@ -139,6 +139,9 @@ app.delete('/api/brokers/:broker', authenticate, async (req: AuthRequest, res: R
 app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res: Response): Promise<any> => {
   try {
     const broker = String(req.params.broker);
+    // ?full=true forces a complete 90-day backfill, ignoring lastSyncedAt.
+    // Used after code fixes to correct historical data.
+    const forceFullSync = req.query.full === 'true';
     
     const conn = await db.select().from(brokerConnections)
       .where(and(eq(brokerConnections.userId, req.userId!), eq(brokerConnections.broker, broker)))
@@ -173,24 +176,49 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
         allowedMarkets: userRules.allowedMarkets,
       } : null;
 
+      // Resolve the last sync time so dhan.ts can choose incremental vs full backfill.
+      // forceFullSync=true (via ?full=true) overrides to null to trigger the full 90-day path.
+      const lastSyncedAt = (!forceFullSync && conn[0].lastSyncedAt) ? new Date(conn[0].lastSyncedAt) : null;
+
       // Fetch from broker FIRST — if this throws (e.g., invalid token, API error),
       // we bail out before touching the database, so existing trades stay intact.
-      const result = await syncDhanTrades(clientId || '', apiKey, req.userId!, [], null, personalRules);
+      const result = await syncDhanTrades(clientId || '', apiKey, req.userId!, [], lastSyncedAt, personalRules);
 
-      // Fetch succeeded — now safe to delete stale broker_sync trades and replace with fresh data.
-      // Dhan syncs the full 90-day window from scratch each time, so we clear old records
-      // only after the new data is confirmed available.
-      await db.delete(trades)
-        .where(
-          and(
-            eq(trades.userId, req.userId!),
-            eq(trades.broker, 'dhan'),
-            eq(trades.source, 'broker_sync')
-          )
-        );
+      // Determine the delete window:
+      // • Full sync (lastSyncedAt = null): wipe ALL broker_sync trades for a clean slate.
+      // • Incremental sync: delete only trades from the re-fetched date window (2 days back).
+      //   This preserves older historical trades while refreshing the recent window.
+      if (lastSyncedAt) {
+        const windowStart = new Date(lastSyncedAt);
+        windowStart.setDate(windowStart.getDate() - 2);
+        const windowStartStr = windowStart.toISOString().split('T')[0];
+
+        // Delete only trades that fall within the re-fetched window
+        await db.delete(trades)
+          .where(
+            and(
+              eq(trades.userId, req.userId!),
+              eq(trades.broker, 'dhan'),
+              eq(trades.source, 'broker_sync'),
+              sql`DATE(${trades.date}) >= ${windowStartStr}::date`
+            )
+          );
+      } else {
+        // Full backfill: clear everything and rebuild from scratch
+        await db.delete(trades)
+          .where(
+            and(
+              eq(trades.userId, req.userId!),
+              eq(trades.broker, 'dhan'),
+              eq(trades.source, 'broker_sync')
+            )
+          );
+      }
+
       tradesToInsert = result.tradesToInsert;
       tradesToUpdate = result.tradesToUpdate;
       newLastSyncedAt = result.latestTradeTime;
+
     } else if (broker === 'angelone') {
       let { accessToken } = conn[0];
       const metadata = conn[0].metadata ? JSON.parse(conn[0].metadata) : {};

@@ -17,7 +17,7 @@ interface BrokerStore {
   fetchConnections: () => Promise<void>;
   addConnection: (payload: { broker: string; apiKey: string; apiSecret?: string; clientId?: string; metadata?: string }) => Promise<{ error?: string }>;
   removeConnection: (broker: string) => Promise<{ error?: string }>;
-  syncConnection: (broker: string) => Promise<{ error?: string; count?: number }>;
+  syncConnection: (broker: string, fullSync?: boolean) => Promise<{ error?: string; count?: number }>;
 }
 
 export const useBrokerStore = create<BrokerStore>((set, get) => ({
@@ -57,9 +57,10 @@ export const useBrokerStore = create<BrokerStore>((set, get) => ({
     }
   },
 
-  syncConnection: async (broker) => {
+  syncConnection: async (broker, fullSync = false) => {
     try {
-      const data = await api.post<{ success: boolean; count: number }>(`/brokers/sync/${broker}`, {});
+      const url = fullSync ? `/brokers/sync/${broker}?full=true` : `/brokers/sync/${broker}`;
+      const data = await api.post<{ success: boolean; count: number }>(url, {});
       await get().fetchConnections();
       return { count: data.count };
     } catch (err: any) {
