@@ -12,7 +12,7 @@ import { formatCurrency, formatDateFull } from '../lib/analytics';
 import { getLocalYYYYMMDD } from '../lib/dateUtils';
 
 export default function Trades() {
-  const { trades, addTrade, updateTrade, deleteTrade } = useTradeStore();
+  const { trades, fetchTrades, addTrade, updateTrade, deleteTrade } = useTradeStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [marketFilter, setMarketFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
