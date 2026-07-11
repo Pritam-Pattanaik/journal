@@ -173,11 +173,13 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
         allowedMarkets: userRules.allowedMarkets,
       } : null;
 
-      // Fetch from broker FIRST so if it throws (e.g., token expired), we don't wipe existing trades
+      // Fetch from broker FIRST — if this throws (e.g., invalid token, API error),
+      // we bail out before touching the database, so existing trades stay intact.
       const result = await syncDhanTrades(clientId || '', apiKey, req.userId!, [], null, personalRules);
 
-      // Dhan sync always fetches full 90-day history and re-aggregates from scratch.
-      // Delete all existing broker_sync trades for this user+broker to avoid duplicates.
+      // Fetch succeeded — now safe to delete stale broker_sync trades and replace with fresh data.
+      // Dhan syncs the full 90-day window from scratch each time, so we clear old records
+      // only after the new data is confirmed available.
       await db.delete(trades)
         .where(
           and(
@@ -220,7 +222,7 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
             .where(eq(brokerConnections.id, conn[0].id));
 
           // Retry sync
-          const result = await doSync(accessToken);
+          const result = await doSync(accessToken!);
           tradesToInsert = result.tradesToInsert;
           tradesToUpdate = result.tradesToUpdate;
           newLastSyncedAt = result.latestTradeTime;

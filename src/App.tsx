@@ -75,29 +75,44 @@ export default function App() {
   const fetchConnections = useBrokerStore(state => state.fetchConnections);
   const syncConnection = useBrokerStore(state => state.syncConnection);
 
+  // Ref-based guard: prevents concurrent auto-sync if token changes fire rapidly
+  // (e.g. React StrictMode double-mount, auth re-hydration)
+  const syncingRef = React.useRef(false);
+
   // Fetch connections, auto-sync active brokers, then fetch trades whenever user logs in
   useEffect(() => {
+    if (!token) return;
+    if (syncingRef.current) return; // already running — skip duplicate
+    syncingRef.current = true;
+
     const autoSyncAndFetch = async () => {
-      if (token) {
-        try {
-          await fetchConnections();
-          const { connections } = useBrokerStore.getState();
-          
-          const syncPromises = connections
-            .filter(conn => conn.isActive)
-            .map(conn => syncConnection(conn.broker));
-            
-          if (syncPromises.length > 0) {
-            await Promise.allSettled(syncPromises);
-          }
-        } catch (error) {
-          console.error("Auto-sync failed:", error);
-        } finally {
-          fetchTrades();
+      try {
+        await fetchConnections();
+        const { connections } = useBrokerStore.getState();
+
+        const activeBrokers = connections.filter(conn => conn.isActive);
+        if (activeBrokers.length > 0) {
+          const syncResults = await Promise.allSettled(
+            activeBrokers.map(conn => syncConnection(conn.broker))
+          );
+          // Log any broker sync failures without blocking trade fetch
+          syncResults.forEach((result, i) => {
+            if (result.status === 'rejected') {
+              console.error(`Auto-sync failed for ${activeBrokers[i].broker}:`, result.reason);
+            } else if (result.value?.error) {
+              console.warn(`Broker sync warning (${activeBrokers[i].broker}):`, result.value.error);
+            }
+          });
         }
+      } catch (error) {
+        console.error('Auto-sync setup failed:', error);
+      } finally {
+        // Always fetch trades, even if sync failed — show whatever is already in the DB
+        await fetchTrades();
+        syncingRef.current = false;
       }
     };
-    
+
     autoSyncAndFetch();
   }, [token, fetchTrades, fetchConnections, syncConnection]);
 

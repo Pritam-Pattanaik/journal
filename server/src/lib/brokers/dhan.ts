@@ -130,6 +130,7 @@ export async function syncDhanTrades(
           headers: {
             'Accept': 'application/json',
             'access-token': accessToken,
+            'client-id': clientId,
           }
         });
 

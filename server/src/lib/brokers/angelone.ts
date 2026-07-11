@@ -1,19 +1,16 @@
-import axios from 'axios';
 import { TOTP } from 'totp-generator';
 
 const ANGELONE_API_BASE = 'https://apiconnect.angelbroking.com/rest';
 
 export async function loginAngelOne(clientCode: string, password: string, totpSecret: string, apiKey: string) {
   try {
-    const { otp } = TOTP.generate(totpSecret);
-    const response = await axios.post(
+    // TOTP.generate() returns a Promise — must be awaited
+    const { otp } = await TOTP.generate(totpSecret);
+
+    const response = await fetch(
       `${ANGELONE_API_BASE}/auth/angelbroking/user/v1/loginByPassword`,
       {
-        clientcode: clientCode,
-        password: password,
-        totp: otp
-      },
-      {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -22,23 +19,30 @@ export async function loginAngelOne(clientCode: string, password: string, totpSe
           'X-ClientLocalIP': '127.0.0.1',
           'X-ClientPublicIP': '127.0.0.1',
           'X-MACAddress': '00:00:00:00:00:00',
-          'X-PrivateKey': apiKey
-        }
+          'X-PrivateKey': apiKey,
+        },
+        body: JSON.stringify({
+          clientcode: clientCode,
+          password: password,
+          totp: otp,
+        }),
       }
     );
 
-    if (response.data.status && response.data.data) {
+    const data = await response.json();
+
+    if (data.status && data.data) {
       return {
-        jwtToken: response.data.data.jwtToken,
-        refreshToken: response.data.data.refreshToken,
-        feedToken: response.data.data.feedToken
+        jwtToken: data.data.jwtToken as string,
+        refreshToken: data.data.refreshToken as string,
+        feedToken: data.data.feedToken as string,
       };
     } else {
-      throw new Error(response.data.message || 'Login failed');
+      throw new Error(data.message || 'Login failed');
     }
   } catch (error: any) {
-    console.error('Angel One Login Error:', error.response?.data || error.message);
-    throw new Error(error.response?.data?.message || 'Failed to authenticate with Angel One');
+    console.error('Angel One Login Error:', error.message);
+    throw new Error(error.message || 'Failed to authenticate with Angel One');
   }
 }
 
@@ -51,11 +55,12 @@ export async function syncAngelOneTrades(
   lastSyncedAt: Date | null = null
 ) {
   // Angel One's tradebook API gets today's trades.
-  // We need to fetch from: /rest/secure/angelbroking/order/v1/getTradeBook
+  // Endpoint: /rest/secure/angelbroking/order/v1/getTradeBook
   try {
-    const response = await axios.get(
+    const response = await fetch(
       `${ANGELONE_API_BASE}/secure/angelbroking/order/v1/getTradeBook`,
       {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${jwtToken}`,
           'Content-Type': 'application/json',
@@ -65,31 +70,36 @@ export async function syncAngelOneTrades(
           'X-ClientLocalIP': '127.0.0.1',
           'X-ClientPublicIP': '127.0.0.1',
           'X-MACAddress': '00:00:00:00:00:00',
-          'X-PrivateKey': apiKey
-        }
+          'X-PrivateKey': apiKey,
+        },
       }
     );
 
-    if (!response.data.status) {
-      if (response.data.message === 'Invalid Token') {
-         throw new Error('TOKEN_EXPIRED'); // we can catch this in index.ts and trigger auto-login
-      }
-      throw new Error(response.data.message || 'Failed to fetch tradebook');
+    if (response.status === 401) {
+      throw new Error('TOKEN_EXPIRED');
     }
 
-    const tradesData = response.data.data || [];
-    
-    // For now, let's just return empty until we verify the schema of the response.
-    // The user mainly wants the connection to not throw an error and activate integration.
+    const data = await response.json();
+
+    if (!data.status) {
+      if (data.message === 'Invalid Token') {
+        throw new Error('TOKEN_EXPIRED'); // caught in index.ts to trigger auto-login
+      }
+      throw new Error(data.message || 'Failed to fetch tradebook');
+    }
+
+    const tradesData = data.data || [];
+
+    // Trade parsing to be implemented once Angel One schema is confirmed.
     console.log('Fetched Angel One trades:', tradesData.length);
-    
+
     return { tradesToInsert: [], tradesToUpdate: [], latestTradeTime: new Date() };
 
   } catch (error: any) {
-    if (error.message === 'TOKEN_EXPIRED' || error.response?.status === 401) {
+    if (error.message === 'TOKEN_EXPIRED') {
       throw new Error('TOKEN_EXPIRED');
     }
-    console.error('Angel One Sync Error:', error.response?.data || error.message);
+    console.error('Angel One Sync Error:', error.message);
     throw error;
   }
 }
