@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Download } from 'lucide-react';
+import { Plus, Download, RefreshCw } from 'lucide-react';
 import { Trade } from '../types';
 import FilterBar from '../components/trade/FilterBar';
 import TradeRow from '../components/trade/TradeRow';
@@ -7,6 +7,7 @@ import TradeModal from '../components/trade/TradeModal';
 import TradeFormModal from '../components/trade/TradeFormModal';
 import Button from '../components/ui/Button';
 import { useTradeStore } from '../stores/tradeStore';
+import { useBrokerStore } from '../stores/brokerStore';
 import { formatCurrency, formatDateFull } from '../lib/analytics';
 import { getLocalYYYYMMDD } from '../lib/dateUtils';
 
@@ -20,6 +21,21 @@ export default function Trades() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [tradeToEdit, setTradeToEdit] = useState<Trade | null>(null);
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const { connections, syncConnection } = useBrokerStore();
+
+  const handleSync = async () => {
+    const activeBrokers = connections.filter(c => c.isActive);
+    if (activeBrokers.length === 0 || isSyncing) return;
+    setIsSyncing(true);
+    try {
+      await Promise.allSettled(activeBrokers.map(c => syncConnection(c.broker)));
+      await fetchTrades();
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Filter logic
   const filteredTrades = trades
@@ -106,6 +122,15 @@ export default function Trades() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<RefreshCw className={`h-[14px] w-[14px] ${isSyncing ? 'animate-spin' : ''}`} />}
+            onClick={handleSync}
+            disabled={isSyncing}
+          >
+            {isSyncing ? 'Syncing…' : 'Sync Now'}
+          </Button>
           <Button
             variant="ghost"
             size="sm"

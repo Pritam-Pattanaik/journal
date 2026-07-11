@@ -185,15 +185,25 @@ export async function syncDhanTrades(
         String(t.exchangeTradeId) !== '0' &&
         String(t.exchangeTradeId) !== '';
 
+      // Composite key: orderId + exchangeOrderId (exchange-assigned) + qty + price + symbol
+      // This is collision-resistant even for partial fills of the same order at the same price.
+      // We intentionally do NOT include exchangeTime — it differs between API calls (real vs "NA").
       const uniqueKey = hasValidTradeId
         ? String(t.exchangeTradeId)
-        : `${t.orderId}_${t.tradedQuantity}_${t.tradedPrice}_${t.customSymbol || t.securityId || ''}`;
+        : [
+            t.orderId || '',
+            t.exchangeOrderId || '',
+            t.tradedQuantity || '',
+            t.tradedPrice || '',
+            t.customSymbol || t.securityId || '',
+          ].join('_');
 
       if (!uniqueExecutions.has(uniqueKey)) {
         uniqueExecutions.set(uniqueKey, t);
       }
     }
     allTrades = Array.from(uniqueExecutions.values());
+
 
     // ── FIX #3: Sort using getBestTime() — never use raw exchangeTime alone ───
     // parseDhanTime("NA") previously returned new Date() (now), causing those
