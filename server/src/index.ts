@@ -337,7 +337,7 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
 
     await prisma.brokerConnection.update({
       where: { id: conn.id },
-      data: { lastSyncedAt: newLastSyncedAt || conn.lastSyncedAt || new Date() },
+      data: { lastSyncedAt: new Date() },
     });
 
     res.json({ success: true, count: tradesToInsert.length + tradesToUpdate.length });

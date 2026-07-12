@@ -141,6 +141,32 @@ export async function syncDhanTrades(
 
     let currentChunkStart = new Date(overallFromDate);
 
+    // ── INTRADAY SYNC (Today's Endpoint) ──────────────────────────────────────
+    // Fetch today's trades directly to bypass the historical API delay.
+    try {
+      const intradayRes = await fetch('https://api.dhan.co/v2/trades', {
+        headers: {
+          'Accept': 'application/json',
+          'access-token': accessToken,
+          'client-id': clientId,
+        }
+      });
+      if (intradayRes.ok) {
+        const data = await intradayRes.json();
+        const trades = Array.isArray(data) ? data : (data.data || []);
+        for (const t of trades) {
+          // If the intraday trade has "NA" for its timestamp, fallback to today's date
+          // so it doesn't get discarded as 1970-01-01 later.
+          if ((!t.exchangeTime || t.exchangeTime === 'NA') && (!t.createTime || t.createTime === 'NA')) {
+            t.createTime = new Date().toISOString();
+          }
+        }
+        allTrades = allTrades.concat(trades);
+        console.log(`[Dhan Sync] Fetched ${trades.length} intraday trades from Today's endpoint.`);
+      }
+    } catch (e) {
+      console.warn('[Dhan Sync] Failed to fetch intraday trades:', e);
+    }
 
     while (currentChunkStart < overallToDate) {
       let currentChunkEnd = new Date(currentChunkStart);
