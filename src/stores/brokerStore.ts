@@ -32,6 +32,7 @@ interface BrokerStore {
   removeConnection: (broker: string) => Promise<{ error?: string }>;
   syncConnection: (broker: string, fullSync?: boolean) => Promise<SyncResult>;
   syncAll: (fullSync?: boolean) => Promise<{ totalSynced: number; errors: string[] }>;
+  updateToken: (broker: string, newToken: string) => Promise<{ error?: string }>;
 }
 
 export const useBrokerStore = create<BrokerStore>((set, get) => ({
@@ -163,5 +164,15 @@ export const useBrokerStore = create<BrokerStore>((set, get) => ({
     }
 
     return { totalSynced, errors };
+  },
+
+  updateToken: async (broker, newToken) => {
+    try {
+      await api.patch(`/brokers/${broker}/token`, { apiKey: newToken });
+      await get().fetchConnections();
+      return {};
+    } catch (err: any) {
+      return { error: err.message || 'Failed to update token' };
+    }
   },
 }));

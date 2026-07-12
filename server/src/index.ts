@@ -147,6 +147,29 @@ app.delete('/api/brokers/:broker', authenticate, async (req: AuthRequest, res: R
   }
 });
 
+// Update only the access token for a broker connection (e.g. when Dhan token expires daily)
+app.patch('/api/brokers/:broker/token', authenticate, async (req: AuthRequest, res: Response): Promise<any> => {
+  try {
+    const broker = String(req.params.broker);
+    const { apiKey } = req.body;
+    if (!apiKey) return res.status(400).json({ error: 'New token (apiKey) is required' });
+
+    const conn = await prisma.brokerConnection.findFirst({
+      where: { userId: req.userId!, broker },
+    });
+    if (!conn) return res.status(404).json({ error: 'Broker connection not found' });
+
+    await prisma.brokerConnection.update({
+      where: { id: conn.id },
+      data: { apiKey, isActive: true },
+    });
+
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to update token' });
+  }
+});
+
 app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res: Response): Promise<any> => {
   try {
     const broker = String(req.params.broker);

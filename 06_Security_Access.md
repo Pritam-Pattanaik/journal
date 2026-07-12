@@ -20,8 +20,8 @@ All security decisions are made with worst-case breach scenarios in mind. The go
 ## 2. Authentication
 
 ### 2.1 Provider
-Supabase Auth is the authentication layer. It manages:
-- Email and password accounts (bcrypt hashed, Supabase handles this)
+JWT/Express Auth is the authentication layer. It manages:
+- Email and password accounts (bcrypt hashed, Neon/Express handles this)
 - Google OAuth 2.0
 - JWT session tokens (short-lived access + long-lived refresh)
 - Email verification for new accounts
@@ -35,30 +35,30 @@ Supabase Auth is the authentication layer. It manages:
 | Refresh token lifetime | 30 days |
 | Refresh token rotation | Enabled (each refresh issues a new refresh token) |
 | Concurrent sessions | Allowed (multiple devices) |
-| Session invalidation | On password change, on explicit logout, on Supabase admin action |
+| Session invalidation | On password change, on explicit logout, on Neon/Express admin action |
 
 ### 2.3 Password Policy
 - Minimum 8 characters
-- Supabase enforces uniqueness of email per account
+- Neon/Express enforces uniqueness of email per account
 - No maximum character limit
 - Password strength indicator shown on signup (client-side only — not enforced server-side beyond minimum length)
 
 ### 2.4 OAuth (Google)
 - Standard OAuth 2.0 PKCE flow
-- Supabase handles token exchange
+- Neon/Express handles token exchange
 - Google account email becomes the primary identifier
-- No Google tokens stored — only Supabase session tokens
+- No Google tokens stored — only Neon/Express session tokens
 
 ### 2.5 Multi-Factor Authentication
 - Not implemented in v1
-- Planned for v2 — Supabase TOTP (authenticator app) support
+- Planned for v2 — Neon/Express TOTP (authenticator app) support
 
 ---
 
 ## 3. Authorization & Row Level Security
 
 ### 3.1 Principle
-Every database table uses Supabase Row Level Security (RLS). Users can only read, write, or delete their own rows. This is enforced at the database layer — not just the application layer — meaning even a compromised API call cannot retrieve another user's data.
+Every database table uses Server-side auth middleware (JWT). Users can only read, write, or delete their own rows. This is enforced at the database layer — not just the application layer — meaning even a compromised API call cannot retrieve another user's data.
 
 ### 3.2 RLS Policies — All Tables
 
@@ -89,13 +89,13 @@ CREATE POLICY "Users can delete own trades"
 Identical policies applied to: `profiles`, `broker_connections`, `strategies`, `journal_entries`, `ai_insights`.
 
 ### 3.3 Service Role (Admin)
-Supabase Edge Functions that run server-side operations (broker sync, AI analysis, weekly digest) use the `SUPABASE_SERVICE_ROLE_KEY`. This key bypasses RLS and is:
+Express API that run server-side operations (broker sync, AI analysis, weekly digest) use the `Neon/Express_SERVICE_ROLE_KEY`. This key bypasses RLS and is:
 - Never exposed to the frontend
-- Stored only as a Supabase Edge Function secret
+- Stored only as a Express API secret
 - Used only within Edge Function scope where the user_id is validated from the JWT before any DB operation
 
 ### 3.4 Anon Key
-The Supabase `anon` key is exposed to the frontend. It has no special permissions. All anon-key requests are subject to RLS. The anon key alone cannot read any user data without a valid JWT.
+The Neon/Express `anon` key is exposed to the frontend. It has no special permissions. All anon-key requests are subject to RLS. The anon key alone cannot read any user data without a valid JWT.
 
 ---
 
@@ -119,7 +119,7 @@ Exchanges for access_token with Kite API
         │
         ▼
 Encrypts access_token using AES-256-GCM
-(encryption key stored in Supabase Vault — not in database)
+(encryption key stored in Server-side encrypted storage — not in database)
         │
         ▼
 Stores encrypted ciphertext in broker_connections.access_token column
@@ -140,7 +140,7 @@ Encrypted ciphertext stored in broker_connections.api_key
 ```
 
 ### 4.2 Encryption Key Management
-- The AES-256 encryption key (`ENCRYPTION_KEY`) is stored in Supabase Vault (encrypted secrets store)
+- The AES-256 encryption key (`ENCRYPTION_KEY`) is stored in Server-side encrypted storage (encrypted secrets store)
 - It is never written to the database or codebase
 - It is injected into Edge Functions at runtime as an environment variable
 - Key rotation procedure: generate new key → re-encrypt all stored credentials → update Vault → deprecate old key
@@ -165,7 +165,7 @@ Encrypted ciphertext stored in broker_connections.api_key
 - Plain-text API keys or access tokens (anywhere in the system)
 - Zerodha `api_secret` per user (the platform secret is server-only; users provide their `api_key` only)
 - TOTP secrets for AngelOne in readable form
-- Browser localStorage, cookies, or sessionStorage (tokens only in Supabase Auth session which uses httpOnly cookies)
+- Browser localStorage, cookies, or sessionStorage (tokens only in JWT/Express Auth session which uses httpOnly cookies)
 
 ---
 
@@ -174,16 +174,16 @@ Encrypted ciphertext stored in broker_connections.api_key
 ### 5.1 Transport
 - HTTPS only — no HTTP endpoints
 - TLS 1.2 minimum, TLS 1.3 preferred
-- Enforced by Vercel (frontend) and Supabase (backend)
+- Enforced by Vercel (frontend) and Neon PostgreSQL + Express
 - HSTS headers enabled on the custom domain
 
 ### 5.2 API Communication
-- All frontend-to-Supabase calls use the Supabase JS client which handles JWT attachment automatically
+- All frontend-to-Neon/Express calls use the REST API client (fetch) which handles JWT attachment automatically
 - All Edge Function calls are HTTPS with JWT validation as first step
 - No API keys are passed from frontend to backend in request bodies — they are submitted once and stored encrypted server-side
 
 ### 5.3 CORS
-- Supabase CORS configured to allow requests only from the production domain and localhost in development
+- Neon/Express CORS configured to allow requests only from the production domain and localhost in development
 - Wildcard origins (`*`) are never used in production
 
 ---
@@ -198,8 +198,8 @@ Encrypted ciphertext stored in broker_connections.api_key
 
 ### 6.2 Database Validation
 - All tables use Postgres CHECK constraints (e.g., discipline_score BETWEEN 1 AND 5, status IN ('WIN','LOSS','BREAKEVEN'))
-- Parameterized queries only via Supabase SDK — no raw SQL string concatenation in application code
-- Supabase RLS acts as a second layer even if frontend validation is bypassed
+- Parameterized queries only via Prisma ORM — no raw SQL string concatenation in application code
+- Server-side auth middleware acts as a second layer even if frontend validation is bypassed
 
 ### 6.3 Edge Function Validation
 - Every Edge Function validates the incoming JWT as first step — no processing before auth
@@ -212,7 +212,7 @@ Encrypted ciphertext stored in broker_connections.api_key
 - AI coaching output is rendered as plain text (white-space: pre-wrap) — never as HTML
 
 ### 6.5 Rate Limiting
-- Supabase enforces rate limits on Auth endpoints (signup, login, password reset) by default
+- Neon/Express enforces rate limits on Auth endpoints (signup, login, password reset) by default
 - Edge Functions (especially `run-ai-analysis`) check last analysis timestamp to prevent Claude API abuse
 - Broker sync Edge Functions are callable maximum once per 15 minutes per user
 
@@ -224,13 +224,13 @@ Encrypted ciphertext stored in broker_connections.api_key
 |---|---|---|---|
 | Authenticated User | Logged-in trader | Own rows only (RLS) | Can call user-scoped functions |
 | Service Role (Edge Fn) | Server-side processes | All rows (RLS bypassed) | Internal only — not callable by frontend |
-| Database Admin (Supabase Dashboard) | Platform admin | Full access | Full access |
+| Database Admin (Neon dashboard) | Platform admin | Full access | Full access |
 | No role (anon) | Unauthenticated visitor | None (RLS blocks all) | None |
 
 ### 7.1 Admin Access
-There is no in-app admin panel in v1. Administrative actions (user deletion, data queries, support) are done directly via the Supabase Dashboard with:
+There is no in-app admin panel in v1. Administrative actions (user deletion, data queries, support) are done directly via the Neon dashboard with:
 - Admin access limited to named team members only
-- Dashboard protected by Supabase account MFA
+- Dashboard protected by Neon/Express account MFA
 - No shared admin credentials — individual logins only
 
 ---
@@ -240,12 +240,12 @@ There is no in-app admin panel in v1. Administrative actions (user deletion, dat
 ### 8.1 Data Collected
 | Data Type | Purpose | Stored |
 |---|---|---|
-| Name, email | Account identification | Supabase Auth + profiles table |
+| Name, email | Account identification | JWT/Express Auth + profiles table |
 | Trade history | Core journaling feature | trades table |
 | Journal entries | Core journaling feature | journal_entries table |
 | Broker API credentials | Trade sync automation | broker_connections (encrypted) |
 | AI analysis results | Coaching history | ai_insights table |
-| IP address, user agent | Supabase Auth logs | Supabase platform (30-day retention) |
+| IP address, user agent | JWT/Express Auth logs | Neon platform (30-day retention) |
 
 ### 8.2 Data Not Collected
 - No financial account numbers or demat account details
@@ -261,7 +261,7 @@ There is no in-app admin panel in v1. Administrative actions (user deletion, dat
 ### 8.4 Third-Party Data Sharing
 | Third Party | Data Shared | Purpose |
 |---|---|---|
-| Supabase | All user and trade data | Storage, auth, compute |
+| Neon/Express | All user and trade data | Storage, auth, compute |
 | Anthropic (Claude) | Anonymized trade summaries | AI coaching analysis |
 | Vercel | None (static frontend only) | Hosting |
 | Resend | Email address | Weekly digest delivery |
@@ -284,15 +284,15 @@ Users can:
 If a broker credential is suspected to have been accessed by an unauthorized party:
 1. Immediately revoke the token via broker's API
 2. Delete the record from `broker_connections`
-3. Force-expire the user's Supabase session
+3. Force-expire the user's Neon/Express session
 4. Notify the user by email with instructions to revoke access in their broker account
-5. Rotate the `ENCRYPTION_KEY` in Supabase Vault
+5. Rotate the `ENCRYPTION_KEY` in Server-side encrypted storage
 6. Re-encrypt all remaining stored tokens with the new key
 
 ### 9.2 Database Breach
 If the Postgres database is compromised:
 - Broker credentials are encrypted at rest — attacker cannot decrypt without the Vault key
-- User passwords are managed by Supabase Auth (bcrypt, separate from application DB)
+- User passwords are managed by JWT/Express Auth (bcrypt, separate from application DB)
 - Notify all users to change passwords and revoke broker connections as a precaution
 
 ### 9.3 Vulnerability Reporting
@@ -305,7 +305,7 @@ Security issues should be reported to the platform owner directly (not via publi
 ### 10.1 Secrets Management
 - No secrets in source code, ever
 - `.env.local` files in `.gitignore` — never committed
-- Production secrets in Supabase Vault and Vercel Environment Variables only
+- Production secrets in Server-side encrypted storage and Vercel Environment Variables only
 - CI/CD secrets stored in GitHub Actions Secrets (not in YAML files)
 
 ### 10.2 Dependency Management
@@ -319,7 +319,7 @@ Security issues should be reported to the platform owner directly (not via publi
 - No direct commits to main branch
 
 ### 10.4 Environment Separation
-- Separate Supabase projects for development and production
+- Separate Neon projects for development and production
 - Separate Vercel deployments for preview and production
 - Production database never seeded with real user data from dev environments
 
@@ -328,7 +328,7 @@ Security issues should be reported to the platform owner directly (not via publi
 ## 11. Security Checklist — Pre-Launch
 
 - [ ] RLS enabled and tested on all tables
-- [ ] Supabase anon key confirmed to have no elevated permissions
+- [ ] Neon/Express anon key confirmed to have no elevated permissions
 - [ ] Broker token encryption tested: store encrypted → decrypt → verify match
 - [ ] Edge Function JWT validation tested: reject requests with invalid tokens
 - [ ] CORS configured to production domain only
@@ -338,7 +338,7 @@ Security issues should be reported to the platform owner directly (not via publi
 - [ ] No secrets in git history (checked with `git-secrets` or equivalent)
 - [ ] Admin dashboard access locked to named individuals with MFA
 - [ ] Account deletion flow tested — all cascade deletes verified
-- [ ] Supabase Auth email templates customized (no default Supabase branding with internal config details)
+- [ ] JWT/Express Auth email templates customized (no default Neon/Express branding with internal config details)
 
 ---
 

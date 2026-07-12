@@ -58,7 +58,7 @@ TradeVault turns a trader's own history into their most honest coach. Every loss
 ## 5. Core Features — MVP (Phase 1 + Phase 2)
 
 ### 5.1 Authentication & Multi-User
-- Email/password signup and login via Supabase Auth
+- Email/password signup and login via JWT/Express Auth
 - Google OAuth login
 - Individual user accounts — data completely isolated per user
 - Profile management (name, avatar, timezone)
@@ -191,7 +191,7 @@ TradeVault turns a trader's own history into their most honest coach. Every loss
 Full UI with all pages, mock data, real Claude API AI coaching, no auth
 
 ### Phase 2 — Backend (Weeks 4–7)
-Supabase auth, Postgres DB, data persistence, Zerodha OAuth, AngelOne API
+JWT/Express Auth, Postgres DB, data persistence, Zerodha OAuth, AngelOne API
 
 ### Phase 3 — Advanced (Weeks 8–12)
 Weekly email digest, calendar heatmap, crypto manual entry, CSV export, mobile-responsive polish

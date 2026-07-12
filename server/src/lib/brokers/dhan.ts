@@ -154,14 +154,35 @@ export async function syncDhanTrades(
 
       while (hasMore) {
         const url = `https://api.dhan.co/v2/trades/${formatDate(currentChunkStart)}/${formatDate(currentChunkEnd)}/${page}`;
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'access-token': accessToken,
-            'client-id': clientId,
+
+        // 15-second timeout per request — prevents hanging forever on expired/invalid tokens
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        let response: Response;
+        try {
+          response = await fetch(url, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'access-token': accessToken,
+              'client-id': clientId,
+            },
+            signal: controller.signal,
+          });
+        } catch (fetchErr: any) {
+          clearTimeout(timeoutId);
+          if (fetchErr.name === 'AbortError') {
+            throw new Error('TOKEN_EXPIRED: Dhan API timed out — your Access Token has likely expired. Please paste a new token in Settings → Connected Brokers.');
           }
-        });
+          throw fetchErr;
+        }
+        clearTimeout(timeoutId);
+
+        // 401 / 403 = expired or invalid token
+        if (response.status === 401 || response.status === 403) {
+          throw new Error('TOKEN_EXPIRED: Dhan Access Token is invalid or expired. Please paste a new token in Settings → Connected Brokers.');
+        }
 
         if (!response.ok) {
           const errText = await response.text();
@@ -176,6 +197,7 @@ export async function syncDhanTrades(
         }
 
         const data = await response.json();
+
         const tradesList = Array.isArray(data) ? data : (data.data || []);
 
         if (!Array.isArray(tradesList) || tradesList.length === 0) {

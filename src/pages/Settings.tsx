@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, AlertTriangle, LogOut, Trash2, RefreshCw, BookOpen, Check, CheckCircle2 } from 'lucide-react';
+import { Shield, AlertTriangle, LogOut, Trash2, RefreshCw, BookOpen, Check, CheckCircle2, Key } from 'lucide-react';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import { useAuthStore } from '../stores/authStore';
@@ -18,7 +18,7 @@ const SUPPORTED_BROKERS = [
 
 export default function Settings() {
   const { profile, signOut, updateProfile } = useAuthStore();
-  const { connections, fetchConnections, addConnection, removeConnection, syncConnection, syncingBrokers } = useBrokerStore();
+  const { connections, fetchConnections, addConnection, removeConnection, syncConnection, syncingBrokers, updateToken } = useBrokerStore();
 
   const { rules, fetchRules, saveRules } = useTradingRulesStore();
 
@@ -95,6 +95,11 @@ export default function Settings() {
   const [apiPassword, setApiPassword] = useState('');
   const [totpSecret, setTotpSecret] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
+  // Per-broker token update state: key = broker id
+  const [updatingToken, setUpdatingToken] = useState<Record<string, boolean>>({});
+  const [tokenInputs, setTokenInputs] = useState<Record<string, string>>({});
+  const [showTokenInput, setShowTokenInput] = useState<Record<string, boolean>>({});
+  const [brokerSyncErrors, setBrokerSyncErrors] = useState<Record<string, string>>({});
   const [notification, setNotification] = useState<{ type: 'error' | 'success', message: string } | null>(null);
 
   const notify = (type: 'error' | 'success', message: string) => {
@@ -159,15 +164,42 @@ export default function Settings() {
   };
 
   const handleSync = async (brokerId: string, fullSync = false) => {
+    setBrokerSyncErrors(prev => ({ ...prev, [brokerId]: '' }));
     const { error, count } = await syncConnection(brokerId, fullSync);
     if (error) {
-      notify('error', error);
+      // Detect token expiry error from Dhan
+      if (error.includes('TOKEN_EXPIRED') || error.includes('expired') || error.includes('timed out')) {
+        setBrokerSyncErrors(prev => ({
+          ...prev,
+          [brokerId]: 'Access Token expired. Paste a new token below to continue syncing.',
+        }));
+        setShowTokenInput(prev => ({ ...prev, [brokerId]: true }));
+      } else {
+        notify('error', error);
+      }
     } else {
       notify('success', fullSync
         ? `Full resync complete — ${count} trades rebuilt from 90-day history!`
         : `Successfully synced ${count} trades!`
       );
-      // syncConnection already calls fetchTrades automatically
+    }
+  };
+
+  const handleUpdateToken = async (brokerId: string) => {
+    const newToken = tokenInputs[brokerId]?.trim();
+    if (!newToken) return;
+    setUpdatingToken(prev => ({ ...prev, [brokerId]: true }));
+    const { error } = await updateToken(brokerId, newToken);
+    setUpdatingToken(prev => ({ ...prev, [brokerId]: false }));
+    if (error) {
+      notify('error', 'Failed to update token: ' + error);
+    } else {
+      setTokenInputs(prev => ({ ...prev, [brokerId]: '' }));
+      setShowTokenInput(prev => ({ ...prev, [brokerId]: false }));
+      setBrokerSyncErrors(prev => ({ ...prev, [brokerId]: '' }));
+      notify('success', 'Token updated! Syncing trades now…');
+      // Kick off a fresh sync immediately with the new token
+      handleSync(brokerId, false);
     }
   };
 
@@ -200,28 +232,65 @@ export default function Settings() {
             {connections.map((conn) => {
               const brokerName = SUPPORTED_BROKERS.find(b => b.id === conn.broker)?.name || conn.broker;
               return (
-                <div key={conn.id} className="card space-y-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-tv-md text-primary">{brokerName}</span>
-                      <Badge variant="win">Connected</Badge>
+                <div key={conn.id} className="card space-y-3.5 flex flex-col">
+                  {/* Broker info row */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-tv-md text-primary">{brokerName}</span>
+                        <Badge variant="win">Connected</Badge>
+                      </div>
+                      {conn.clientId && <div className="text-tv-xs font-mono text-secondary mt-1">Client ID: {conn.clientId}</div>}
+                      {conn.lastSyncedAt && <div className="text-tv-xs text-secondary mt-1">Last synced: {new Date(conn.lastSyncedAt).toLocaleString()}</div>}
                     </div>
-                    {conn.clientId && <div className="text-tv-xs font-mono text-secondary mt-1">Client ID: {conn.clientId}</div>}
-                    {conn.lastSyncedAt && <div className="text-tv-xs text-secondary mt-1">Last synced: {new Date(conn.lastSyncedAt).toLocaleString()}</div>}
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => handleSync(conn.broker, false)} disabled={!!syncingBrokers[conn.broker]}>
+                        <RefreshCw className={`w-4 h-4 mr-1.5 ${syncingBrokers[conn.broker] ? 'animate-spin' : ''}`} /> Sync Trades
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleSync(conn.broker, true)} disabled={!!syncingBrokers[conn.broker]}
+                        title="Re-fetch full 90-day history and recompute all P&L from scratch"
+                        className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10">
+                        <RefreshCw className={`w-4 h-4 mr-1.5 ${syncingBrokers[conn.broker] ? 'animate-spin' : ''}`} /> Full Resync
+                      </Button>
+                      <Button variant="ghost" size="sm"
+                        onClick={() => setShowTokenInput(prev => ({ ...prev, [conn.broker]: !prev[conn.broker] }))}
+                        title="Paste a new access token (Dhan tokens expire daily)">
+                        <Key className="w-4 h-4 mr-1.5" /> Update Token
+                      </Button>
+                      <Button variant="danger" size="sm" onClick={() => handleDisconnect(conn.broker)}>
+                        <Trash2 className="w-4 h-4 mr-1.5" /> Disconnect
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                    <Button variant="ghost" size="sm" onClick={() => handleSync(conn.broker, false)} disabled={!!syncingBrokers[conn.broker]}>
-                      <RefreshCw className={`w-4 h-4 mr-1.5 ${syncingBrokers[conn.broker] ? 'animate-spin' : ''}`} /> Sync Trades
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleSync(conn.broker, true)} disabled={!!syncingBrokers[conn.broker]}
-                      title="Re-fetch full 90-day history and recompute all P&L from scratch"
-                      className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10">
-                      <RefreshCw className={`w-4 h-4 mr-1.5 ${syncingBrokers[conn.broker] ? 'animate-spin' : ''}`} /> Full Resync
-                    </Button>
-                    <Button variant="danger" size="sm" onClick={() => handleDisconnect(conn.broker)}>
-                      <Trash2 className="w-4 h-4 mr-1.5" /> Disconnect
-                    </Button>
-                  </div>
+
+                  {/* Token expired error */}
+                  {brokerSyncErrors[conn.broker] && (
+                    <div className="flex items-start gap-2 px-3 py-2 rounded-tv-md bg-amber-500/10 border border-amber-500/30">
+                      <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <span className="text-tv-xs text-amber-300">{brokerSyncErrors[conn.broker]}</span>
+                    </div>
+                  )}
+
+                  {/* Inline token update field */}
+                  {showTokenInput[conn.broker] && (
+                    <div className="flex gap-2 items-center pt-1">
+                      <input
+                        type="text"
+                        value={tokenInputs[conn.broker] || ''}
+                        onChange={e => setTokenInputs(prev => ({ ...prev, [conn.broker]: e.target.value }))}
+                        placeholder={conn.broker === 'dhan' ? 'Paste new Dhan Access Token (JWT)' : 'Paste new API Key'}
+                        className="input-base font-mono flex-1 text-tv-xs"
+                      />
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        disabled={!tokenInputs[conn.broker]?.trim() || updatingToken[conn.broker]}
+                        onClick={() => handleUpdateToken(conn.broker)}
+                      >
+                        {updatingToken[conn.broker] ? 'Saving…' : 'Save & Sync'}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               );
             })}

@@ -12,7 +12,7 @@
 ### Steps
 
 **Step 1 — Sign Up**
-User lands on the signup page. Enters full name, email, and password (min 8 chars). Clicks "Create Account". Supabase creates `auth.users` record and triggers `profiles` table insert. Confirmation email sent.
+User lands on the signup page. Enters full name, email, and password (min 8 chars). Clicks "Create Account". Neon/Express creates `auth.users` record and triggers `profiles` table insert. Confirmation email sent.
 
 **Step 2 — Welcome Screen**
 User sees a welcome screen with two CTAs: "Connect Your Broker" or "Explore Dashboard". Skip is always available. Skipping lands on an empty Dashboard with a persistent "Connect a broker to get started" banner.
@@ -56,7 +56,7 @@ User clicks "Re-authenticate". Redirected to Kite OAuth. Completes login. New to
 If token is valid and last sync was more than 15 minutes ago → trigger background sync silently. Header shows "Syncing..." → "Synced 2 min ago" when complete.
 
 **Step 5 — Pre-market Journal**
-User navigates to Journal. Today's entry is blank. User fills in market bias, key levels, watchlist, and news. Clicks "Save Pre-Market". Entry saved to Supabase.
+User navigates to Journal. Today's entry is blank. User fills in market bias, key levels, watchlist, and news. Clicks "Save Pre-Market". Entry saved to Neon/Express.
 
 ---
 
@@ -83,7 +83,7 @@ User fills in:
 - Discipline Score: clicks 1–5 dot rating
 
 **Step 4 — Save**
-User clicks "Save Annotation". Data written to `trades` table via Supabase client. Modal shows brief success flash. Trade row in table now shows annotation indicator (small dot on the row).
+User clicks "Save Annotation". Data written to `trades` table via Neon/Express client. Modal shows brief success flash. Trade row in table now shows annotation indicator (small dot on the row).
 
 **Step 5 — Post-Market Journal (end of day)**
 User opens Journal page for today. Post-market section auto-links to today's annotated trades. User fills reflection, wins, and improvements. Saves entry.
@@ -108,7 +108,7 @@ User opens AI Coach page. Three automated insight cards are always visible (comp
 - Best Strategy Card: shows highest net P&L strategy name and win rate
 
 **Step 2 — Trigger Deep Analysis**
-User clicks "Run Analysis". Button changes to "Analyzing..." with spin icon. Request sent to Supabase Edge Function `run-ai-analysis`.
+User clicks "Run Analysis". Button changes to "Analyzing..." with spin icon. Request sent to Express API `run-ai-analysis`.
 
 **Step 3 — Edge Function Processing**
 Edge function fetches all trades for the user from the database. Formats them into a structured prompt including: date, symbol, market, P&L, strategy, mindset, decision, learnings, and discipline score per trade. Calls Claude API (`claude-sonnet-4-20250514`) with a strict coaching system prompt.
@@ -182,7 +182,7 @@ User opens Settings page → Broker Connections section.
 User clicks "Disconnect" under the connected broker. Confirmation modal: "Disconnect Zerodha? Your existing trades will remain. New trades will not sync." User confirms.
 
 **Step 3 — Cleanup**
-`broker_connections` record's `is_active` set to false. Encrypted tokens deleted from Supabase Vault. Header sync indicator disappears. Re-authenticate banner no longer shown.
+`broker_connections` record's `is_active` set to false. Encrypted tokens deleted from Server-side encrypted storage. Header sync indicator disappears. Re-authenticate banner no longer shown.
 
 **Step 4 — Trade Data**
 All previously synced trades remain in the database. They are not deleted. User can still annotate and analyze them.
@@ -197,7 +197,7 @@ All previously synced trades remain in the database. They are not deleted. User 
 ### Steps
 
 **Step 1 — Cron Trigger**
-Supabase Edge Function `weekly-digest` fires every Monday at 7:00 AM IST via pg_cron.
+Express API `weekly-digest` fires every Monday at 7:00 AM IST via pg_cron.
 
 **Step 2 — User Selection**
 Function queries all users with `is_active = true` and at least 1 trade in the past 7 days.
@@ -251,7 +251,7 @@ Broker API (Zerodha/AngelOne)
         ├── Check for duplicates (broker_trade_id UNIQUE constraint)
         │
         ▼
-  Supabase Postgres (trades table)
+  Neon PostgreSQL (trades table)
         │  INSERT ... ON CONFLICT DO NOTHING
         ▼
   Realtime broadcast → Frontend
@@ -277,7 +277,7 @@ Frontend: User clicks "Run Analysis"
         │
         ▼
   Anthropic Claude API
-  (API key stored as Supabase Secret — never exposed to client)
+  (API key stored as Neon/Express Secret — never exposed to client)
         │
         │  Response: structured coaching text
         ▼
