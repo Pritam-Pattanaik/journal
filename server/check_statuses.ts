@@ -1,14 +1,12 @@
-import { db } from './src/db';
-import { trades } from './src/db/schema';
-import { sql } from 'drizzle-orm';
+import { prisma } from './src/db';
 
 async function main() {
-  const result = await db.select({
-    status: trades.status,
-    count: sql<number>`count(*)`,
-  }).from(trades).groupBy(trades.status);
+  const result = await prisma.trade.groupBy({
+    by: ['status'],
+    _count: { status: true },
+  });
   
-  console.log('Statuses in DB:', result);
+  console.log('Statuses in DB:', result.map(r => ({ status: r.status, count: r._count.status })));
   process.exit(0);
 }
 

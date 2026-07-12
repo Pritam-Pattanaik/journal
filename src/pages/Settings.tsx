@@ -4,7 +4,6 @@ import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import { useAuthStore } from '../stores/authStore';
 import { useBrokerStore } from '../stores/brokerStore';
-import { useTradeStore } from '../stores/tradeStore';
 import { useTradingRulesStore } from '../stores/tradingRulesStore';
 
 const SUPPORTED_BROKERS = [
@@ -19,8 +18,7 @@ const SUPPORTED_BROKERS = [
 
 export default function Settings() {
   const { profile, signOut, updateProfile } = useAuthStore();
-  const { connections, fetchConnections, addConnection, removeConnection, syncConnection } = useBrokerStore();
-  const fetchTrades = useTradeStore(state => state.fetchTrades);
+  const { connections, fetchConnections, addConnection, removeConnection, syncConnection, syncingBrokers } = useBrokerStore();
 
   const { rules, fetchRules, saveRules } = useTradingRulesStore();
 
@@ -97,7 +95,6 @@ export default function Settings() {
   const [apiPassword, setApiPassword] = useState('');
   const [totpSecret, setTotpSecret] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
-  const [syncingBroker, setSyncingBroker] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ type: 'error' | 'success', message: string } | null>(null);
 
   const notify = (type: 'error' | 'success', message: string) => {
@@ -162,7 +159,6 @@ export default function Settings() {
   };
 
   const handleSync = async (brokerId: string, fullSync = false) => {
-    setSyncingBroker(brokerId);
     const { error, count } = await syncConnection(brokerId, fullSync);
     if (error) {
       notify('error', error);
@@ -171,10 +167,8 @@ export default function Settings() {
         ? `Full resync complete — ${count} trades rebuilt from 90-day history!`
         : `Successfully synced ${count} trades!`
       );
-      // Refresh the trades store so the Trades page shows new data
-      await fetchTrades();
+      // syncConnection already calls fetchTrades automatically
     }
-    setSyncingBroker(null);
   };
 
   return (
@@ -216,13 +210,13 @@ export default function Settings() {
                     {conn.lastSyncedAt && <div className="text-tv-xs text-secondary mt-1">Last synced: {new Date(conn.lastSyncedAt).toLocaleString()}</div>}
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                    <Button variant="ghost" size="sm" onClick={() => handleSync(conn.broker, false)} disabled={syncingBroker === conn.broker}>
-                      <RefreshCw className={`w-4 h-4 mr-1.5 ${syncingBroker === conn.broker ? 'animate-spin' : ''}`} /> Sync Trades
+                    <Button variant="ghost" size="sm" onClick={() => handleSync(conn.broker, false)} disabled={!!syncingBrokers[conn.broker]}>
+                      <RefreshCw className={`w-4 h-4 mr-1.5 ${syncingBrokers[conn.broker] ? 'animate-spin' : ''}`} /> Sync Trades
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleSync(conn.broker, true)} disabled={syncingBroker === conn.broker}
+                    <Button variant="ghost" size="sm" onClick={() => handleSync(conn.broker, true)} disabled={!!syncingBrokers[conn.broker]}
                       title="Re-fetch full 90-day history and recompute all P&L from scratch"
                       className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10">
-                      <RefreshCw className={`w-4 h-4 mr-1.5 ${syncingBroker === conn.broker ? 'animate-spin' : ''}`} /> Full Resync
+                      <RefreshCw className={`w-4 h-4 mr-1.5 ${syncingBrokers[conn.broker] ? 'animate-spin' : ''}`} /> Full Resync
                     </Button>
                     <Button variant="danger" size="sm" onClick={() => handleDisconnect(conn.broker)}>
                       <Trash2 className="w-4 h-4 mr-1.5" /> Disconnect

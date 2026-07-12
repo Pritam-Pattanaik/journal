@@ -3,7 +3,7 @@ import { Trade } from '../types';
 import { api } from '../lib/api';
 
 // ─── Type adapters (DB → Frontend) ───────────────────────────────────────────
-// The DB returns numeric fields as strings (Drizzle numeric type).
+// The DB returns numeric fields as strings (Prisma Decimal type).
 // This normalizes them back to numbers.
 function normalize(raw: any): Trade {
   return {

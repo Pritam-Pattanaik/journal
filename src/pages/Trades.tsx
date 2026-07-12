@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Download, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Download, RefreshCw, Loader2 } from 'lucide-react';
 import { Trade } from '../types';
 import FilterBar from '../components/trade/FilterBar';
 import TradeRow from '../components/trade/TradeRow';
@@ -12,7 +12,7 @@ import { formatCurrency, formatDateFull } from '../lib/analytics';
 import { getLocalYYYYMMDD } from '../lib/dateUtils';
 
 export default function Trades() {
-  const { trades, fetchTrades, addTrade, updateTrade, deleteTrade } = useTradeStore();
+  const { trades, loading, fetchTrades, addTrade, updateTrade, deleteTrade } = useTradeStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [marketFilter, setMarketFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -21,20 +21,38 @@ export default function Trades() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [tradeToEdit, setTradeToEdit] = useState<Trade | null>(null);
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
-  const [isSyncing, setIsSyncing] = useState(false);
 
-  const { connections, syncConnection } = useBrokerStore();
+  const { connections, isSyncing, lastSyncedAt, lastSyncError, syncingBrokers } = useBrokerStore();
+  const syncAll = useBrokerStore(state => state.syncAll);
+
+  // Fetch trades on mount if store is empty (e.g. direct navigation to /trades)
+  useEffect(() => {
+    if (trades.length === 0 && !loading) {
+      fetchTrades();
+    }
+  }, []);
 
   const handleSync = async () => {
-    const activeBrokers = connections.filter(c => c.isActive);
-    if (activeBrokers.length === 0 || isSyncing) return;
-    setIsSyncing(true);
-    try {
-      await Promise.allSettled(activeBrokers.map(c => syncConnection(c.broker)));
-      await fetchTrades();
-    } finally {
-      setIsSyncing(false);
-    }
+    if (isSyncing) return;
+    await syncAll();
+    // syncAll automatically calls fetchTrades when done
+  };
+
+  // Compute which broker names are currently syncing for the banner
+  const syncingBrokerNames = Object.entries(syncingBrokers)
+    .filter(([, active]) => active)
+    .map(([broker]) => broker);
+
+  // Format relative "last synced" text
+  const getLastSyncedText = () => {
+    if (!lastSyncedAt) return null;
+    const diffMs = Date.now() - new Date(lastSyncedAt).getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'just now';
+    if (mins === 1) return '1 min ago';
+    if (mins < 60) return `${mins} mins ago`;
+    const hrs = Math.floor(mins / 60);
+    return hrs === 1 ? '1 hr ago' : `${hrs} hrs ago`;
   };
 
   // Filter logic
@@ -153,6 +171,25 @@ export default function Trades() {
         </div>
       </div>
 
+      {/* Live Syncing Banner */}
+      {isSyncing && (
+        <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-tv-md bg-accent/10 border border-accent/20 animate-in slide-in-from-top-2 fade-in duration-300">
+          <Loader2 className="h-4 w-4 text-accent animate-spin shrink-0" />
+          <span className="text-tv-sm text-accent-light font-medium">
+            Syncing trades{syncingBrokerNames.length > 0 ? ` from ${syncingBrokerNames.join(', ')}` : ''}…
+          </span>
+        </div>
+      )}
+
+      {/* Sync error banner */}
+      {lastSyncError && !isSyncing && (
+        <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-tv-md bg-red-500/10 border border-red-500/20 animate-in fade-in duration-300">
+          <span className="text-tv-sm text-red-400 font-medium">
+            Sync error: {lastSyncError}
+          </span>
+        </div>
+      )}
+
       {/* Filter Bar */}
       <FilterBar
         searchQuery={searchQuery}
@@ -165,9 +202,16 @@ export default function Trades() {
         onDateChange={setDateFilter}
       />
 
-      {/* Trade Count */}
-      <div className="text-tv-sm text-secondary font-ui pl-1">
-        {filteredTrades.length} {filteredTrades.length === 1 ? 'trade' : 'trades'} match your filters
+      {/* Trade Count + Last Synced */}
+      <div className="flex items-center justify-between text-tv-sm text-secondary font-ui pl-1">
+        <span>
+          {filteredTrades.length} {filteredTrades.length === 1 ? 'trade' : 'trades'} match your filters
+        </span>
+        {lastSyncedAt && (
+          <span className="text-tv-xs text-muted">
+            Last synced: {getLastSyncedText()}
+          </span>
+        )}
       </div>
 
       {/* Table / Grid Container */}
@@ -189,7 +233,9 @@ export default function Trades() {
         <div className="divide-y divide-tv-border">
           {filteredTrades.length === 0 ? (
             <div className="py-12 text-center text-secondary font-ui text-tv-sm bg-[#060b1e]/10">
-              No trades match your active filters. Try searching for a different ticker.
+              {loading
+                ? 'Loading trades…'
+                : 'No trades match your active filters. Try searching for a different ticker.'}
             </div>
           ) : (
             Array.from(

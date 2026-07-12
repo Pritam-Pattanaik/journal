@@ -1,14 +1,12 @@
-import { db } from './src/db';
-import { trades } from './src/db/schema';
-import { sql } from 'drizzle-orm';
+import { prisma } from './src/db';
 
 async function main() {
-  const result = await db.select({
-    market: trades.market,
-    count: sql<number>`count(*)`,
-  }).from(trades).groupBy(trades.market);
+  const result = await prisma.trade.groupBy({
+    by: ['market'],
+    _count: { market: true },
+  });
   
-  console.log('Markets in DB:', result);
+  console.log('Markets in DB:', result.map(r => ({ market: r.market, count: r._count.market })));
   process.exit(0);
 }
 

@@ -4,9 +4,7 @@ import dotenv from 'dotenv';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import path from 'path';
-import { db } from './db';
-import { users, trades, strategies, journalEntries, aiInsights, coachMemory, brokerConnections, tradingRules } from './db/schema';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { prisma } from './db';
 import { generateAIInsight } from './lib/ai/llm';
 import { syncDhanTrades } from './lib/brokers/dhan';
 
@@ -26,6 +24,10 @@ app.use(express.static(path.join(process.cwd(), 'public')));
 app.get('/', (_req, res) => res.redirect('/api-tester.html'));
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_please_change';
+
+// Per-user sync lock — prevents concurrent syncs for the same user which would
+// cause duplicate trades. Key = userId, value = true when sync is running.
+const syncInProgress = new Map<string, boolean>();
 
 // ─── Auth Middleware ──────────────────────────────────────────────────────────
 interface AuthRequest extends Request {
@@ -52,7 +54,7 @@ function authenticate(req: AuthRequest, res: Response, next: NextFunction): void
 function requireRoles(allowedRoles: string[]) {
   return async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const [user] = await db.select().from(users).where(eq(users.id, req.userId!));
+      const user = await prisma.user.findUnique({ where: { id: req.userId! } });
       if (!user || !allowedRoles.includes(user.role)) {
         res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
         return;
@@ -73,14 +75,17 @@ app.get('/api/health', (_req, res) => {
 // ─── BROKER CONFIGURATIONS ──────────────────────────────────────────────────
 app.get('/api/brokers', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const brokers = await db.select({
-      id: brokerConnections.id,
-      broker: brokerConnections.broker,
-      clientId: brokerConnections.clientId,
-      isActive: brokerConnections.isActive,
-      lastSyncedAt: brokerConnections.lastSyncedAt,
-      createdAt: brokerConnections.createdAt
-    }).from(brokerConnections).where(eq(brokerConnections.userId, req.userId!));
+    const brokers = await prisma.brokerConnection.findMany({
+      where: { userId: req.userId! },
+      select: {
+        id: true,
+        broker: true,
+        clientId: true,
+        isActive: true,
+        lastSyncedAt: true,
+        createdAt: true,
+      },
+    });
     res.json(brokers);
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to fetch brokers' });
@@ -95,30 +100,35 @@ app.post('/api/brokers', authenticate, async (req: AuthRequest, res: Response): 
       return res.status(400).json({ error: 'Broker and API Key are required' });
     }
 
-    const existing = await db.select().from(brokerConnections)
-      .where(and(eq(brokerConnections.userId, req.userId!), eq(brokerConnections.broker, broker)))
-      .limit(1);
+    const existing = await prisma.brokerConnection.findFirst({
+      where: { userId: req.userId!, broker },
+    });
 
-    if (existing.length > 0) {
-      const updated = await db.update(brokerConnections).set({
-        apiKey,
-        apiSecret,
-        clientId,
-        metadata,
-        isActive: true,
-      }).where(eq(brokerConnections.id, existing[0].id)).returning();
-      res.json(updated[0]);
+    if (existing) {
+      const updated = await prisma.brokerConnection.update({
+        where: { id: existing.id },
+        data: {
+          apiKey,
+          apiSecret,
+          clientId,
+          metadata,
+          isActive: true,
+        },
+      });
+      res.json(updated);
     } else {
-      const inserted = await db.insert(brokerConnections).values({
-        userId: req.userId!,
-        broker,
-        apiKey,
-        apiSecret,
-        clientId,
-        metadata,
-        isActive: true,
-      }).returning();
-      res.status(201).json(inserted[0]);
+      const inserted = await prisma.brokerConnection.create({
+        data: {
+          userId: req.userId!,
+          broker,
+          apiKey,
+          apiSecret,
+          clientId,
+          metadata,
+          isActive: true,
+        },
+      });
+      res.status(201).json(inserted);
     }
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to save broker configuration' });
@@ -128,8 +138,9 @@ app.post('/api/brokers', authenticate, async (req: AuthRequest, res: Response): 
 app.delete('/api/brokers/:broker', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const broker = String(req.params.broker);
-    await db.delete(brokerConnections)
-      .where(and(eq(brokerConnections.userId, req.userId!), eq(brokerConnections.broker, broker)));
+    await prisma.brokerConnection.deleteMany({
+      where: { userId: req.userId!, broker },
+    });
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to delete broker configuration' });
@@ -142,16 +153,25 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
     // ?full=true forces a complete 90-day backfill, ignoring lastSyncedAt.
     // Used after code fixes to correct historical data.
     const forceFullSync = req.query.full === 'true';
-    
-    const conn = await db.select().from(brokerConnections)
-      .where(and(eq(brokerConnections.userId, req.userId!), eq(brokerConnections.broker, broker)))
-      .limit(1);
 
-    if (conn.length === 0) {
+    // ── Sync lock: prevent concurrent syncs for the same user ────────────────
+    // Two parallel syncs (e.g. from rapid button clicks or double-mount) would
+    // both delete the same window and re-insert, creating duplicates.
+    const lockKey = `${req.userId!}:${broker}`;
+    if (syncInProgress.get(lockKey)) {
+      return res.json({ success: true, count: 0, alreadySyncing: true });
+    }
+    syncInProgress.set(lockKey, true);
+
+    const conn = await prisma.brokerConnection.findFirst({
+      where: { userId: req.userId!, broker },
+    });
+
+    if (!conn) {
       return res.status(404).json({ error: 'Broker connection not found' });
     }
 
-    const { apiKey, clientId } = conn[0];
+    const { apiKey, clientId } = conn;
     if (!apiKey) {
       return res.status(400).json({ error: 'API Key missing for broker' });
     }
@@ -162,23 +182,23 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
 
     if (broker === 'dhan') {
       // Fetch user's personal trading rules (may be null if not configured yet)
-      const [userRules] = await db.select().from(tradingRules)
-        .where(eq(tradingRules.userId, req.userId!))
-        .limit(1);
+      const userRules = await prisma.tradingRule.findUnique({
+        where: { userId: req.userId! },
+      });
 
       const personalRules = userRules ? {
         windowStart: userRules.windowStart,
         windowEnd: userRules.windowEnd,
         maxTradesPerDay: userRules.maxTradesPerDay,
-        maxDailyLoss: userRules.maxDailyLoss ? parseFloat(userRules.maxDailyLoss) : null,
-        maxLossPerTrade: userRules.maxLossPerTrade ? parseFloat(userRules.maxLossPerTrade) : null,
+        maxDailyLoss: userRules.maxDailyLoss ? parseFloat(String(userRules.maxDailyLoss)) : null,
+        maxLossPerTrade: userRules.maxLossPerTrade ? parseFloat(String(userRules.maxLossPerTrade)) : null,
         allowedInstruments: userRules.allowedInstruments,
         allowedMarkets: userRules.allowedMarkets,
       } : null;
 
       // Resolve the last sync time so dhan.ts can choose incremental vs full backfill.
       // forceFullSync=true (via ?full=true) overrides to null to trigger the full 90-day path.
-      const lastSyncedAt = (!forceFullSync && conn[0].lastSyncedAt) ? new Date(conn[0].lastSyncedAt) : null;
+      const lastSyncedAt = (!forceFullSync && conn.lastSyncedAt) ? new Date(conn.lastSyncedAt) : null;
 
       // Fetch from broker FIRST — if this throws (e.g., invalid token, API error),
       // we bail out before touching the database, so existing trades stay intact.
@@ -191,28 +211,24 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
       if (lastSyncedAt) {
         const windowStart = new Date(lastSyncedAt);
         windowStart.setDate(windowStart.getDate() - 2);
-        const windowStartStr = windowStart.toISOString().split('T')[0];
 
         // Delete only trades that fall within the re-fetched window
-        await db.delete(trades)
-          .where(
-            and(
-              eq(trades.userId, req.userId!),
-              eq(trades.broker, 'dhan'),
-              eq(trades.source, 'broker_sync'),
-              sql`DATE(${trades.date}) >= ${windowStartStr}::date`
-            )
-          );
+        await prisma.$executeRaw`
+          DELETE FROM trades
+          WHERE user_id = ${req.userId!}::uuid
+            AND broker = 'dhan'
+            AND source = 'broker_sync'
+            AND DATE(date) >= ${windowStart}::date
+        `;
       } else {
         // Full backfill: clear everything and rebuild from scratch
-        await db.delete(trades)
-          .where(
-            and(
-              eq(trades.userId, req.userId!),
-              eq(trades.broker, 'dhan'),
-              eq(trades.source, 'broker_sync')
-            )
-          );
+        await prisma.trade.deleteMany({
+          where: {
+            userId: req.userId!,
+            broker: 'dhan',
+            source: 'broker_sync',
+          },
+        });
       }
 
       tradesToInsert = result.tradesToInsert;
@@ -220,12 +236,12 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
       newLastSyncedAt = result.latestTradeTime;
 
     } else if (broker === 'angelone') {
-      let { accessToken } = conn[0];
-      const metadata = conn[0].metadata ? JSON.parse(conn[0].metadata) : {};
+      let { accessToken } = conn;
+      const metadata = conn.metadata ? JSON.parse(conn.metadata) : {};
       
       const doSync = async (token: string) => {
         const { syncAngelOneTrades } = await import('./lib/brokers/angelone');
-        return await syncAngelOneTrades(clientId || '', token, apiKey, req.userId!, [], conn[0].lastSyncedAt);
+        return await syncAngelOneTrades(clientId || '', token, apiKey, req.userId!, [], conn.lastSyncedAt);
       };
 
       try {
@@ -245,9 +261,10 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
           accessToken = tokens.jwtToken;
           
           // Save new tokens to DB
-          await db.update(brokerConnections)
-            .set({ accessToken: tokens.jwtToken, refreshToken: tokens.refreshToken })
-            .where(eq(brokerConnections.id, conn[0].id));
+          await prisma.brokerConnection.update({
+            where: { id: conn.id },
+            data: { accessToken: tokens.jwtToken, refreshToken: tokens.refreshToken },
+          });
 
           // Retry sync
           const result = await doSync(accessToken!);
@@ -263,13 +280,15 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
     }
 
     if (tradesToInsert.length > 0) {
-      await db.insert(trades).values(tradesToInsert.map((t: any) => {
-        const { dbId, _ruleViolations, ...rest } = t;
-        return {
-          ...rest,
-          disciplineScore: rest.disciplineScore ?? null,
-        };
-      }));
+      await prisma.trade.createMany({
+        data: tradesToInsert.map((t: any) => {
+          const { dbId, _ruleViolations, ...rest } = t;
+          return {
+            ...rest,
+            disciplineScore: rest.disciplineScore ?? null,
+          };
+        }),
+      });
     }
 
 
@@ -278,28 +297,34 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
       for (const t of tradesToUpdate) {
         if (!t.dbId) continue;
         const { dbId, ...rest } = t;
-        await db.update(trades)
-          .set({
+        await prisma.trade.update({
+          where: { id: dbId },
+          data: {
             exitPrice: rest.exitPrice,
             quantity: rest.quantity,
             pnl: rest.pnl,
             charges: rest.charges,
             netPnl: rest.netPnl,
             status: rest.status,
-            updatedAt: new Date()
-          })
-          .where(eq(trades.id, dbId));
+            updatedAt: new Date(),
+          },
+        });
       }
     }
 
-    await db.update(brokerConnections)
-      .set({ lastSyncedAt: newLastSyncedAt || conn[0].lastSyncedAt || new Date() })
-      .where(eq(brokerConnections.id, conn[0].id));
+    await prisma.brokerConnection.update({
+      where: { id: conn.id },
+      data: { lastSyncedAt: newLastSyncedAt || conn.lastSyncedAt || new Date() },
+    });
 
     res.json({ success: true, count: tradesToInsert.length + tradesToUpdate.length });
   } catch (err: any) {
     console.error('Sync Error:', err);
     res.status(500).json({ error: err.message || 'Failed to sync trades' });
+  } finally {
+    // Always release the lock, even on error
+    const lockKey = `${req.userId!}:${req.params.broker}`;
+    syncInProgress.delete(lockKey);
   }
 });
 
@@ -308,9 +333,9 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
 // GET /api/trading-rules — fetch current user's personal rules
 app.get('/api/trading-rules', authenticate, async (req: AuthRequest, res: Response): Promise<any> => {
   try {
-    const [rules] = await db.select().from(tradingRules)
-      .where(eq(tradingRules.userId, req.userId!))
-      .limit(1);
+    const rules = await prisma.tradingRule.findUnique({
+      where: { userId: req.userId! },
+    });
     res.json(rules || null);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -326,34 +351,24 @@ app.post('/api/trading-rules', authenticate, async (req: AuthRequest, res: Respo
       allowedInstruments, allowedMarkets,
     } = req.body;
 
-    const [existing] = await db.select({ id: tradingRules.id })
-      .from(tradingRules)
-      .where(eq(tradingRules.userId, req.userId!))
-      .limit(1);
-
     const payload = {
       windowStart: windowStart || null,
       windowEnd: windowEnd || null,
       maxTradesPerDay: maxTradesPerDay || null,
       maxDailyLoss: maxDailyLoss ? String(maxDailyLoss) : null,
       maxLossPerTrade: maxLossPerTrade ? String(maxLossPerTrade) : null,
-      allowedInstruments: allowedInstruments?.length ? allowedInstruments : null,
-      allowedMarkets: allowedMarkets?.length ? allowedMarkets : null,
+      allowedInstruments: allowedInstruments?.length ? allowedInstruments : [],
+      allowedMarkets: allowedMarkets?.length ? allowedMarkets : [],
       updatedAt: new Date(),
     };
 
-    if (existing) {
-      const [updated] = await db.update(tradingRules)
-        .set(payload)
-        .where(eq(tradingRules.id, existing.id))
-        .returning();
-      res.json(updated);
-    } else {
-      const [created] = await db.insert(tradingRules)
-        .values({ userId: req.userId!, ...payload })
-        .returning();
-      res.json(created);
-    }
+    const result = await prisma.tradingRule.upsert({
+      where: { userId: req.userId! },
+      update: payload,
+      create: { userId: req.userId!, ...payload },
+    });
+
+    res.json(result);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -370,18 +385,20 @@ app.post('/api/auth/signup', async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
-    if (existing.length > 0) {
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
       res.status(400).json({ error: 'An account with this email already exists' });
       return;
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
-    const [newUser] = await db.insert(users).values({
-      email,
-      password: hashedPassword,
-      fullName: fullName || null,
-    }).returning();
+    const newUser = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        fullName: fullName || null,
+      },
+    });
 
     const token = jwt.sign({ userId: newUser.id }, JWT_SECRET, { expiresIn: '30d' });
     res.status(201).json({
@@ -403,7 +420,7 @@ app.post('/api/auth/login', async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    const [user] = await db.select().from(users).where(eq(users.email, email));
+    const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       res.status(401).json({ error: 'Invalid email or password' });
       return;
@@ -429,7 +446,7 @@ app.post('/api/auth/login', async (req: Request, res: Response): Promise<void> =
 // GET /api/auth/me
 app.get('/api/auth/me', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const [user] = await db.select().from(users).where(eq(users.id, req.userId!));
+    const user = await prisma.user.findUnique({ where: { id: req.userId! } });
     if (!user) {
       res.status(404).json({ error: 'User not found' });
       return;
@@ -447,10 +464,10 @@ app.get('/api/auth/me', authenticate, async (req: AuthRequest, res: Response): P
 app.patch('/api/auth/profile', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { fullName, avatarUrl, timezone } = req.body;
-    const [updated] = await db.update(users)
-      .set({ fullName, avatarUrl, timezone, updatedAt: new Date() })
-      .where(eq(users.id, req.userId!))
-      .returning();
+    const updated = await prisma.user.update({
+      where: { id: req.userId! },
+      data: { fullName, avatarUrl, timezone, updatedAt: new Date() },
+    });
     res.json({ user: { id: updated.id, email: updated.email, fullName: updated.fullName, avatarUrl: updated.avatarUrl, timezone: updated.timezone, role: updated.role } });
   } catch (err: any) {
     console.error('Update profile error:', err);
@@ -463,9 +480,10 @@ app.patch('/api/auth/profile', authenticate, async (req: AuthRequest, res: Respo
 // GET /api/trades
 app.get('/api/trades', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const result = await db.select().from(trades)
-      .where(eq(trades.userId, req.userId!))
-      .orderBy(desc(trades.date));
+    const result = await prisma.trade.findMany({
+      where: { userId: req.userId! },
+      orderBy: { date: 'desc' },
+    });
     res.json(result);
   } catch (err: any) {
     console.error('Get trades error:', err);
@@ -477,31 +495,33 @@ app.get('/api/trades', authenticate, async (req: AuthRequest, res: Response): Pr
 app.post('/api/trades', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const body = req.body;
-    const [trade] = await db.insert(trades).values({
-      userId: req.userId!,
-      broker: body.broker || 'manual',
-      brokerTradeId: body.brokerTradeId || null,
-      date: new Date(body.date),
-      symbol: body.symbol,
-      market: body.market,
-      instrumentType: body.instrumentType,
-      direction: body.direction || null,
-      entryPrice: body.entryPrice?.toString() || null,
-      exitPrice: body.exitPrice?.toString() || null,
-      quantity: body.quantity?.toString() || null,
-      pnl: body.pnl?.toString() || null,
-      charges: body.charges?.toString() || null,
-      netPnl: body.netPnl?.toString() || null,
-      status: body.status || null,
-      strategyId: body.strategyId || null,
-      setupDescription: body.setupDescription || null,
-      mindset: body.mindset || null,
-      decisionNotes: body.decisionNotes || null,
-      learnings: body.learnings || null,
-      disciplineScore: body.disciplineScore || null,
-      tags: body.tags || null,
-      source: body.source || 'manual',
-    }).returning();
+    const trade = await prisma.trade.create({
+      data: {
+        userId: req.userId!,
+        broker: body.broker || 'manual',
+        brokerTradeId: body.brokerTradeId || null,
+        date: new Date(body.date),
+        symbol: body.symbol,
+        market: body.market,
+        instrumentType: body.instrumentType,
+        direction: body.direction || null,
+        entryPrice: body.entryPrice?.toString() || null,
+        exitPrice: body.exitPrice?.toString() || null,
+        quantity: body.quantity?.toString() || null,
+        pnl: body.pnl?.toString() || null,
+        charges: body.charges?.toString() || null,
+        netPnl: body.netPnl?.toString() || null,
+        status: body.status || null,
+        strategyId: body.strategyId || null,
+        setupDescription: body.setupDescription || null,
+        mindset: body.mindset || null,
+        decisionNotes: body.decisionNotes || null,
+        learnings: body.learnings || null,
+        disciplineScore: body.disciplineScore || null,
+        tags: body.tags || [],
+        source: body.source || 'manual',
+      },
+    });
     res.status(201).json(trade);
   } catch (err: any) {
     console.error('Create trade error:', err);
@@ -536,15 +556,21 @@ app.patch('/api/trades/:id', authenticate, async (req: AuthRequest, res: Respons
     if (body.disciplineScore !== undefined) updates.disciplineScore = body.disciplineScore;
     if (body.tags !== undefined) updates.tags = body.tags;
 
-    const [updated] = await db.update(trades)
-      .set(updates)
-      .where(and(eq(trades.id, id), eq(trades.userId, req.userId!)))
-      .returning();
+    // Prisma update throws if no record found, so we check first
+    const existing = await prisma.trade.findFirst({
+      where: { id, userId: req.userId! },
+    });
 
-    if (!updated) {
+    if (!existing) {
       res.status(404).json({ error: 'Trade not found' });
       return;
     }
+
+    const updated = await prisma.trade.update({
+      where: { id },
+      data: updates,
+    });
+
     res.json(updated);
   } catch (err: any) {
     console.error('Update trade error:', err);
@@ -556,7 +582,9 @@ app.patch('/api/trades/:id', authenticate, async (req: AuthRequest, res: Respons
 app.delete('/api/trades/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
-    await db.delete(trades).where(and(eq(trades.id, id), eq(trades.userId, req.userId!)));
+    await prisma.trade.deleteMany({
+      where: { id, userId: req.userId! },
+    });
     res.json({ success: true });
   } catch (err: any) {
     console.error('Delete trade error:', err);
@@ -569,9 +597,10 @@ app.delete('/api/trades/:id', authenticate, async (req: AuthRequest, res: Respon
 // GET /api/strategies
 app.get('/api/strategies', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const result = await db.select().from(strategies)
-      .where(eq(strategies.userId, req.userId!))
-      .orderBy(desc(strategies.createdAt));
+    const result = await prisma.strategy.findMany({
+      where: { userId: req.userId! },
+      orderBy: { createdAt: 'desc' },
+    });
     res.json(result);
   } catch (err: any) {
     console.error('Get strategies error:', err);
@@ -583,14 +612,16 @@ app.get('/api/strategies', authenticate, async (req: AuthRequest, res: Response)
 app.post('/api/strategies', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { name, description, rules, market, timeframe } = req.body;
-    const [strategy] = await db.insert(strategies).values({
-      userId: req.userId!,
-      name,
-      description: description || null,
-      rules: rules || null,
-      market: market || null,
-      timeframe: timeframe || null,
-    }).returning();
+    const strategy = await prisma.strategy.create({
+      data: {
+        userId: req.userId!,
+        name,
+        description: description || null,
+        rules: rules || null,
+        market: market || [],
+        timeframe: timeframe || null,
+      },
+    });
     res.status(201).json(strategy);
   } catch (err: any) {
     console.error('Create strategy error:', err);
@@ -603,11 +634,16 @@ app.patch('/api/strategies/:id', authenticate, async (req: AuthRequest, res: Res
   try {
     const id = req.params.id as string;
     const { name, description, rules, market, timeframe, isActive } = req.body;
-    const [updated] = await db.update(strategies)
-      .set({ name, description, rules, market, timeframe, isActive })
-      .where(and(eq(strategies.id, id), eq(strategies.userId, req.userId!)))
-      .returning();
-    if (!updated) { res.status(404).json({ error: 'Strategy not found' }); return; }
+
+    const existing = await prisma.strategy.findFirst({
+      where: { id, userId: req.userId! },
+    });
+    if (!existing) { res.status(404).json({ error: 'Strategy not found' }); return; }
+
+    const updated = await prisma.strategy.update({
+      where: { id },
+      data: { name, description, rules, market, timeframe, isActive },
+    });
     res.json(updated);
   } catch (err: any) {
     console.error('Update strategy error:', err);
@@ -619,7 +655,9 @@ app.patch('/api/strategies/:id', authenticate, async (req: AuthRequest, res: Res
 app.delete('/api/strategies/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
-    await db.delete(strategies).where(and(eq(strategies.id, id), eq(strategies.userId, req.userId!)));
+    await prisma.strategy.deleteMany({
+      where: { id, userId: req.userId! },
+    });
     res.json({ success: true });
   } catch (err: any) {
     console.error('Delete strategy error:', err);
@@ -632,9 +670,10 @@ app.delete('/api/strategies/:id', authenticate, async (req: AuthRequest, res: Re
 // GET /api/journal
 app.get('/api/journal', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const result = await db.select().from(journalEntries)
-      .where(eq(journalEntries.userId, req.userId!))
-      .orderBy(desc(journalEntries.date));
+    const result = await prisma.journalEntry.findMany({
+      where: { userId: req.userId! },
+      orderBy: { date: 'desc' },
+    });
     res.json(result);
   } catch (err: any) {
     console.error('Get journal error:', err);
@@ -646,19 +685,21 @@ app.get('/api/journal', authenticate, async (req: AuthRequest, res: Response): P
 app.post('/api/journal', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const body = req.body;
-    const [entry] = await db.insert(journalEntries).values({
-      userId: req.userId!,
-      date: body.date,
-      marketBias: body.marketBias || null,
-      keyLevels: body.keyLevels || null,
-      watchlist: body.watchlist || null,
-      newsNotes: body.newsNotes || null,
-      reflection: body.reflection || null,
-      whatWentWell: body.whatWentWell || null,
-      whatToImprove: body.whatToImprove || null,
-      mood: body.mood || null,
-      overallDiscipline: body.overallDiscipline || null,
-    }).returning();
+    const entry = await prisma.journalEntry.create({
+      data: {
+        userId: req.userId!,
+        date: new Date(body.date),
+        marketBias: body.marketBias || null,
+        keyLevels: body.keyLevels || null,
+        watchlist: body.watchlist || null,
+        newsNotes: body.newsNotes || null,
+        reflection: body.reflection || null,
+        whatWentWell: body.whatWentWell || null,
+        whatToImprove: body.whatToImprove || null,
+        mood: body.mood || null,
+        overallDiscipline: body.overallDiscipline || null,
+      },
+    });
     res.status(201).json(entry);
   } catch (err: any) {
     console.error('Create journal error:', err);
@@ -671,8 +712,15 @@ app.patch('/api/journal/:id', authenticate, async (req: AuthRequest, res: Respon
   try {
     const id = req.params.id as string;
     const body = req.body;
-    const [updated] = await db.update(journalEntries)
-      .set({
+
+    const existing = await prisma.journalEntry.findFirst({
+      where: { id, userId: req.userId! },
+    });
+    if (!existing) { res.status(404).json({ error: 'Journal entry not found' }); return; }
+
+    const updated = await prisma.journalEntry.update({
+      where: { id },
+      data: {
         marketBias: body.marketBias,
         keyLevels: body.keyLevels,
         watchlist: body.watchlist,
@@ -683,10 +731,8 @@ app.patch('/api/journal/:id', authenticate, async (req: AuthRequest, res: Respon
         mood: body.mood,
         overallDiscipline: body.overallDiscipline,
         updatedAt: new Date(),
-      })
-      .where(and(eq(journalEntries.id, id), eq(journalEntries.userId, req.userId!)))
-      .returning();
-    if (!updated) { res.status(404).json({ error: 'Journal entry not found' }); return; }
+      },
+    });
     res.json(updated);
   } catch (err: any) {
     console.error('Update journal error:', err);
@@ -698,7 +744,9 @@ app.patch('/api/journal/:id', authenticate, async (req: AuthRequest, res: Respon
 app.delete('/api/journal/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
-    await db.delete(journalEntries).where(and(eq(journalEntries.id, id), eq(journalEntries.userId, req.userId!)));
+    await prisma.journalEntry.deleteMany({
+      where: { id, userId: req.userId! },
+    });
     res.json({ success: true });
   } catch (err: any) {
     console.error('Delete journal error:', err);
@@ -711,9 +759,10 @@ app.delete('/api/journal/:id', authenticate, async (req: AuthRequest, res: Respo
 // GET /api/insights
 app.get('/api/insights', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const result = await db.select().from(aiInsights)
-      .where(eq(aiInsights.userId, req.userId!))
-      .orderBy(desc(aiInsights.createdAt));
+    const result = await prisma.aiInsight.findMany({
+      where: { userId: req.userId! },
+      orderBy: { createdAt: 'desc' },
+    });
     res.json(result);
   } catch (err: any) {
     console.error('Get insights error:', err);
@@ -725,15 +774,17 @@ app.get('/api/insights', authenticate, async (req: AuthRequest, res: Response): 
 app.post('/api/insights', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const body = req.body;
-    const [insight] = await db.insert(aiInsights).values({
-      userId: req.userId!,
-      type: body.type || null,
-      tradeId: body.tradeId || null,
-      content: body.content,
-      tradesAnalyzedCount: body.tradesAnalyzedCount || null,
-      dateRangeStart: body.dateRangeStart ? new Date(body.dateRangeStart) : null,
-      dateRangeEnd: body.dateRangeEnd ? new Date(body.dateRangeEnd) : null,
-    }).returning();
+    const insight = await prisma.aiInsight.create({
+      data: {
+        userId: req.userId!,
+        type: body.type || null,
+        tradeId: body.tradeId || null,
+        content: body.content,
+        tradesAnalyzedCount: body.tradesAnalyzedCount || null,
+        dateRangeStart: body.dateRangeStart ? new Date(body.dateRangeStart) : null,
+        dateRangeEnd: body.dateRangeEnd ? new Date(body.dateRangeEnd) : null,
+      },
+    });
     res.status(201).json(insight);
   } catch (err: any) {
     console.error('Create insight error:', err);
@@ -744,50 +795,56 @@ app.post('/api/insights', authenticate, async (req: AuthRequest, res: Response):
 // POST /api/insights/analyze
 app.post('/api/insights/analyze', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userTrades = await db.select().from(trades)
-      .where(eq(trades.userId, req.userId!))
-      .orderBy(desc(trades.date));
+    const userTrades = await prisma.trade.findMany({
+      where: { userId: req.userId! },
+      orderBy: { date: 'desc' },
+    });
 
     const { content, patterns } = await generateAIInsight(userTrades);
 
-    const [insight] = await db.insert(aiInsights).values({
-      userId: req.userId!,
-      type: 'deep_analysis',
-      content,
-      tradesAnalyzedCount: Math.min(userTrades.length, 50),
-    }).returning();
+    const insight = await prisma.aiInsight.create({
+      data: {
+        userId: req.userId!,
+        type: 'deep_analysis',
+        content,
+        tradesAnalyzedCount: Math.min(userTrades.length, 50),
+      },
+    });
 
     // Upsert behavioral patterns into coach_memory
     for (const pattern of patterns) {
       // Check if this pattern type already exists for this user
-      const existing = await db.select().from(coachMemory)
-        .where(and(eq(coachMemory.userId, req.userId!), eq(coachMemory.patternType, pattern.patternType)))
-        .limit(1);
+      const existing = await prisma.coachMemory.findFirst({
+        where: { userId: req.userId!, patternType: pattern.patternType },
+      });
 
-      if (existing.length > 0) {
+      if (existing) {
         // Update: move current count to previousCount, update current
-        await db.update(coachMemory)
-          .set({
+        await prisma.coachMemory.update({
+          where: { id: existing.id },
+          data: {
             title: pattern.title,
             description: pattern.description,
             severity: pattern.severity,
-            previousCount: existing[0].count,
+            previousCount: existing.count,
             count: pattern.count,
             avgPnl: String(pattern.avgPnl),
             updatedAt: new Date(),
-          })
-          .where(eq(coachMemory.id, existing[0].id));
+          },
+        });
       } else {
         // Insert new memory
-        await db.insert(coachMemory).values({
-          userId: req.userId!,
-          patternType: pattern.patternType,
-          title: pattern.title,
-          description: pattern.description,
-          severity: pattern.severity,
-          count: pattern.count,
-          previousCount: 0,
-          avgPnl: String(pattern.avgPnl),
+        await prisma.coachMemory.create({
+          data: {
+            userId: req.userId!,
+            patternType: pattern.patternType,
+            title: pattern.title,
+            description: pattern.description,
+            severity: pattern.severity,
+            count: pattern.count,
+            previousCount: 0,
+            avgPnl: String(pattern.avgPnl),
+          },
         });
       }
     }
@@ -802,9 +859,10 @@ app.post('/api/insights/analyze', authenticate, async (req: AuthRequest, res: Re
 // GET /api/coach-memory
 app.get('/api/coach-memory', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const memories = await db.select().from(coachMemory)
-      .where(eq(coachMemory.userId, req.userId!))
-      .orderBy(desc(coachMemory.updatedAt));
+    const memories = await prisma.coachMemory.findMany({
+      where: { userId: req.userId! },
+      orderBy: { updatedAt: 'desc' },
+    });
     res.json(memories);
   } catch (err: any) {
     console.error('Coach memory error:', err);
@@ -817,18 +875,20 @@ app.get('/api/coach-memory', authenticate, async (req: AuthRequest, res: Respons
 // GET /api/admin/users
 app.get('/api/admin/users', authenticate, requireRoles(['SUB_ADMIN', 'ADMIN', 'SUPER_ADMIN']), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const result = await db.select({
-      id: users.id,
-      email: users.email,
-      fullName: users.fullName,
-      role: users.role,
-      createdAt: users.createdAt,
-      totalTrades: sql<number>`count(${trades.id})`.mapWith(Number),
-      netPnl: sql<number>`sum(${trades.netPnl})`.mapWith(Number),
-    }).from(users)
-      .leftJoin(trades, eq(trades.userId, users.id))
-      .groupBy(users.id)
-      .orderBy(desc(users.createdAt));
+    const result = await prisma.$queryRaw<any[]>`
+      SELECT
+        u.id,
+        u.email,
+        u.full_name as "fullName",
+        u.role,
+        u.created_at as "createdAt",
+        COUNT(t.id)::int as "totalTrades",
+        COALESCE(SUM(t.net_pnl), 0)::float as "netPnl"
+      FROM users u
+      LEFT JOIN trades t ON t.user_id = u.id
+      GROUP BY u.id
+      ORDER BY u.created_at DESC
+    `;
     res.json(result);
   } catch (err: any) {
     console.error('Get all users error:', err);
@@ -850,10 +910,10 @@ app.patch('/api/admin/users/:id/role', authenticate, requireRoles(['SUPER_ADMIN'
     // Prevent Super Admin from demoting themselves, or add logic if needed.
     // Assuming simple RBAC for now.
 
-    const [updated] = await db.update(users)
-      .set({ role, updatedAt: new Date() })
-      .where(eq(users.id, targetUserId))
-      .returning();
+    const updated = await prisma.user.update({
+      where: { id: targetUserId },
+      data: { role, updatedAt: new Date() },
+    });
 
     if (!updated) {
       res.status(404).json({ error: 'User not found' });

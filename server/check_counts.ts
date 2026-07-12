@@ -1,7 +1,6 @@
-import { db } from './src/db';
-import { trades } from './src/db/schema';
+import { prisma } from './src/db';
 async function run() {
-  const allTrades = await db.select().from(trades);
+  const allTrades = await prisma.trade.findMany();
   console.log('Total trades in DB:', allTrades.length);
   process.exit(0);
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
@@ -21,6 +21,10 @@ import AdminDashboard from './pages/AdminDashboard';
 import { useAuthStore } from './stores/authStore';
 import { useTradeStore } from './stores/tradeStore';
 import { useBrokerStore } from './stores/brokerStore';
+
+// How often (ms) to silently re-sync in the background while the app is open.
+// 5 minutes keeps trades fresh without hammering the broker API.
+const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 
 function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -66,55 +70,68 @@ export default function App() {
   const initialize = useAuthStore(state => state.initialize);
   const fetchTrades = useTradeStore(state => state.fetchTrades);
   const token = useAuthStore(state => state.token);
+  const fetchConnections = useBrokerStore(state => state.fetchConnections);
+  const syncAll = useBrokerStore(state => state.syncAll);
+
+  // Prevents duplicate startup syncs (React StrictMode double-mount, fast token changes)
+  const startupDoneRef = useRef(false);
+  // Holds the periodic sync interval handle so we can clear it on logout
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     initialize();
   }, [initialize]);
 
-  // Fetch trades whenever user logs in (token changes to a real value)
-  const fetchConnections = useBrokerStore(state => state.fetchConnections);
-  const syncConnection = useBrokerStore(state => state.syncConnection);
-
-  // Ref-based guard: prevents concurrent auto-sync if token changes fire rapidly
-  // (e.g. React StrictMode double-mount, auth re-hydration)
-  const syncingRef = React.useRef(false);
-
-  // Fetch connections, auto-sync active brokers, then fetch trades whenever user logs in
   useEffect(() => {
-    if (!token) return;
-    if (syncingRef.current) return; // already running — skip duplicate
-    syncingRef.current = true;
+    // Clear any running interval when token disappears (logout)
+    if (!token) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      startupDoneRef.current = false;
+      return;
+    }
 
-    const autoSyncAndFetch = async () => {
-      try {
-        await fetchConnections();
-        const { connections } = useBrokerStore.getState();
+    // Prevent double-run on React StrictMode
+    if (startupDoneRef.current) return;
+    startupDoneRef.current = true;
 
-        const activeBrokers = connections.filter(conn => conn.isActive);
-        if (activeBrokers.length > 0) {
-          const syncResults = await Promise.allSettled(
-            activeBrokers.map(conn => syncConnection(conn.broker))
-          );
-          // Log any broker sync failures without blocking trade fetch
-          syncResults.forEach((result, i) => {
-            if (result.status === 'rejected') {
-              console.error(`Auto-sync failed for ${activeBrokers[i].broker}:`, result.reason);
-            } else if (result.value?.error) {
-              console.warn(`Broker sync warning (${activeBrokers[i].broker}):`, result.value.error);
-            }
-          });
-        }
-      } catch (error) {
-        console.error('Auto-sync setup failed:', error);
-      } finally {
-        // Always fetch trades, even if sync failed — show whatever is already in the DB
-        await fetchTrades();
-        syncingRef.current = false;
+    const startup = async () => {
+      // ── Step 1: Show whatever is already in the DB immediately ──────────────
+      // This makes the UI feel instant. User sees cached trades within ~200ms.
+      await fetchConnections();
+      await fetchTrades();
+
+      // ── Step 2: Fire broker sync in the background (non-blocking) ───────────
+      // We do NOT await this. The sync may take 5–30s for a 90-day backfill.
+      // When it finishes, syncAll() automatically calls fetchTrades() again,
+      // so the Trades page silently updates without any user action.
+      const { connections } = useBrokerStore.getState();
+      const hasActiveBrokers = connections.some(c => c.isActive);
+      if (hasActiveBrokers) {
+        syncAll().catch(err => console.warn('[AutoSync] Background sync error:', err));
       }
     };
 
-    autoSyncAndFetch();
-  }, [token, fetchTrades, fetchConnections, syncConnection]);
+    startup();
+
+    // ── Step 3: Periodic background sync every 5 minutes ────────────────────
+    // Keeps trades fresh throughout the trading day without any user action.
+    intervalRef.current = setInterval(async () => {
+      const { isSyncing, connections } = useBrokerStore.getState();
+      // Skip if a sync is already running or no active brokers
+      if (isSyncing || !connections.some(c => c.isActive)) return;
+      syncAll().catch(err => console.warn('[PeriodicSync] Error:', err));
+    }, AUTO_SYNC_INTERVAL_MS);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [token, fetchTrades, fetchConnections, syncAll]);
 
   return (
     <Routes>

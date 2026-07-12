@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email     String   @unique
+  password  String
+  fullName  String?  @map("full_name")
+  avatarUrl String?  @map("avatar_url")
+  timezone  String?  @default("Asia/Kolkata")
+  role      String   @default("USER")
+  createdAt DateTime? @default(now()) @map("created_at")
+  updatedAt DateTime? @default(now()) @map("updated_at")
+
+  trades            Trade[]
+  strategies        Strategy[]
+  journalEntries    JournalEntry[]
+  aiInsights        AiInsight[]
+  coachMemories     CoachMemory[]
+  brokerConnections BrokerConnection[]
+  tradingRules      TradingRule?
+
+  @@map("users")
+}
+
+model BrokerConnection {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  broker       String
+  apiKey       String?   @map("api_key")
+  apiSecret    String?   @map("api_secret")
+  accessToken  String?   @map("access_token")
+  refreshToken String?   @map("refresh_token")
+  tokenExpiry  DateTime? @map("token_expiry")
+  clientId     String?   @map("client_id")
+  isActive     Boolean?  @default(false) @map("is_active")
+  lastSyncedAt DateTime? @map("last_synced_at")
+  metadata     String?
+  createdAt    DateTime? @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("broker_connections")
+}
+
+model Strategy {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  name        String
+  description String?
+  rules       String?
+  market      String[]
+  timeframe   String?
+  isActive    Boolean?  @default(true) @map("is_active")
+  createdAt   DateTime? @default(now()) @map("created_at")
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trades Trade[]
+
+  @@map("strategies")
+}
+
+model Trade {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  broker           String
+  brokerTradeId    String?   @map("broker_trade_id")
+  date             DateTime
+  symbol           String
+  market           String
+  instrumentType   String    @map("instrument_type")
+  direction        String?
+  entryPrice       Decimal?  @map("entry_price")
+  exitPrice        Decimal?  @map("exit_price")
+  quantity         Decimal?
+  pnl              Decimal?
+  charges          Decimal?
+  netPnl           Decimal?  @map("net_pnl")
+  status           String?
+  strategyId       String?   @map("strategy_id") @db.Uuid
+  setupDescription String?   @map("setup_description")
+  mindset          String?
+  decisionNotes    String?   @map("decision_notes")
+  learnings        String?
+  disciplineScore  Int?      @map("discipline_score")
+  tags             String[]
+  source           String?
+  createdAt        DateTime? @default(now()) @map("created_at")
+  updatedAt        DateTime? @default(now()) @map("updated_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategy Strategy? @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+
+  aiInsights AiInsight[]
+
+  @@map("trades")
+}
+
+model JournalEntry {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  date              DateTime  @db.Date
+  marketBias        String?   @map("market_bias")
+  keyLevels         String?   @map("key_levels")
+  watchlist         String?
+  newsNotes         String?   @map("news_notes")
+  reflection        String?
+  whatWentWell       String?   @map("what_went_well")
+  whatToImprove      String?   @map("what_to_improve")
+  mood              String?
+  overallDiscipline Int?      @map("overall_discipline")
+  createdAt         DateTime? @default(now()) @map("created_at")
+  updatedAt         DateTime? @default(now()) @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("journal_entries")
+}
+
+model AiInsight {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String    @map("user_id") @db.Uuid
+  type                String?
+  tradeId             String?   @map("trade_id") @db.Uuid
+  content             String
+  tradesAnalyzedCount Int?      @map("trades_analyzed_count")
+  dateRangeStart      DateTime? @map("date_range_start")
+  dateRangeEnd        DateTime? @map("date_range_end")
+  createdAt           DateTime? @default(now()) @map("created_at")
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trade Trade? @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+
+  @@map("ai_insights")
+}
+
+model CoachMemory {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  patternType   String    @map("pattern_type")
+  title         String
+  description   String
+  severity      String    @default("warning")
+  count         Int       @default(0)
+  previousCount Int       @default(0) @map("previous_count")
+  avgPnl        Decimal?  @map("avg_pnl")
+  detectedAt    DateTime? @default(now()) @map("detected_at")
+  updatedAt     DateTime? @default(now()) @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("coach_memory")
+}
+
+model TradingRule {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId             String    @unique @map("user_id") @db.Uuid
+  windowStart        String?   @map("window_start")
+  windowEnd          String?   @map("window_end")
+  maxTradesPerDay    Int?      @map("max_trades_per_day")
+  maxDailyLoss       Decimal?  @map("max_daily_loss")
+  maxLossPerTrade    Decimal?  @map("max_loss_per_trade")
+  allowedInstruments String[]  @map("allowed_instruments")
+  allowedMarkets     String[]  @map("allowed_markets")
+  createdAt          DateTime? @default(now()) @map("created_at")
+  updatedAt          DateTime? @default(now()) @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("trading_rules")
+}
