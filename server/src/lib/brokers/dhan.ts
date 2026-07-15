@@ -180,7 +180,7 @@ export async function syncDhanTrades(
         currentChunkEnd = overallToDate;
       }
 
-      let page = 1;
+      let page = 0;
       let hasMore = true;
 
       while (hasMore) {
