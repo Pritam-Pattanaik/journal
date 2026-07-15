@@ -48,7 +48,7 @@ export default function RecentTrades({ trades }: RecentTradesProps) {
                     </td>
 
                     {/* Symbol Column */}
-                    <td className="text-tv-base font-medium text-inverse px-2">
+                    <td className="text-tv-base font-medium text-primary px-2">
                       {trade.symbol}
                     </td>
 
