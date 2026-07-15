@@ -1,6 +1,8 @@
 export interface Trade {
   id: string;
-  date: string;
+  date: string;           // ISO string — entry time (when position was opened)
+  exitTime?: string | null; // ISO string — when position was squared off (null for OPEN)
+  isCarryForward?: boolean; // true when entry date ≠ exit date (overnight / multi-day hold)
   symbol: string;
   market: string;
   instrumentType: string;

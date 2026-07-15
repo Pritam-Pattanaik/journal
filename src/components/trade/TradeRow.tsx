@@ -23,9 +23,14 @@ export default function TradeRow({ trade, onClick }: TradeRowProps) {
         {formatDate(trade.date)}
       </span>
 
-      {/* Symbol */}
-      <span className="font-medium text-primary truncate pr-2">
-        {trade.symbol}
+      {/* Symbol + optional Carry-Forward badge */}
+      <span className="flex items-center gap-1.5 min-w-0 pr-2">
+        <span className="font-medium text-primary truncate">{trade.symbol}</span>
+        {trade.isCarryForward && (
+          <span className="shrink-0 inline-flex items-center gap-0.5 text-[9px] font-semibold tracking-wide text-amber-400 bg-amber-400/10 border border-amber-400/25 px-1.5 py-[2px] rounded whitespace-nowrap">
+            ↩ CF · {formatDate(trade.date)}
+          </span>
+        )}
       </span>
 
       {/* Market */}

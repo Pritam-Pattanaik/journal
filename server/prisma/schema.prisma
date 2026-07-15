@@ -72,6 +72,8 @@ model Trade {
   broker           String
   brokerTradeId    String?   @map("broker_trade_id")
   date             DateTime
+  exitTime         DateTime? @map("exit_time")
+  isCarryForward   Boolean   @default(false) @map("is_carry_forward")
   symbol           String
   market           String
   instrumentType   String    @map("instrument_type")

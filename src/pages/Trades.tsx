@@ -8,7 +8,7 @@ import TradeFormModal from '../components/trade/TradeFormModal';
 import Button from '../components/ui/Button';
 import { useTradeStore } from '../stores/tradeStore';
 import { useBrokerStore } from '../stores/brokerStore';
-import { formatCurrency, formatDateFull } from '../lib/analytics';
+import { formatCurrency } from '../lib/analytics';
 import { getLocalYYYYMMDD } from '../lib/dateUtils';
 
 export default function Trades() {
@@ -94,8 +94,30 @@ export default function Trades() {
 
       return matchesSearch && matchesMarket && matchesStatus && matchesDate;
     })
-    // Sort by date desc
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    // Sort by date desc — for carry-forward trades sort by exit date so they appear
+    // at the correct position in the list (squared-off day, not entry day).
+    .sort((a, b) => {
+      const dateA = a.isCarryForward && a.exitTime ? new Date(a.exitTime) : new Date(a.date);
+      const dateB = b.isCarryForward && b.exitTime ? new Date(b.exitTime) : new Date(b.date);
+      return dateB.getTime() - dateA.getTime();
+    });
+
+  // Returns the date key (YYYY-MM-DD) that a trade should be grouped under.
+  // Carry-forward trades are counted on the day they squared off (exitTime date).
+  const getGroupDate = (trade: Trade): string => {
+    if (trade.isCarryForward && trade.exitTime) {
+      return getLocalYYYYMMDD(new Date(trade.exitTime));
+    }
+    return getLocalYYYYMMDD(new Date(trade.date));
+  };
+
+  // Parse a YYYY-MM-DD key as a LOCAL date (avoids UTC-midnight timezone shift).
+  const formatGroupDateFull = (dateKey: string): string => {
+    const [y, m, d] = dateKey.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric',
+    });
+  };
 
   const handleExportCsv = () => {
     if (filteredTrades.length === 0) return;
@@ -239,11 +261,11 @@ export default function Trades() {
             </div>
           ) : (
             Array.from(
-              new Set(filteredTrades.map(t => getLocalYYYYMMDD(new Date(t.date))))
+              new Set(filteredTrades.map(t => getGroupDate(t)))
             )
               .sort((a, b) => b.localeCompare(a))
               .map(dateKey => {
-              const dayTrades = filteredTrades.filter(t => getLocalYYYYMMDD(new Date(t.date)) === dateKey);
+              const dayTrades = filteredTrades.filter(t => getGroupDate(t) === dateKey);
               const dayPnl = dayTrades.reduce((sum, t) => sum + t.netPnl, 0);
               const isProfit = dayPnl >= 0;
               
@@ -262,7 +284,7 @@ export default function Trades() {
                     }}
                   >
                     <div className="flex items-center gap-2">
-                       <span>{formatDateFull(dayTrades[0].date)}</span>
+                       <span>{formatGroupDateFull(dateKey)}</span>
                        <span className="text-tv-xs text-muted">({dayTrades.length} trades)</span>
                     </div>
                     <span className={`font-mono font-medium ${isProfit ? 'text-profit' : 'text-loss'}`}>

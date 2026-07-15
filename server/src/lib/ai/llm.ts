@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import Groq from 'groq-sdk';
 import {
   computeFullStats,
   runAllPatterns,
@@ -7,7 +7,7 @@ import {
   BehavioralPattern,
 } from './analytics';
 
-let ai: GoogleGenAI;
+let groq: Groq;
 
 const COACH_SYSTEM_PROMPT = `
 You are a brutally honest, elite trading coach and performance psychologist.
@@ -24,12 +24,14 @@ DO NOT give generic advice. If it couldn't have been written using the specific 
 `;
 
 export async function generateAIInsight(trades: any[]): Promise<{ content: string; patterns: BehavioralPattern[] }> {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY is missing from environment variables.');
+  const apiKey = process.env.GROQ_API_KEY;
+
+  if (!apiKey) {
+    throw new Error('GROQ_API_KEY is missing from environment variables.');
   }
 
-  if (!ai) {
-    ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  if (!groq) {
+    groq = new Groq({ apiKey });
   }
 
   // Sort by date desc, take most recent 50
@@ -80,16 +82,19 @@ Give me a coach's debrief based ONLY on this specific data.
 `.trim();
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: userMessage,
-      config: { systemInstruction: COACH_SYSTEM_PROMPT },
+    const response = await groq.chat.completions.create({
+      messages: [
+        { role: 'system', content: COACH_SYSTEM_PROMPT },
+        { role: 'user', content: userMessage }
+      ],
+      model: 'llama3-70b-8192',
+      temperature: 0.7,
     });
 
-    const content = response.text || 'No insight generated.';
+    const content = response.choices[0]?.message?.content || 'No insight generated.';
     return { content, patterns };
   } catch (err: any) {
-    console.error('Gemini API Error:', err);
+    console.error('Groq API Error:', err);
     // Fallback: return a data-rich summary even if LLM fails
     const fallback = [
       `📊 **${recentTrades.length} trades analyzed.** Win rate: ${stats.winRate}%, total P&L: ₹${stats.totalPnl.toLocaleString('en-IN')}.`,

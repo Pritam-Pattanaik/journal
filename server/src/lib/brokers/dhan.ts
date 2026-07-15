@@ -507,27 +507,41 @@ export async function syncDhanTrades(
       }))
     );
 
-    // ── Schema Mapping ─────────────────────────────────────────────────────
-    const mapToSchema = (p: any) => ({
-      userId: p.userId,
-      broker: p.broker,
-      brokerTradeId: p.brokerTradeId,
-      date: p.date,
-      symbol: p.symbol,
-      market: p.market,
-      instrumentType: p.instrumentType,
-      direction: p.direction,
-      entryPrice: p.entryPrice.toString(),
-      exitPrice: p.exitPrice > 0 ? p.exitPrice.toString() : null,
-      quantity: p.quantity.toString(),
-      pnl: p.realizedPnl !== 0 ? p.realizedPnl.toFixed(4) : null,
-      charges: p.charges > 0 ? p.charges.toFixed(4) : null,
-      netPnl: (p.realizedPnl - p.charges).toFixed(4),
-      status: p.status,
-      disciplineScore: p.disciplineScore ?? null,
-      source: 'broker_sync',
-      ...(p.dbId ? { dbId: p.dbId } : {}),
-    });
+    const mapToSchema = (p: any) => {
+      // Detect carry-forward: position entry date ≠ exit date (overnight/multi-day hold).
+      // IST trades run 09:15–15:30 → UTC 03:45–10:00, so the UTC calendar date is
+      // always identical to the IST calendar date — safe to compare using ISO strings.
+      const entryDateStr = (p.date instanceof Date ? p.date : new Date(p.date))
+        .toISOString().split('T')[0];
+      const exitTimeDate: Date | null = p.exitTime instanceof Date
+        ? p.exitTime
+        : (p.exitTime ? new Date(p.exitTime) : null);
+      const exitDateStr = exitTimeDate ? exitTimeDate.toISOString().split('T')[0] : null;
+      const isCarryForward = !!exitDateStr && entryDateStr !== exitDateStr;
+
+      return {
+        userId: p.userId,
+        broker: p.broker,
+        brokerTradeId: p.brokerTradeId,
+        date: p.date,
+        exitTime: exitTimeDate,           // null for open positions
+        isCarryForward,                   // true only for overnight / multi-day holds
+        symbol: p.symbol,
+        market: p.market,
+        instrumentType: p.instrumentType,
+        direction: p.direction,
+        entryPrice: p.entryPrice.toString(),
+        exitPrice: p.exitPrice > 0 ? p.exitPrice.toString() : null,
+        quantity: p.quantity.toString(),
+        pnl: p.realizedPnl !== 0 ? p.realizedPnl.toFixed(4) : null,
+        charges: p.charges > 0 ? p.charges.toFixed(4) : null,
+        netPnl: (p.realizedPnl - p.charges).toFixed(4),
+        status: p.status,
+        disciplineScore: p.disciplineScore ?? null,
+        source: 'broker_sync',
+        ...(p.dbId ? { dbId: p.dbId } : {}),
+      };
+    };
 
     return {
       tradesToInsert: tradesToInsert.map(mapToSchema),

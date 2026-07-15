@@ -10,6 +10,23 @@ import { syncDhanTrades } from './lib/brokers/dhan';
 
 dotenv.config();
 
+// ─── Startup Schema Migration ─────────────────────────────────────────────────
+// Adds new columns idempotently so deployments are zero-downtime.
+// Runs on every cold start; IF NOT EXISTS makes it a no-op after the first run.
+(async () => {
+  try {
+    await prisma.$executeRaw`
+      ALTER TABLE trades
+        ADD COLUMN IF NOT EXISTS exit_time       TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS is_carry_forward BOOLEAN NOT NULL DEFAULT false
+    `;
+    console.log('[Migration] carry_forward columns: OK');
+  } catch (err) {
+    // Non-fatal — columns may already exist or DB may be unreachable during local dev
+    console.warn('[Migration] carry_forward columns skipped:', (err as any)?.message);
+  }
+})();
+
 // Fix for UNABLE_TO_VERIFY_LEAF_SIGNATURE (common on corporate VPNs/proxies)
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 

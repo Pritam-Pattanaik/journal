@@ -32,7 +32,9 @@ export default function TradeModal({ trade, isOpen, onClose, onEdit, onDelete }:
               {trade.symbol}
             </span>
             <span className="text-tv-xs text-secondary font-mono mt-0.5">
-              {formatDateFull(trade.date)}
+              {trade.isCarryForward && trade.exitTime
+                ? `Squared off · ${formatDateFull(trade.exitTime)}`
+                : formatDateFull(trade.date)}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -88,6 +90,19 @@ export default function TradeModal({ trade, isOpen, onClose, onEdit, onDelete }:
             </div>
           </div>
         </div>
+
+        {/* Carry-Forward Banner */}
+        {trade.isCarryForward && (
+          <div className="flex items-center gap-2.5 px-3 py-2 rounded-tv-md bg-amber-400/8 border border-amber-400/20">
+            <span className="text-amber-400 text-base leading-none">↩</span>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-tv-xs font-semibold text-amber-300 tracking-wide">CARRY FORWARD TRADE</span>
+              <span className="text-tv-xs text-amber-400/70">
+                Position opened on {formatDateFull(trade.date)} · held overnight to square off
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Annotations Section */}
         <div className="space-y-4">
