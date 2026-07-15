@@ -24,22 +24,21 @@ DO NOT give generic advice. If it couldn't have been written using the specific 
 `;
 
 export async function generateAIInsight(trades: any[]): Promise<{ content: string; patterns: BehavioralPattern[] }> {
-  // Sort by date desc, take most recent 50
-  const recentTrades = [...trades]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 50);
-
-  if (recentTrades.length === 0) {
+  if (trades.length === 0) {
     return {
       content: '📊 No trades found to analyze. Log your first trade to get coaching insights!',
       patterns: [],
     };
   }
 
-  const stats = computeFullStats(recentTrades);
-  const patterns = runAllPatterns(recentTrades);
-  const discCorr = analyzeDisciplineCorrelation(recentTrades);
-  const symbolPerf = analyzeSymbolPerformance(recentTrades);
+  // Sort trades by date desc for log readability and calculations
+  const sortedTrades = [...trades].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  // Compute stats on ALL trades
+  const stats = computeFullStats(sortedTrades);
+  const patterns = runAllPatterns(sortedTrades);
+  const discCorr = analyzeDisciplineCorrelation(sortedTrades);
+  const symbolPerf = analyzeSymbolPerformance(sortedTrades);
 
   const apiKey = process.env.GROQ_API_KEY;
 
@@ -47,7 +46,7 @@ export async function generateAIInsight(trades: any[]): Promise<{ content: strin
     console.error('GROQ_API_KEY is missing from environment variables. Using fallback analysis.');
     const fallback = [
       `⚠️ **API Key Missing:** Please add your GROQ_API_KEY in Vercel environment variables.`,
-      `📊 **${recentTrades.length} trades analyzed.** Win rate: ${stats.winRate}%, total P&L: ₹${stats.totalPnl.toLocaleString('en-IN')}.`,
+      `📊 **${sortedTrades.length} trades analyzed.** Win rate: ${stats.winRate}%, total P&L: ₹${stats.totalPnl.toLocaleString('en-IN')}.`,
       ...patterns.map(p => `${p.severity === 'critical' ? '🔴' : '⚠️'} ${p.description}`),
       `📐 ${discCorr.insight}`,
     ].join('\n\n');
@@ -64,7 +63,7 @@ export async function generateAIInsight(trades: any[]): Promise<{ content: strin
   const userMessage = `
 TRADER PERFORMANCE REPORT
 ─────────────────────────
-Trades Analyzed: ${recentTrades.length}
+Trades Analyzed: ${sortedTrades.length}
 Win Rate: ${stats.winRate}%
 Total Net P&L: ₹${stats.totalPnl.toLocaleString('en-IN')}
 Avg Win: ₹${stats.avgWin.toLocaleString('en-IN')} | Avg Loss: ₹${stats.avgLoss.toLocaleString('en-IN')}
@@ -79,8 +78,8 @@ ${symbolPerf.details}
 DETECTED BEHAVIORAL PATTERNS
 ${patternLines || '• No significant behavioral patterns detected.'}
 
-RAW TRADE LOG (most recent ${Math.min(recentTrades.length, 15)} trades)
-${recentTrades.slice(0, 15).map(t => {
+RAW TRADE LOG (most recent ${Math.min(sortedTrades.length, 15)} trades)
+${sortedTrades.slice(0, 15).map(t => {
     const d = typeof t.date === 'string' ? t.date.split('T')[0] : new Date(t.date).toISOString().split('T')[0];
     return `[${d}] ${t.symbol} ${t.direction || ''} | ${t.status} | Net: ₹${parseFloat(t.netPnl || '0').toLocaleString('en-IN')} | Disc: ${t.disciplineScore ?? 'N/A'}/5 | Mindset: ${t.mindset?.substring(0, 60) || 'None'}`;
   }).join('\n')}
@@ -104,7 +103,7 @@ Give me a coach's debrief based ONLY on this specific data.
     console.error('Groq API Error:', err);
     // Fallback: return a data-rich summary even if LLM fails
     const fallback = [
-      `📊 **${recentTrades.length} trades analyzed.** Win rate: ${stats.winRate}%, total P&L: ₹${stats.totalPnl.toLocaleString('en-IN')}.`,
+      `📊 **${sortedTrades.length} trades analyzed.** Win rate: ${stats.winRate}%, total P&L: ₹${stats.totalPnl.toLocaleString('en-IN')}.`,
       ...patterns.map(p => `${p.severity === 'critical' ? '🔴' : '⚠️'} ${p.description}`),
       `📐 ${discCorr.insight}`,
     ].join('\n\n');
