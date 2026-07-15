@@ -24,16 +24,6 @@ DO NOT give generic advice. If it couldn't have been written using the specific 
 `;
 
 export async function generateAIInsight(trades: any[]): Promise<{ content: string; patterns: BehavioralPattern[] }> {
-  const apiKey = process.env.GROQ_API_KEY;
-
-  if (!apiKey) {
-    throw new Error('GROQ_API_KEY is missing from environment variables.');
-  }
-
-  if (!groq) {
-    groq = new Groq({ apiKey });
-  }
-
   // Sort by date desc, take most recent 50
   const recentTrades = [...trades]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -50,6 +40,23 @@ export async function generateAIInsight(trades: any[]): Promise<{ content: strin
   const patterns = runAllPatterns(recentTrades);
   const discCorr = analyzeDisciplineCorrelation(recentTrades);
   const symbolPerf = analyzeSymbolPerformance(recentTrades);
+
+  const apiKey = process.env.GROQ_API_KEY;
+
+  if (!apiKey) {
+    console.error('GROQ_API_KEY is missing from environment variables. Using fallback analysis.');
+    const fallback = [
+      `⚠️ **API Key Missing:** Please add your GROQ_API_KEY in Vercel environment variables.`,
+      `📊 **${recentTrades.length} trades analyzed.** Win rate: ${stats.winRate}%, total P&L: ₹${stats.totalPnl.toLocaleString('en-IN')}.`,
+      ...patterns.map(p => `${p.severity === 'critical' ? '🔴' : '⚠️'} ${p.description}`),
+      `📐 ${discCorr.insight}`,
+    ].join('\n\n');
+    return { content: fallback, patterns };
+  }
+
+  if (!groq) {
+    groq = new Groq({ apiKey });
+  }
 
   // Build the Behavioral Intelligence Report
   const patternLines = patterns.map(p => `• [${p.title.toUpperCase()}] ${p.description}`).join('\n');
