@@ -128,10 +128,15 @@ export async function syncDhanTrades(
     let overallFromDate: Date;
 
     if (lastSyncedAt) {
-      // Incremental: go back 2 days from last sync as an overlap buffer
+      // Incremental: go back 7 days from last sync.
+      // 7-day buffer ensures we catch:
+      //  • Dhan's T+1/T+2 F&O settlement delay (trades appear in historical API 1–2 days late)
+      //  • Trades missed across a weekend gap (up to 3 calendar days with no market)
+      //  • Any date that the previous sync silently skipped due to an API hiccup
+      // 7 days is still a single 30-day API chunk → no performance regression.
       overallFromDate = new Date(lastSyncedAt);
-      overallFromDate.setDate(overallFromDate.getDate() - 2);
-      console.log(`[Dhan Sync] Incremental mode: ${formatDate(overallFromDate)} → ${formatDate(overallToDate)}`);
+      overallFromDate.setDate(overallFromDate.getDate() - 7);
+      console.log(`[Dhan Sync] Incremental mode (7-day buffer): ${formatDate(overallFromDate)} → ${formatDate(overallToDate)}`);
     } else {
       // First-time full backfill: 90 days
       overallFromDate = new Date();
@@ -547,6 +552,10 @@ export async function syncDhanTrades(
       tradesToInsert: tradesToInsert.map(mapToSchema),
       tradesToUpdate: [] as any[],
       latestTradeTime,
+      // The set of calendar dates (YYYY-MM-DD) for which the API returned ≥1 execution.
+      // Used by the caller to make surgical per-date deletes — never wipes a date that
+      // the API didn't return data for (prevents data loss on API processing delays).
+      fetchedDates: sortedDates,
     };
   } catch (err: any) {
     console.error('Failed to sync Dhan trades:', err);

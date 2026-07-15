@@ -244,22 +244,27 @@ app.post('/api/brokers/sync/:broker', authenticate, async (req: AuthRequest, res
       // we bail out before touching the database, so existing trades stay intact.
       const result = await syncDhanTrades(clientId || '', apiKey, req.userId!, [], lastSyncedAt, personalRules);
 
-      // Determine the delete window:
-      // • Full sync (lastSyncedAt = null): wipe ALL broker_sync trades for a clean slate.
-      // • Incremental sync: delete only trades from the re-fetched date window (2 days back).
-      //   This preserves older historical trades while refreshing the recent window.
+      // ── Surgical per-date delete ──────────────────────────────────────────
+      // CRITICAL FIX: The old approach deleted ALL trades from windowStart onwards
+      // even when the Dhan API returned no data for some of those dates (e.g. due
+      // to a T+1/T+2 processing delay for F&O settlements).  That permanently wiped
+      // Jul 13 / Jul 14 style gaps that could never be re-inserted.
+      //
+      // New approach: delete ONLY the calendar dates for which the API actually
+      // returned ≥1 raw execution.  Any date the API silently skipped (delay /
+      // holiday / weekend) is left untouched in the DB.
       if (lastSyncedAt) {
-        const windowStart = new Date(lastSyncedAt);
-        windowStart.setDate(windowStart.getDate() - 2);
-
-        // Delete only trades that fall within the re-fetched window
-        await prisma.$executeRaw`
-          DELETE FROM trades
-          WHERE user_id = ${req.userId!}::uuid
-            AND broker = 'dhan'
-            AND source = 'broker_sync'
-            AND DATE(date) >= ${windowStart}::date
-        `;
+        const datesToDelete: string[] = result.fetchedDates ?? [];
+        for (const dateStr of datesToDelete) {
+          await prisma.$executeRaw`
+            DELETE FROM trades
+            WHERE user_id = ${req.userId!}::uuid
+              AND broker = 'dhan'
+              AND source = 'broker_sync'
+              AND DATE(date) = ${dateStr}::date
+          `;
+        }
+        console.log(`[Sync] Deleted existing records for ${datesToDelete.length} date(s): ${datesToDelete.join(', ')}`);
       } else {
         // Full backfill: clear everything and rebuild from scratch
         await prisma.trade.deleteMany({
