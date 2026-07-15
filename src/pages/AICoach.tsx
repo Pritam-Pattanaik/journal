@@ -248,7 +248,7 @@ export default function AICoach() {
           <div className="bg-base/40 border border-tv-border rounded-tv-lg p-5">
             <div className="flex items-center justify-between mb-3">
               <span className="text-tv-xs text-accent-light font-mono uppercase tracking-wider">
-                Latest Analysis — Powered by Gemini AI
+                Latest Analysis — Powered by Groq AI
               </span>
               <span className="text-[11px] text-muted">
                 {new Date(latestInsight.createdAt).toLocaleString('en-IN', {
