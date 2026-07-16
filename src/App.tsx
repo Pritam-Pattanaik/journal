@@ -18,6 +18,14 @@ import MarketingLayout from './components/layout/MarketingLayout';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import AdminRoute from './components/layout/AdminRoute';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminOverview from './pages/admin/AdminOverview';
+import AdminUsers from './pages/admin/AdminUsers';
+import AdminUserDetail from './pages/admin/AdminUserDetail';
+import AdminTrades from './pages/admin/AdminTrades';
+import AdminBrokers from './pages/admin/AdminBrokers';
+import AdminAIMonitor from './pages/admin/AdminAIMonitor';
+import AdminAuditLogs from './pages/admin/AdminAuditLogs';
+import AdminSystemSettings from './pages/admin/AdminSystemSettings';
 import { useAuthStore } from './stores/authStore';
 import { useTradeStore } from './stores/tradeStore';
 import { useBrokerStore } from './stores/brokerStore';
@@ -47,7 +55,7 @@ function MainLayout() {
         {/* Scrollable Page Wrapper */}
         <PageWrapper>
           <Routes>
-            <Route path="/" element={profile?.role === 'SUPER_ADMIN' ? <AdminDashboard /> : <Dashboard />} />
+            <Route path="/" element={profile?.role === 'SUPER_ADMIN' ? <AdminOverview /> : <Dashboard />} />
             <Route path="/trades" element={<Trades />} />
             <Route path="/journal" element={<Journal />} />
             <Route path="/ai-coach" element={<AICoach />} />
@@ -56,6 +64,41 @@ function MainLayout() {
             <Route path="/admin" element={
               <AdminRoute>
                 <AdminDashboard />
+              </AdminRoute>
+            } />
+            <Route path="/admin/users" element={
+              <AdminRoute>
+                <AdminUsers />
+              </AdminRoute>
+            } />
+            <Route path="/admin/users/:id" element={
+              <AdminRoute>
+                <AdminUserDetail />
+              </AdminRoute>
+            } />
+            <Route path="/admin/trades" element={
+              <AdminRoute>
+                <AdminTrades />
+              </AdminRoute>
+            } />
+            <Route path="/admin/brokers" element={
+              <AdminRoute>
+                <AdminBrokers />
+              </AdminRoute>
+            } />
+            <Route path="/admin/ai" element={
+              <AdminRoute>
+                <AdminAIMonitor />
+              </AdminRoute>
+            } />
+            <Route path="/admin/audit" element={
+              <AdminRoute>
+                <AdminAuditLogs />
+              </AdminRoute>
+            } />
+            <Route path="/admin/settings" element={
+              <AdminRoute>
+                <AdminSystemSettings />
               </AdminRoute>
             } />
             <Route path="*" element={<Navigate to="/" replace />} />

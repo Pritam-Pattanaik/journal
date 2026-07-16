@@ -11,7 +11,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Shield,
-  X
+  X,
+  Users,
+  Link2,
+  ScrollText
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -30,8 +33,13 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   if (profile?.role === 'SUPER_ADMIN') {
     navItems = [
-      { name: 'System Overview', path: '/app', icon: Shield },
-      { name: 'Settings', path: '/app/settings', icon: Settings },
+      { name: 'Overview', path: '/app', icon: Shield },
+      { name: 'Users', path: '/app/admin/users', icon: Users },
+      { name: 'Trades', path: '/app/admin/trades', icon: BarChart3 },
+      { name: 'Brokers', path: '/app/admin/brokers', icon: Link2 },
+      { name: 'AI Monitor', path: '/app/admin/ai', icon: Brain },
+      { name: 'Audit Logs', path: '/app/admin/audit', icon: ScrollText },
+      { name: 'Settings', path: '/app/admin/settings', icon: Settings },
     ];
   } else {
     navItems = [

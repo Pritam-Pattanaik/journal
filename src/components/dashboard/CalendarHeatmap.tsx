@@ -9,7 +9,7 @@ interface CalendarHeatmapProps {
 export default function CalendarHeatmap({ trades }: CalendarHeatmapProps) {
   // Aggregate PnL by day for the last 90 days
   const today = new Date();
-  const days = [];
+  const days: string[] = [];
   for (let i = 89; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
