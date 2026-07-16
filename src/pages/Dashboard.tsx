@@ -33,7 +33,7 @@ export default function Dashboard() {
     today.setHours(0, 0, 0, 0);
 
     return trades.filter((trade) => {
-      const tradeDate = new Date(trade.date);
+      const tradeDate = trade.isCarryForward && trade.exitTime ? new Date(trade.exitTime) : new Date(trade.date);
       if (dateFilter === 'week') {
         const firstDayOfWeek = new Date(today);
         // Treat Monday as first day of the week for trading

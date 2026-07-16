@@ -29,6 +29,8 @@ function normalize(raw: any): Trade {
     disciplineScore: raw.disciplineScore ?? undefined,
     tags: raw.tags ?? undefined,
     source: raw.source ?? 'manual',
+    exitTime: raw.exitTime instanceof Date ? raw.exitTime.toISOString() : raw.exitTime,
+    isCarryForward: !!raw.isCarryForward,
   };
 }
 

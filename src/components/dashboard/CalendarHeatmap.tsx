@@ -18,7 +18,7 @@ export default function CalendarHeatmap({ trades }: CalendarHeatmapProps) {
 
   const pnlMap = new Map<string, number>();
   trades.forEach(t => {
-    const d = new Date(t.date);
+    const d = t.isCarryForward && t.exitTime ? new Date(t.exitTime) : new Date(t.date);
     const dateOnly = getLocalYYYYMMDD(d);
     pnlMap.set(dateOnly, (pnlMap.get(dateOnly) || 0) + t.netPnl);
   });

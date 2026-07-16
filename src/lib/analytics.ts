@@ -64,11 +64,13 @@ export function computeStats(trades: Trade[]): DashboardStats {
 }
 
 export function computeCumulativePnl(trades: Trade[]): { date: string; pnl: number }[] {
-  const sorted = [...trades].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const getEffectiveTime = (t: Trade) => t.isCarryForward && t.exitTime ? new Date(t.exitTime).getTime() : new Date(t.date).getTime();
+  const sorted = [...trades].sort((a, b) => getEffectiveTime(a) - getEffectiveTime(b));
   let cumulative = 0;
   return sorted.map(t => {
     cumulative += t.netPnl;
-    return { date: t.date, pnl: cumulative };
+    const effectiveDate = t.isCarryForward && t.exitTime ? t.exitTime : t.date;
+    return { date: effectiveDate, pnl: cumulative };
   });
 }
 
