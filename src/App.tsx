@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import PageWrapper from './components/layout/PageWrapper';
@@ -30,6 +31,8 @@ import { useAuthStore } from './stores/authStore';
 import { useTradeStore } from './stores/tradeStore';
 import { useBrokerStore } from './stores/brokerStore';
 
+import { AuroraBackground } from './components/ui/AuroraBackground';
+
 // How often (ms) to silently re-sync in the background while the app is open.
 // 5 minutes keeps trades fresh without hammering the broker API.
 const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
@@ -43,69 +46,71 @@ function MainLayout() {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-base text-primary font-ui">
-      {/* Collapsible Sidebar */}
-      <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
+    <AuroraBackground className="h-screen w-screen overflow-hidden bg-canvas">
+      <div className="flex h-full w-full">
+        {/* Collapsible Sidebar */}
+        <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
 
-      {/* Main Container */}
-      <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
-        {/* Navigation Header */}
-        <Header />
+        {/* Main Container */}
+        <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
+          {/* Navigation Header */}
+          <Header />
 
-        {/* Scrollable Page Wrapper */}
-        <PageWrapper>
-          <Routes>
-            <Route path="/" element={profile?.role === 'SUPER_ADMIN' ? <AdminOverview /> : <Dashboard />} />
-            <Route path="/trades" element={<Trades />} />
-            <Route path="/journal" element={<Journal />} />
-            <Route path="/ai-coach" element={<AICoach />} />
-            <Route path="/strategies" element={<Strategies />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/admin" element={
-              <AdminRoute>
-                <AdminDashboard />
-              </AdminRoute>
-            } />
-            <Route path="/admin/users" element={
-              <AdminRoute>
-                <AdminUsers />
-              </AdminRoute>
-            } />
-            <Route path="/admin/users/:id" element={
-              <AdminRoute>
-                <AdminUserDetail />
-              </AdminRoute>
-            } />
-            <Route path="/admin/trades" element={
-              <AdminRoute>
-                <AdminTrades />
-              </AdminRoute>
-            } />
-            <Route path="/admin/brokers" element={
-              <AdminRoute>
-                <AdminBrokers />
-              </AdminRoute>
-            } />
-            <Route path="/admin/ai" element={
-              <AdminRoute>
-                <AdminAIMonitor />
-              </AdminRoute>
-            } />
-            <Route path="/admin/audit" element={
-              <AdminRoute>
-                <AdminAuditLogs />
-              </AdminRoute>
-            } />
-            <Route path="/admin/settings" element={
-              <AdminRoute>
-                <AdminSystemSettings />
-              </AdminRoute>
-            } />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </PageWrapper>
+          {/* Scrollable Page Wrapper */}
+          <PageWrapper>
+            <Routes>
+              <Route path="/" element={profile?.role === 'SUPER_ADMIN' ? <AdminOverview /> : <Dashboard />} />
+              <Route path="/trades" element={<Trades />} />
+              <Route path="/journal" element={<Journal />} />
+              <Route path="/ai-coach" element={<AICoach />} />
+              <Route path="/strategies" element={<Strategies />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/admin" element={
+                <AdminRoute>
+                  <AdminDashboard />
+                </AdminRoute>
+              } />
+              <Route path="/admin/users" element={
+                <AdminRoute>
+                  <AdminUsers />
+                </AdminRoute>
+              } />
+              <Route path="/admin/users/:id" element={
+                <AdminRoute>
+                  <AdminUserDetail />
+                </AdminRoute>
+              } />
+              <Route path="/admin/trades" element={
+                <AdminRoute>
+                  <AdminTrades />
+                </AdminRoute>
+              } />
+              <Route path="/admin/brokers" element={
+                <AdminRoute>
+                  <AdminBrokers />
+                </AdminRoute>
+              } />
+              <Route path="/admin/ai" element={
+                <AdminRoute>
+                  <AdminAIMonitor />
+                </AdminRoute>
+              } />
+              <Route path="/admin/audit" element={
+                <AdminRoute>
+                  <AdminAuditLogs />
+                </AdminRoute>
+              } />
+              <Route path="/admin/settings" element={
+                <AdminRoute>
+                  <AdminSystemSettings />
+                </AdminRoute>
+              } />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </PageWrapper>
+        </div>
       </div>
-    </div>
+    </AuroraBackground>
   );
 }
 
@@ -177,15 +182,18 @@ export default function App() {
   }, [token, fetchTrades, fetchConnections, syncAll]);
 
   return (
+    <>
     <Routes>
       {/* Public SaaS Pages */}
       <Route element={<MarketingLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
         <Route path="/pricing" element={<Pricing />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
       </Route>
+
+      {/* Auth Pages (Standalone Layout) */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
 
       {/* Protected Dashboard App */}
       <Route path="/app/*" element={
@@ -194,5 +202,7 @@ export default function App() {
         </ProtectedRoute>
       } />
     </Routes>
+    <Toaster position="bottom-right" richColors expand={false} />
+    </>
   );
 }

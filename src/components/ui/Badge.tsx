@@ -1,38 +1,34 @@
 import React from 'react';
+import { cva, type VariantProps } from 'class-variance-authority';
+import { cn } from '../../lib/cn';
 
-type BadgeVariant = 'win' | 'loss' | 'breakeven' | 'accent' | 'manual';
+const badgeVariants = cva(
+  'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium tabular-nums transition-colors',
+  {
+    variants: {
+      variant: {
+        default: 'bg-surface-2 text-secondary border border-border',
+        primary: 'bg-accent/10 text-accent border border-accent/20',
+        success: 'bg-success/10 text-success border border-success/20',
+        danger: 'bg-danger/10 text-danger border border-danger/20',
+        warning: 'bg-warning/10 text-warning border border-warning/20',
+        info: 'bg-info/10 text-info border border-info/20',
+      },
+    },
+    defaultVariants: {
+      variant: 'default',
+    },
+  }
+);
 
-interface BadgeProps {
-  variant: BadgeVariant;
-  children?: React.ReactNode;
-}
+export interface BadgeProps
+  extends React.HTMLAttributes<HTMLDivElement>,
+    VariantProps<typeof badgeVariants> {}
 
-export default function Badge({ variant, children }: BadgeProps) {
-  // Map variant to styling classes
-  const getBadgeClass = (v: BadgeVariant) => {
-    switch (v) {
-      case 'win':
-        return 'badge-win';
-      case 'loss':
-        return 'badge-loss';
-      case 'breakeven':
-        return 'badge-breakeven';
-      case 'accent':
-      case 'manual':
-        return 'badge-accent';
-      default:
-        return 'badge-accent';
-    }
-  };
-
-  const getLabel = (v: BadgeVariant) => {
-    if (v === 'manual') return 'Manual';
-    return v.toUpperCase();
-  };
-
+export function Badge({ className, variant, ...props }: BadgeProps) {
   return (
-    <span className={`badge ${getBadgeClass(variant)} select-none`}>
-      {children || getLabel(variant)}
-    </span>
+    <div className={cn(badgeVariants({ variant }), className)} {...props} />
   );
 }
+
+export default Badge;

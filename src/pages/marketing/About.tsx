@@ -11,7 +11,7 @@ export default function About() {
           <h1 className="text-[50px] md:text-[80px] font-bold mb-6 text-primary drop-shadow-lg tracking-tight leading-tight">
             Built for <span className="text-gradient-accent">Traders</span>.<br/>Powered by AI.
           </h1>
-          <p className="text-tv-xl text-secondary max-w-3xl mx-auto leading-relaxed mb-16">
+          <p className="text-xl text-secondary max-w-3xl mx-auto leading-relaxed mb-16">
             We believe that successful trading isn't just about strategy—it's about discipline, risk management, and continuous mathematical analysis of your edge.
           </p>
         </div>
@@ -57,7 +57,7 @@ export default function About() {
             </p>
           </div>
           <div className="glass-panel p-10 rounded-2xl animate-slide-up opacity-0 delay-200">
-            <Zap className="w-10 h-10 text-profit mb-6" />
+            <Zap className="w-10 h-10 text-success mb-6" />
             <h3 className="text-2xl font-bold text-primary mb-4">Continuous Evolution</h3>
             <p className="text-secondary leading-relaxed">
               The markets are always changing, and so must we. Our AI coach analyzes recent market regimes to ensure your edge hasn't decayed over time.

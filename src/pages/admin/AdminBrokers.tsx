@@ -71,8 +71,8 @@ export default function AdminBrokers() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center">
-            <Link2 className="w-5 h-5 text-yellow-500" />
+          <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center">
+            <Link2 className="w-5 h-5 text-warning" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-text-primary">Broker Connections</h1>
@@ -85,7 +85,7 @@ export default function AdminBrokers() {
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-4 rounded-lg">{error}</div>
+        <div className="bg-danger/10 border border-danger/50 text-danger p-4 rounded-lg">{error}</div>
       )}
 
       {/* Stats Cards */}
@@ -94,8 +94,8 @@ export default function AdminBrokers() {
           <div className="bg-surface rounded-xl border border-border-color p-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-text-secondary text-sm">Total Connections</span>
-              <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                <Users className="w-4 h-4 text-blue-500" />
+              <div className="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
+                <Users className="w-4 h-4 text-info" />
               </div>
             </div>
             <AnimatedNumber value={data.stats.total} className="text-2xl font-bold text-text-primary" />
@@ -103,20 +103,20 @@ export default function AdminBrokers() {
           <div className="bg-surface rounded-xl border border-border-color p-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-text-secondary text-sm">Active</span>
-              <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
-                <Wifi className="w-4 h-4 text-green-500" />
+              <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
+                <Wifi className="w-4 h-4 text-success" />
               </div>
             </div>
-            <AnimatedNumber value={data.stats.active} className="text-2xl font-bold text-green-500" />
+            <AnimatedNumber value={data.stats.active} className="text-2xl font-bold text-success" />
           </div>
           <div className="bg-surface rounded-xl border border-border-color p-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-text-secondary text-sm">Inactive</span>
-              <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
-                <WifiOff className="w-4 h-4 text-red-500" />
+              <div className="w-8 h-8 rounded-lg bg-danger/10 flex items-center justify-center">
+                <WifiOff className="w-4 h-4 text-danger" />
               </div>
             </div>
-            <AnimatedNumber value={data.stats.inactive} className="text-2xl font-bold text-red-500" />
+            <AnimatedNumber value={data.stats.inactive} className="text-2xl font-bold text-danger" />
           </div>
         </div>
       )}
@@ -149,7 +149,7 @@ export default function AdminBrokers() {
                       <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${
                         conn.broker === 'zerodha' ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20' :
                         conn.broker === 'angelone' ? 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20' :
-                        conn.broker === 'dhan' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
+                        conn.broker === 'dhan' ? 'bg-info/10 text-info border border-info/20' :
                         'bg-gray-500/10 text-gray-400 border border-gray-500/20'
                       }`}>
                         {conn.broker?.toUpperCase() || 'Unknown'}
@@ -158,8 +158,8 @@ export default function AdminBrokers() {
                     <td className="px-6 py-4 text-text-secondary font-mono text-xs">{conn.clientId || '—'}</td>
                     <td className="px-6 py-4">
                       {conn.isActive ? (
-                        <span className="flex items-center gap-1.5 text-green-500 text-xs font-medium">
-                          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Active
+                        <span className="flex items-center gap-1.5 text-success text-xs font-medium">
+                          <span className="w-2 h-2 rounded-full bg-success animate-pulse"></span> Active
                         </span>
                       ) : (
                         <span className="flex items-center gap-1.5 text-red-400 text-xs font-medium">

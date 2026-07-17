@@ -1,73 +1,56 @@
-# React + TypeScript + Vite
+# TradeVault
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+TradeVault is a premium, web-based trading journal and performance analytics platform designed for retail traders. It enables traders to automatically sync trades, annotate them with strategy, mindset, and learnings, and receive AI-powered coaching from behavioral pattern analysis.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Premium Interface:** A dark-mode, fluid, Framer Motion-powered trading workspace.
+- **AI Coach:** Advanced behavioral analysis using the Anthropic Claude API to identify patterns like revenge trading and FOMO.
+- **Advanced Analytics:** Comprehensive dashboards tracking win rate, profit factor, strategy performance, and discipline metrics.
+- **Trade Journaling:** Dedicated pre-market and post-market journal forms to track daily biases, moods, and reflections.
+- **Broker Integrations:** Connects seamlessly to broker APIs for automatic trade synchronization.
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend:** React 18, Vite, TypeScript, Tailwind CSS, Framer Motion
+- **State Management:** Zustand
+- **Routing:** TanStack Router / React Router
+- **Charts:** Recharts
+- **Icons:** Lucide React
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+1. **Install Dependencies**
+   ```bash
+   npm install
+   ```
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+2. **Run Development Server**
+   ```bash
+   npm run dev
+   ```
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+3. **Build for Production**
+   ```bash
+   npm run build
+   ```
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+4. **Linting**
+   ```bash
+   npm run lint
+   ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Documentation
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+For detailed technical specifications, architecture, and feature planning, refer to the documentation files in the root directory:
+- `01_PRD_TradeVault.md`
+- `02_Technical_Architecture.md`
+- `03_Feature_Tickets.md`
+- `04_Frontend_Specification.md`
+- `05_Workflow_Documents.md`
+- `06_Security_Access.md`
+- `07_AI_System_Technical.md`
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## License
+MIT
+

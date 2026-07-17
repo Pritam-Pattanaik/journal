@@ -1,101 +1,377 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Check, X, HelpCircle } from 'lucide-react';
+import { Check, X, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
+
+const plans = [
+  {
+    name: 'Hobby',
+    price: '₹0',
+    description: 'For beginners keeping a simple journal.',
+    features: [
+      { label: '50 Trades per month', included: true },
+      { label: 'Basic Analytics', included: true },
+      { label: 'Manual Entry', included: true },
+      { label: 'Broker Sync', included: false },
+      { label: 'AI Coach', included: false },
+    ],
+    cta: 'Get Started',
+    ctaVariant: 'secondary' as const,
+    highlight: false,
+  },
+  {
+    name: 'Pro',
+    price: '₹999',
+    description: 'For serious traders seeking consistency.',
+    features: [
+      { label: 'Unlimited Trades', included: true },
+      { label: 'Advanced Heatmaps', included: true },
+      { label: 'Automatic Broker Sync', included: true },
+      { label: 'Basic AI Coach', included: true },
+      { label: 'API Access', included: false },
+    ],
+    cta: 'Start 14-Day Free Trial',
+    ctaVariant: 'primary' as const,
+    highlight: true,
+    badge: 'Most Popular',
+  },
+  {
+    name: 'Elite',
+    price: '₹2,499',
+    description: 'For institutional traders and syndicates.',
+    features: [
+      { label: 'Everything in Pro', included: true },
+      { label: 'Advanced AI Coach', included: true },
+      { label: 'Strategy Analytics', included: true },
+      { label: 'Priority 24/7 Support', included: true },
+      { label: 'Custom API Access', included: true },
+    ],
+    cta: 'Contact Sales',
+    ctaVariant: 'secondary' as const,
+    highlight: false,
+  },
+];
+
+const faqs = [
+  {
+    q: 'Do I need to enter my credit card for the free trial?',
+    a: 'No! You can start your 14-day Pro trial without entering any payment information.',
+  },
+  {
+    q: 'Which brokers do you support?',
+    a: 'We currently support automatic syncing with Zerodha (Kite), Interactive Brokers, TD Ameritrade, and Binance.',
+  },
+  {
+    q: 'Is my trading data secure?',
+    a: 'Yes. Your data is encrypted at rest and in transit. We use bank-level security and do not sell your data to third parties.',
+  },
+  {
+    q: 'Can I switch plans later?',
+    a: 'Absolutely. You can upgrade or downgrade your plan at any time. Prorated charges will be applied automatically.',
+  },
+];
+
+function FAQItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div
+      style={{
+        background: 'rgb(var(--color-surface))',
+        border: '1px solid rgb(var(--color-border))',
+        borderRadius: 'var(--radius-lg)',
+        overflow: 'hidden',
+      }}
+    >
+      <button
+        onClick={() => setOpen(x => !x)}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '16px 20px',
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          textAlign: 'left',
+          gap: 12,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 'var(--text-base)',
+            fontWeight: 500,
+            color: 'rgb(var(--color-text-primary))',
+            lineHeight: 1.4,
+          }}
+        >
+          {q}
+        </span>
+        {open ? (
+          <ChevronUp size={18} strokeWidth={1.5} style={{ color: 'rgb(var(--color-text-tertiary))', flexShrink: 0 }} />
+        ) : (
+          <ChevronDown size={18} strokeWidth={1.5} style={{ color: 'rgb(var(--color-text-tertiary))', flexShrink: 0 }} />
+        )}
+      </button>
+      {open && (
+        <div
+          style={{
+            padding: '0 20px 16px',
+            fontSize: 'var(--text-sm)',
+            color: 'rgb(var(--color-text-secondary))',
+            lineHeight: 1.6,
+            borderTop: '1px solid rgb(var(--color-border))',
+            paddingTop: 14,
+          }}
+        >
+          {a}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Pricing() {
   return (
-    <div className="w-full pb-32">
+    <div style={{ width: '100%', paddingBottom: 96 }}>
       {/* Header */}
-      <section className="text-center pt-24 pb-16 px-6 animate-slide-up opacity-0">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-panel text-tv-xs text-profit font-bold uppercase tracking-widest mb-6">
+      <section
+        style={{
+          textAlign: 'center',
+          padding: '80px 24px 64px',
+          maxWidth: 640,
+          margin: '0 auto',
+        }}
+      >
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '4px 12px',
+            borderRadius: 'var(--radius-full)',
+            background: 'rgba(16,185,129,0.1)',
+            border: '1px solid rgba(16,185,129,0.2)',
+            color: 'rgb(var(--color-success))',
+            fontSize: 'var(--text-xs)',
+            fontWeight: 500,
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            marginBottom: 20,
+          }}
+        >
           Simple Pricing
         </div>
-        <h1 className="text-[50px] md:text-[70px] font-bold mb-6 text-primary drop-shadow-lg leading-tight">
-          Invest in your <span className="text-gradient-accent">edge.</span>
+        <h1
+          style={{
+            fontSize: 'var(--text-4xl)',
+            fontWeight: 600,
+            color: 'rgb(var(--color-text-primary))',
+            letterSpacing: '-0.02em',
+            lineHeight: 1.1,
+            marginBottom: 16,
+          }}
+        >
+          Invest in your{' '}
+          <span style={{ color: 'rgb(var(--color-accent))' }}>edge.</span>
         </h1>
-        <p className="text-tv-xl text-secondary max-w-2xl mx-auto">
-          Start for free to explore the platform. Upgrade when you're ready to scale your trading business to the next level.
+        <p
+          style={{
+            fontSize: 'var(--text-lg)',
+            color: 'rgb(var(--color-text-secondary))',
+            lineHeight: 1.6,
+          }}
+        >
+          Start for free to explore the platform. Upgrade when you're ready to scale your trading.
         </p>
       </section>
 
       {/* Pricing Cards */}
-      <section className="max-w-7xl mx-auto px-6 mb-32">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-          {/* Hobby */}
-          <div className="glass-panel flex flex-col p-8 rounded-3xl animate-slide-up opacity-0 delay-100">
-            <h3 className="text-2xl font-bold text-primary mb-2">Hobby</h3>
-            <p className="text-secondary text-sm mb-6 h-10">For beginners keeping a simple journal.</p>
-            <div className="text-[50px] font-bold text-primary mb-8"><span className="text-lg text-secondary font-normal">/mo</span></div>
-            <ul className="space-y-4 mb-8 flex-1">
-              <li className="flex items-center gap-3 text-secondary"><Check className="w-5 h-5 text-profit" /> 50 Trades per month</li>
-              <li className="flex items-center gap-3 text-secondary"><Check className="w-5 h-5 text-profit" /> Basic Analytics</li>
-              <li className="flex items-center gap-3 text-secondary"><Check className="w-5 h-5 text-profit" /> Manual Entry</li>
-              <li className="flex items-center gap-3 text-muted"><X className="w-5 h-5" /> Broker Sync</li>
-              <li className="flex items-center gap-3 text-muted"><X className="w-5 h-5" /> AI Coach</li>
-            </ul>
-            <Link to="/signup" className="w-full py-4 glass-panel text-center font-bold rounded-xl hover:bg-white/10 transition-colors text-primary">
-              Get Started
-            </Link>
-          </div>
+      <section
+        style={{
+          maxWidth: 1024,
+          margin: '0 auto',
+          padding: '0 24px 80px',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: 24,
+          alignItems: 'start',
+        }}
+        className="max-md:grid-cols-1"
+      >
+        {plans.map(plan => (
+          <div
+            key={plan.name}
+            style={{
+              background: 'rgb(var(--color-surface))',
+              border: plan.highlight
+                ? '1px solid rgba(99,102,241,0.5)'
+                : '1px solid rgb(var(--color-border))',
+              borderRadius: 'var(--radius-xl)',
+              padding: 28,
+              display: 'flex',
+              flexDirection: 'column',
+              position: 'relative',
+              boxShadow: plan.highlight ? '0 0 0 3px rgba(99,102,241,0.08)' : 'none',
+            }}
+          >
+            {/* Popular Badge */}
+            {plan.badge && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: -12,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  background: 'rgb(var(--color-accent))',
+                  color: 'rgb(var(--color-text-inverse))',
+                  fontSize: 'var(--text-xs)',
+                  fontWeight: 600,
+                  padding: '3px 12px',
+                  borderRadius: 'var(--radius-full)',
+                  whiteSpace: 'nowrap',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                {plan.badge}
+              </div>
+            )}
 
-          {/* Pro */}
-          <div className="glass-panel flex flex-col p-8 rounded-3xl border border-accent/50 relative transform md:scale-105 shadow-glow-profit z-10 animate-slide-up opacity-0 delay-200 bg-white/5">
-            <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-accent text-white px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-glow-profit">
-              Most Popular
+            <h3
+              style={{
+                fontSize: 'var(--text-xl)',
+                fontWeight: 600,
+                color: plan.highlight ? 'rgb(var(--color-accent))' : 'rgb(var(--color-text-primary))',
+                marginBottom: 6,
+                letterSpacing: '-0.01em',
+              }}
+            >
+              {plan.name}
+            </h3>
+
+            <p
+              style={{
+                fontSize: 'var(--text-sm)',
+                color: 'rgb(var(--color-text-secondary))',
+                marginBottom: 20,
+                minHeight: 40,
+                lineHeight: 1.5,
+              }}
+            >
+              {plan.description}
+            </p>
+
+            <div
+              style={{
+                fontSize: 'var(--text-4xl)',
+                fontWeight: 700,
+                color: 'rgb(var(--color-text-primary))',
+                fontFamily: 'var(--font-mono)',
+                fontVariantNumeric: 'tabular-nums',
+                letterSpacing: '-0.02em',
+                marginBottom: 24,
+                lineHeight: 1,
+              }}
+            >
+              {plan.price}
+              {plan.price !== '₹0' && (
+                <span
+                  style={{
+                    fontSize: 'var(--text-sm)',
+                    fontWeight: 400,
+                    color: 'rgb(var(--color-text-secondary))',
+                    fontFamily: 'var(--font-sans)',
+                    marginLeft: 4,
+                  }}
+                >
+                  /mo
+                </span>
+              )}
             </div>
-            <h3 className="text-2xl font-bold text-accent-light mb-2">Pro</h3>
-            <p className="text-secondary text-sm mb-6 h-10">For serious traders seeking consistency.</p>
-            <div className="text-[50px] font-bold text-primary mb-8"><span className="text-lg text-secondary font-normal">/mo</span></div>
-            <ul className="space-y-4 mb-8 flex-1">
-              <li className="flex items-center gap-3 text-primary"><Check className="w-5 h-5 text-profit" /> Unlimited Trades</li>
-              <li className="flex items-center gap-3 text-primary"><Check className="w-5 h-5 text-profit" /> Advanced Heatmaps</li>
-              <li className="flex items-center gap-3 text-primary"><Check className="w-5 h-5 text-profit" /> Automatic Broker Sync</li>
-              <li className="flex items-center gap-3 text-primary"><Check className="w-5 h-5 text-profit" /> Basic AI Coach</li>
-              <li className="flex items-center gap-3 text-muted"><X className="w-5 h-5" /> API Access</li>
-            </ul>
-            <Link to="/signup" className="w-full py-4 bg-accent text-white text-center font-bold rounded-xl hover:bg-accent/90 transition-colors shadow-glow-profit">
-              Start 14-Day Free Trial
-            </Link>
-          </div>
 
-          {/* Elite */}
-          <div className="glass-panel flex flex-col p-8 rounded-3xl animate-slide-up opacity-0 delay-300">
-            <h3 className="text-2xl font-bold text-primary mb-2">Elite</h3>
-            <p className="text-secondary text-sm mb-6 h-10">For institutional traders and syndicates.</p>
-            <div className="text-[50px] font-bold text-primary mb-8"><span className="text-lg text-secondary font-normal">/mo</span></div>
-            <ul className="space-y-4 mb-8 flex-1">
-              <li className="flex items-center gap-3 text-secondary"><Check className="w-5 h-5 text-profit" /> Everything in Pro</li>
-              <li className="flex items-center gap-3 text-secondary"><Check className="w-5 h-5 text-profit" /> Advanced AI Coach</li>
-              <li className="flex items-center gap-3 text-secondary"><Check className="w-5 h-5 text-profit" /> Strategy Backtesting</li>
-              <li className="flex items-center gap-3 text-secondary"><Check className="w-5 h-5 text-profit" /> Priority 24/7 Support</li>
-              <li className="flex items-center gap-3 text-secondary"><Check className="w-5 h-5 text-profit" /> Custom API Access</li>
+            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28, flex: 1 }}>
+              {plan.features.map((f, i) => (
+                <li
+                  key={i}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    fontSize: 'var(--text-sm)',
+                    color: f.included ? 'rgb(var(--color-text-primary))' : 'rgb(var(--color-text-tertiary))',
+                  }}
+                >
+                  {f.included ? (
+                    <Check size={16} strokeWidth={2} style={{ color: 'rgb(var(--color-success))', flexShrink: 0 }} />
+                  ) : (
+                    <X size={16} strokeWidth={2} style={{ color: 'rgb(var(--color-text-disabled))', flexShrink: 0 }} />
+                  )}
+                  {f.label}
+                </li>
+              ))}
             </ul>
-            <Link to="/signup" className="w-full py-4 glass-panel text-center font-bold rounded-xl hover:bg-white/10 transition-colors text-primary">
-              Contact Sales
+
+            <Link
+              to="/signup"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '10px 16px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: 'var(--text-sm)',
+                fontWeight: 500,
+                textDecoration: 'none',
+                textAlign: 'center',
+                background: plan.highlight ? 'rgb(var(--color-accent))' : 'transparent',
+                color: plan.highlight ? 'rgb(var(--color-text-inverse))' : 'rgb(var(--color-text-primary))',
+                border: plan.highlight ? 'none' : '1px solid rgb(var(--color-border))',
+                transition: 'background-color var(--duration-fast) var(--ease-out)',
+              }}
+              onMouseEnter={e => {
+                if (plan.highlight) {
+                  (e.currentTarget as HTMLAnchorElement).style.background = 'rgb(var(--color-accent-hover))';
+                } else {
+                  (e.currentTarget as HTMLAnchorElement).style.background = 'rgb(var(--color-surface-hover))';
+                }
+              }}
+              onMouseLeave={e => {
+                if (plan.highlight) {
+                  (e.currentTarget as HTMLAnchorElement).style.background = 'rgb(var(--color-accent))';
+                } else {
+                  (e.currentTarget as HTMLAnchorElement).style.background = 'transparent';
+                }
+              }}
+            >
+              {plan.cta}
             </Link>
           </div>
-        </div>
+        ))}
       </section>
 
-      {/* FAQ */}
-      <section className="max-w-4xl mx-auto px-6 py-20 animate-slide-up opacity-0 delay-400">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-primary mb-4">Frequently Asked Questions</h2>
+      {/* FAQ Section */}
+      <section
+        style={{
+          maxWidth: 720,
+          margin: '0 auto',
+          padding: '0 24px',
+        }}
+      >
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <h2
+            style={{
+              fontSize: 'var(--text-3xl)',
+              fontWeight: 600,
+              color: 'rgb(var(--color-text-primary))',
+              letterSpacing: '-0.02em',
+              lineHeight: 1.2,
+            }}
+          >
+            Frequently Asked Questions
+          </h2>
         </div>
-        <div className="space-y-4">
-          {[
-            { q: "Do I need to enter my credit card for the free trial?", a: "No! You can start your 14-day Pro trial without entering any payment information." },
-            { q: "Which brokers do you support?", a: "We currently support automatic syncing with Zerodha (Kite), Interactive Brokers, TD Ameritrade, and Binance." },
-            { q: "Is my trading data secure?", a: "Yes. Your data is encrypted at rest and in transit. We use bank-level security and do not sell your data to third parties." },
-            { q: "Can I switch plans later?", a: "Absolutely. You can upgrade or downgrade your plan at any time. Prorated charges will be applied automatically." }
-          ].map((faq, idx) => (
-            <div key={idx} className="glass-panel p-6 rounded-xl">
-              <h4 className="text-lg font-bold text-primary mb-2 flex items-center gap-2">
-                <HelpCircle className="w-5 h-5 text-accent" />
-                {faq.q}
-              </h4>
-              <p className="text-secondary pl-7">{faq.a}</p>
-            </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {faqs.map((faq, i) => (
+            <FAQItem key={i} q={faq.q} a={faq.a} />
           ))}
         </div>
       </section>

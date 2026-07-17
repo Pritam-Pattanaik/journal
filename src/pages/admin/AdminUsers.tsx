@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, ChevronLeft, ChevronRight, Eye, Trash2, Users, ShieldCheck, Shield, User, AlertTriangle, X } from 'lucide-react';
+import Badge from '../../components/ui/Badge';
 import { api } from '../../lib/api';
 import { useAuthStore } from '../../stores/authStore';
+import { notify } from '../../lib/notify';
 import { SkeletonTable } from '../../components/admin/SkeletonLoader';
 
 interface SystemUser {
@@ -33,9 +35,9 @@ const SORT_OPTIONS = [
 const roleBadge = (role: string) => {
   const styles: Record<string, string> = {
     SUPER_ADMIN: 'bg-purple-500/10 text-purple-500 border border-purple-500/20',
-    ADMIN: 'bg-blue-500/10 text-blue-500 border border-blue-500/20',
-    SUB_ADMIN: 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20',
-    USER: 'bg-green-500/10 text-green-500 border border-green-500/20',
+    ADMIN: 'bg-info/10 text-info border border-info/20',
+    SUB_ADMIN: 'bg-warning/10 text-warning border border-warning/20',
+    USER: 'bg-success/10 text-success border border-success/20',
   };
   return styles[role] || styles.USER;
 };
@@ -98,20 +100,23 @@ export default function AdminUsers() {
       await api.patch(`/admin/users/${userId}/role`, { role: newRole });
       setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole as SystemUser['role'] } : u)));
     } catch (err: any) {
-      alert(err.message || 'Failed to update role');
+      notify.error(err.message || 'Failed to update role');
     }
   };
 
   const handleDelete = async () => {
     if (!deleteModal) return;
+    if (!window.confirm(`Are you sure you want to delete ${deleteModal.email}? This action is irreversible.`)) return;
+    
     try {
       setDeleting(true);
       await api.delete(`/admin/users/${deleteModal.id}`);
       setUsers((prev) => prev.filter((u) => u.id !== deleteModal.id));
       setTotal((prev) => prev - 1);
       setDeleteModal(null);
+      notify.success('User deleted successfully.');
     } catch (err: any) {
-      alert(err.message || 'Failed to delete user');
+      notify.error(err.message || 'Failed to delete user');
     } finally {
       setDeleting(false);
     }
@@ -132,7 +137,7 @@ export default function AdminUsers() {
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-4 rounded-lg">{error}</div>
+        <div className="bg-danger/10 border border-danger/50 text-danger p-4 rounded-lg">{error}</div>
       )}
 
       {/* Filters */}
@@ -219,7 +224,7 @@ export default function AdminUsers() {
                     <td className="px-6 py-4 text-text-secondary">{u.totalTrades || 0}</td>
                     <td className="px-6 py-4 text-right">
                       <span className={`font-medium ${
-                        (u.netPnl || 0) > 0 ? 'text-green-500' : (u.netPnl || 0) < 0 ? 'text-red-500' : 'text-text-secondary'
+                        (u.netPnl || 0) > 0 ? 'text-success' : (u.netPnl || 0) < 0 ? 'text-danger' : 'text-text-secondary'
                       }`}>
                         {(u.netPnl || 0) > 0 ? '+' : ''}₹{Number(u.netPnl || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
@@ -248,7 +253,7 @@ export default function AdminUsers() {
                           <button
                             onClick={() => setDeleteModal(u)}
                             disabled={u.id === currentUser?.id}
-                            className="p-1.5 rounded-lg hover:bg-red-500/10 text-text-secondary hover:text-red-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            className="p-1.5 rounded-lg hover:bg-danger/10 text-text-secondary hover:text-danger transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                             title="Delete User"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -317,8 +322,8 @@ export default function AdminUsers() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-surface rounded-xl border border-border-color p-6 max-w-md w-full mx-4 shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
-                <AlertTriangle className="w-5 h-5 text-red-500" />
+              <div className="w-10 h-10 rounded-full bg-danger/10 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-danger" />
               </div>
               <h3 className="text-lg font-semibold text-text-primary">Delete User</h3>
               <button
@@ -342,7 +347,7 @@ export default function AdminUsers() {
               <button
                 onClick={handleDelete}
                 disabled={deleting}
-                className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm hover:bg-red-600 disabled:opacity-50 transition-colors"
+                className="px-4 py-2 rounded-lg bg-danger text-white text-sm hover:bg-red-600 disabled:opacity-50 transition-colors"
               >
                 {deleting ? 'Deleting...' : 'Delete User'}
               </button>

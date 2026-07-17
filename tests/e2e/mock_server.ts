@@ -118,7 +118,7 @@ let brokerConnections: BrokerConnection[] = [];
 let aiInsights: AiInsight[] = [];
 let coachMemories: CoachMemory[] = [];
 let auditLogs: AuditLog[] = [];
-let systemSettings: SystemSetting[] = [
+const systemSettings: SystemSetting[] = [
   { key: 'enable_ai_coach', value: 'true' },
   { key: 'enable_broker_sync', value: 'true' },
   { key: 'maintenance_mode', value: 'false' },

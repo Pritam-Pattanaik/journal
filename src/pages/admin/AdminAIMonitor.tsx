@@ -99,7 +99,7 @@ export default function AdminAIMonitor() {
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-4 rounded-lg">{error}</div>
+        <div className="bg-danger/10 border border-danger/50 text-danger p-4 rounded-lg">{error}</div>
       )}
 
       {data && (
@@ -127,11 +127,11 @@ export default function AdminAIMonitor() {
             <div className="bg-surface rounded-xl border border-border-color p-6">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-text-secondary text-sm">Trade Feedback</span>
-                <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
-                  <FileText className="w-4 h-4 text-green-500" />
+                <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-success" />
                 </div>
               </div>
-              <AnimatedNumber value={data.stats.byType?.trade_feedback || 0} className="text-2xl font-bold text-green-500" />
+              <AnimatedNumber value={data.stats.byType?.trade_feedback || 0} className="text-2xl font-bold text-success" />
             </div>
           </div>
 
@@ -148,8 +148,8 @@ export default function AdminAIMonitor() {
                         <Cell key={idx} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'var(--color-text-primary)' }} />
-                    <Legend wrapperStyle={{ color: 'var(--color-text-secondary)', fontSize: '12px' }} />
+                  <Tooltip contentStyle={{ backgroundColor: 'rgb(var(--color-surface))', border: '1px solid rgb(var(--color-border))', borderRadius: 'var(--radius-lg)', color: 'rgb(var(--color-text-primary))' }} />
+                  <Legend wrapperStyle={{ color: 'rgb(var(--color-text-secondary))', fontSize: '12px' }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>

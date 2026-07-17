@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../stores/authStore';
-import { Shield, ShieldAlert, ShieldCheck, User } from 'lucide-react';
+import { notify } from '../lib/notify';
+import { Shield, ShieldAlert, ShieldCheck, User, Users } from 'lucide-react';
 import { api } from '../lib/api';
+import { cn } from '../lib/cn';
 
 interface SystemUser {
   id: string;
@@ -40,8 +42,9 @@ export default function AdminDashboard() {
     try {
       const data = await api.patch<SystemUser>(`/admin/users/${userId}/role`, { role: newRole });
       setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: data.role } : u)));
+      notify.success('User role updated successfully');
     } catch (err: any) {
-      alert(err.message || 'Failed to update role');
+      notify.error(err.message || 'Failed to update role');
     }
   };
 
@@ -49,95 +52,94 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse flex space-x-4">
-          <div className="flex-1 space-y-4 py-1">
-            <div className="h-4 bg-surface-hover rounded w-3/4"></div>
-            <div className="space-y-2">
-              <div className="h-4 bg-surface-hover rounded"></div>
-              <div className="h-4 bg-surface-hover rounded w-5/6"></div>
-            </div>
-          </div>
-        </div>
+      <div className="p-8 flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
       </div>
     );
   }
 
+  const thStyles = "px-6 py-4 text-[10px] font-bold text-tertiary uppercase tracking-widest text-left whitespace-nowrap";
+  const tdStyles = "px-6 py-4 whitespace-nowrap border-b border-white/[0.05]";
+
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center space-x-3 mb-8">
-        <ShieldAlert className="w-8 h-8 text-brand-500" />
+    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 page-enter font-ui pb-20">
+      <div className="flex items-center space-x-4">
+        <div className="h-12 w-12 rounded-xl bg-accent/20 border border-accent/30 flex items-center justify-center">
+          <ShieldAlert className="w-6 h-6 text-accent-light" />
+        </div>
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Admin Dashboard</h1>
-          <p className="text-text-secondary text-sm">Manage system users and access levels</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Access Control</h1>
+          <p className="text-sm text-secondary mt-1">Manage system users, roles, and administrative privileges.</p>
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-4 rounded-lg mb-6">
-          {error}
+        <div className="bg-danger/10 border border-danger/20 text-danger p-4 rounded-xl flex items-start gap-3">
+          <ShieldAlert className="w-5 h-5 shrink-0" />
+          <div className="text-sm font-medium">{error}</div>
         </div>
       )}
 
-      <div className="bg-surface rounded-xl border border-border-color overflow-hidden">
+      <div className="glass-panel rounded-2xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.4)]">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-surface-hover/50 text-text-secondary border-b border-border-color">
-              <tr>
-                <th className="px-6 py-4 font-medium">User</th>
-                <th className="px-6 py-4 font-medium">Email</th>
-                <th className="px-6 py-4 font-medium">Role</th>
-                <th className="px-6 py-4 font-medium">Joined</th>
-                <th className="px-6 py-4 font-medium">Trades</th>
-                <th className="px-6 py-4 font-medium text-right">Net P&L</th>
-                {isSuperAdmin && <th className="px-6 py-4 font-medium text-right">Actions</th>}
+          <table className="w-full text-left text-sm border-collapse">
+            <thead>
+              <tr className="bg-white/[0.02] border-b border-white/10">
+                <th className={thStyles}>User Identity</th>
+                <th className={thStyles}>Email Address</th>
+                <th className={thStyles}>System Role</th>
+                <th className={thStyles}>Member Since</th>
+                <th className={thStyles}>Volume</th>
+                <th className={cn(thStyles, "text-right")}>Net P&L</th>
+                {isSuperAdmin && <th className={cn(thStyles, "text-right")}>Privileges</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-border-color">
+            <tbody className="bg-transparent">
               {users.map((u) => (
-                <tr key={u.id} className="hover:bg-surface-hover transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 rounded-full bg-brand-500/10 flex items-center justify-center text-brand-500">
+                <tr key={u.id} className="hover:bg-white/[0.02] transition-colors group">
+                  <td className={tdStyles}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/50 group-hover:bg-white/10 group-hover:text-white transition-colors">
                         {u.role === 'SUPER_ADMIN' ? <ShieldCheck className="w-4 h-4" /> : 
                          u.role === 'ADMIN' || u.role === 'SUB_ADMIN' ? <Shield className="w-4 h-4" /> : 
                          <User className="w-4 h-4" />}
                       </div>
-                      <span className="font-medium text-text-primary">{u.fullName || 'Anonymous'}</span>
+                      <span className="font-bold text-white tracking-tight">{u.fullName || 'Anonymous'}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-text-secondary">{u.email}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      u.role === 'SUPER_ADMIN' ? 'bg-purple-500/10 text-purple-500 border border-purple-500/20' :
-                      u.role === 'ADMIN' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
-                      u.role === 'SUB_ADMIN' ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20' :
-                      'bg-green-500/10 text-green-500 border border-green-500/20'
-                    }`}>
-                      {u.role}
+                  <td className={cn(tdStyles, "text-secondary font-medium")}>{u.email}</td>
+                  <td className={tdStyles}>
+                    <span className={cn(
+                      "px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-widest border",
+                      u.role === 'SUPER_ADMIN' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                      u.role === 'ADMIN' ? 'bg-accent/10 text-accent border-accent/20' :
+                      u.role === 'SUB_ADMIN' ? 'bg-warning/10 text-warning border-warning/20' :
+                      'bg-white/[0.05] text-tertiary border-white/10'
+                    )}>
+                      {u.role.replace('_', ' ')}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-text-secondary">
-                    {new Date(u.createdAt).toLocaleDateString()}
+                  <td className={cn(tdStyles, "text-secondary font-mono text-[13px]")}>
+                    {new Date(u.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                   </td>
-                  <td className="px-6 py-4 text-text-secondary">
+                  <td className={cn(tdStyles, "text-white font-mono text-[13px]")}>
                     {u.totalTrades || 0}
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <span className={`font-medium ${
-                      (u.netPnl || 0) > 0 ? 'text-green-500' :
-                      (u.netPnl || 0) < 0 ? 'text-red-500' : 'text-text-secondary'
-                    }`}>
+                  <td className={cn(tdStyles, "text-right font-mono text-[13px] font-bold")}>
+                    <span className={cn(
+                      (u.netPnl || 0) > 0 ? 'text-success' :
+                      (u.netPnl || 0) < 0 ? 'text-danger' : 'text-tertiary'
+                    )}>
                       {(u.netPnl || 0) > 0 ? '+' : ''}₹{Number(u.netPnl || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </td>
                   {isSuperAdmin && (
-                    <td className="px-6 py-4 text-right">
+                    <td className={cn(tdStyles, "text-right")}>
                       <select
                         value={u.role}
                         onChange={(e) => handleRoleChange(u.id, e.target.value)}
                         disabled={u.id === user?.id} // Don't let super admin change their own role here
-                        className="bg-background border border-border-color text-text-primary rounded-lg px-3 py-1.5 text-sm outline-none focus:border-brand-500 disabled:opacity-50"
+                        className="bg-black border border-white/10 text-white rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wider outline-none focus:border-white/30 disabled:opacity-50 appearance-none cursor-pointer hover:border-white/20 transition-colors shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]"
                       >
                         <option value="USER">User</option>
                         <option value="SUB_ADMIN">Sub Admin</option>
@@ -151,8 +153,9 @@ export default function AdminDashboard() {
             </tbody>
           </table>
           {users.length === 0 && !loading && (
-            <div className="p-8 text-center text-text-secondary">
-              No users found.
+            <div className="p-12 text-center flex flex-col items-center">
+              <Users className="w-12 h-12 text-white/20 mb-4" />
+              <div className="text-white font-bold">No users found.</div>
             </div>
           )}
         </div>

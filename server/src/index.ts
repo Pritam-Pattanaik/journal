@@ -4,6 +4,11 @@ import dotenv from 'dotenv';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import path from 'path';
+import dns from 'dns';
+
+// Fix for Node 17+ IPv6 resolution issues with Neon/Prisma
+dns.setDefaultResultOrder('ipv4first');
+
 import { prisma } from './db';
 import { generateAIInsight } from './lib/ai/llm';
 import { syncDhanTrades } from './lib/brokers/dhan';

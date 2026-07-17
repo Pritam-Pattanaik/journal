@@ -99,9 +99,9 @@ export default function AdminTrades() {
 
   const statCards = [
     { label: 'Total Trades', value: stats?.totalTrades || 0, prefix: '', suffix: '', decimals: 0, color: 'text-brand-500', icon: TrendingUp },
-    { label: 'Win Rate', value: stats?.winRate || 0, prefix: '', suffix: '%', decimals: 1, color: 'text-green-500', icon: Target },
-    { label: 'Avg P&L', value: stats?.avgPnl || 0, prefix: '₹', suffix: '', decimals: 2, color: (stats?.avgPnl || 0) >= 0 ? 'text-green-500' : 'text-red-500', icon: BarChart3 },
-    { label: 'Total P&L', value: stats?.totalPnl || 0, prefix: '₹', suffix: '', decimals: 2, color: (stats?.totalPnl || 0) >= 0 ? 'text-green-500' : 'text-red-500', icon: TrendingUp },
+    { label: 'Win Rate', value: stats?.winRate || 0, prefix: '', suffix: '%', decimals: 1, color: 'text-success', icon: Target },
+    { label: 'Avg P&L', value: stats?.avgPnl || 0, prefix: '₹', suffix: '', decimals: 2, color: (stats?.avgPnl || 0) >= 0 ? 'text-success' : 'text-danger', icon: BarChart3 },
+    { label: 'Total P&L', value: stats?.totalPnl || 0, prefix: '₹', suffix: '', decimals: 2, color: (stats?.totalPnl || 0) >= 0 ? 'text-success' : 'text-danger', icon: TrendingUp },
   ];
 
   return (
@@ -116,7 +116,7 @@ export default function AdminTrades() {
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-4 rounded-lg">{error}</div>
+        <div className="bg-danger/10 border border-danger/50 text-danger p-4 rounded-lg">{error}</div>
       )}
 
       {/* Stat Cards */}
@@ -205,20 +205,20 @@ export default function AdminTrades() {
                         <td className="px-4 py-3 text-text-secondary text-xs">{t.market}</td>
                         <td className="px-4 py-3">
                           <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
-                            t.direction === 'LONG' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
+                            t.direction === 'LONG' ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'
                           }`}>{t.direction}</span>
                         </td>
                         <td className="px-4 py-3 text-text-secondary text-xs">₹{Number(t.entryPrice).toLocaleString()}</td>
                         <td className="px-4 py-3 text-text-secondary text-xs">{t.exitPrice ? `₹${Number(t.exitPrice).toLocaleString()}` : '-'}</td>
                         <td className="px-4 py-3 text-right">
-                          <span className={`font-medium text-sm ${(t.pnl || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                          <span className={`font-medium text-sm ${(t.pnl || 0) >= 0 ? 'text-success' : 'text-danger'}`}>
                             {(t.pnl || 0) >= 0 ? '+' : ''}₹{Number(t.pnl || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                           </span>
                         </td>
                         <td className="px-4 py-3">
                           <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
-                            t.status === 'CLOSED' ? 'bg-green-500/10 text-green-500' :
-                            t.status === 'OPEN' ? 'bg-blue-500/10 text-blue-500' :
+                            t.status === 'CLOSED' ? 'bg-success/10 text-success' :
+                            t.status === 'OPEN' ? 'bg-info/10 text-info' :
                             'bg-gray-500/10 text-gray-500'
                           }`}>{t.status}</span>
                         </td>
@@ -267,7 +267,7 @@ export default function AdminTrades() {
                         <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={{ backgroundColor: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }} />
+                    <Tooltip contentStyle={{ backgroundColor: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 'var(--radius-lg)', color: '#fff' }} />
                     <Legend wrapperStyle={{ color: '#9ca3af', fontSize: '12px' }} />
                   </PieChart>
                 </ResponsiveContainer>

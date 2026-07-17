@@ -22,9 +22,9 @@ interface AuditData {
 }
 
 const ACTION_CONFIG: Record<string, { label: string; color: string; bgColor: string; icon: typeof Shield }> = {
-  CHANGE_ROLE: { label: 'Role Change', color: 'text-blue-500', bgColor: 'bg-blue-500/10', icon: Shield },
-  DELETE_USER: { label: 'User Deleted', color: 'text-red-500', bgColor: 'bg-red-500/10', icon: UserMinus },
-  UPDATE_SETTING: { label: 'Setting Updated', color: 'text-yellow-500', bgColor: 'bg-yellow-500/10', icon: Settings },
+  CHANGE_ROLE: { label: 'Role Change', color: 'text-info', bgColor: 'bg-info/10', icon: Shield },
+  DELETE_USER: { label: 'User Deleted', color: 'text-danger', bgColor: 'bg-danger/10', icon: UserMinus },
+  UPDATE_SETTING: { label: 'Setting Updated', color: 'text-warning', bgColor: 'bg-warning/10', icon: Settings },
   MANUAL_SYNC: { label: 'Manual Sync', color: 'text-cyan-500', bgColor: 'bg-cyan-500/10', icon: RefreshCw },
 };
 
@@ -91,7 +91,7 @@ export default function AdminAuditLogs() {
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-4 rounded-lg">{error}</div>
+        <div className="bg-danger/10 border border-danger/50 text-danger p-4 rounded-lg">{error}</div>
       )}
 
       {/* Filters */}

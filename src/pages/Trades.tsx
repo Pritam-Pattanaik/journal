@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Download, RefreshCw, Loader2 } from 'lucide-react';
+import { Plus, Download, RefreshCw, Loader2, ArrowUpRight, ArrowDownRight, Activity, Percent } from 'lucide-react';
 import { Trade } from '../types';
 import FilterBar from '../components/trade/FilterBar';
 import TradeRow from '../components/trade/TradeRow';
-import TradeModal from '../components/trade/TradeModal';
+import TradeCard from '../components/trade/TradeCard';
 import TradeFormModal from '../components/trade/TradeFormModal';
-import Button from '../components/ui/Button';
+import { Table, TableHeader, TableBody, TableRow as UITableRow, TableHead, TableCell } from '../components/ui/Table';
+import { Button } from '../components/ui/Button';
 import { useTradeStore } from '../stores/tradeStore';
 import { useBrokerStore } from '../stores/brokerStore';
 import { formatCurrency } from '../lib/analytics';
+import { notify } from '../lib/notify';
 import { getLocalYYYYMMDD } from '../lib/dateUtils';
+import StatCard from '../components/dashboard/StatCard';
+import { motion } from 'framer-motion';
+import { cn } from '../lib/cn';
 
 export default function Trades() {
   const { trades, loading, fetchTrades, addTrade, updateTrade, deleteTrade } = useTradeStore();
@@ -17,15 +22,12 @@ export default function Trades() {
   const [marketFilter, setMarketFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [dateFilter, setDateFilter] = useState('all');
-  const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [tradeToEdit, setTradeToEdit] = useState<Trade | null>(null);
-  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
 
-  const { connections, isSyncing, lastSyncedAt, lastSyncError, syncingBrokers } = useBrokerStore();
+  const { isSyncing, lastSyncedAt, lastSyncError, syncingBrokers } = useBrokerStore();
   const syncAll = useBrokerStore(state => state.syncAll);
 
-  // Fetch trades on mount if store is empty (e.g. direct navigation to /trades)
   useEffect(() => {
     if (trades.length === 0 && !loading) {
       fetchTrades();
@@ -35,15 +37,12 @@ export default function Trades() {
   const handleSync = async () => {
     if (isSyncing) return;
     await syncAll();
-    // syncAll automatically calls fetchTrades when done
   };
 
-  // Compute which broker names are currently syncing for the banner
   const syncingBrokerNames = Object.entries(syncingBrokers)
     .filter(([, active]) => active)
     .map(([broker]) => broker);
 
-  // Format relative "last synced" text
   const getLastSyncedText = () => {
     if (!lastSyncedAt) return null;
     const diffMs = Date.now() - new Date(lastSyncedAt).getTime();
@@ -55,19 +54,13 @@ export default function Trades() {
     return hrs === 1 ? '1 hr ago' : `${hrs} hrs ago`;
   };
 
-  // Filter logic
   const filteredTrades = trades
-    .filter((trade) => {
-      // Symbol match
-      const matchesSearch = trade.symbol.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      // Market match
+    .filter(trade => {
+      const matchesSearch = trade.symbol.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            trade.strategyName?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesMarket = marketFilter === 'All' || trade.market === marketFilter;
-
-      // Status match
       const matchesStatus = statusFilter === 'All' || trade.status === statusFilter;
 
-      // Date match
       let matchesDate = true;
       if (dateFilter !== 'all') {
         const tradeDate = new Date(trade.date);
@@ -94,50 +87,30 @@ export default function Trades() {
 
       return matchesSearch && matchesMarket && matchesStatus && matchesDate;
     })
-    // Sort by date desc — for carry-forward trades sort by exit date so they appear
-    // at the correct position in the list (squared-off day, not entry day).
     .sort((a, b) => {
       const dateA = a.isCarryForward && a.exitTime ? new Date(a.exitTime) : new Date(a.date);
       const dateB = b.isCarryForward && b.exitTime ? new Date(b.exitTime) : new Date(b.date);
       return dateB.getTime() - dateA.getTime();
     });
 
-  // Returns the date key (YYYY-MM-DD) that a trade should be grouped under.
-  // Carry-forward trades are counted on the day they squared off (exitTime date).
-  const getGroupDate = (trade: Trade): string => {
-    if (trade.isCarryForward && trade.exitTime) {
-      return getLocalYYYYMMDD(new Date(trade.exitTime));
-    }
-    return getLocalYYYYMMDD(new Date(trade.date));
-  };
-
-  // Parse a YYYY-MM-DD key as a LOCAL date (avoids UTC-midnight timezone shift).
-  const formatGroupDateFull = (dateKey: string): string => {
-    const [y, m, d] = dateKey.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString('en-IN', {
-      day: '2-digit', month: 'short', year: 'numeric',
-    });
-  };
+  // Calculate Metrics for Header
+  const totalTrades = filteredTrades.length;
+  const netPnl = filteredTrades.reduce((sum, t) => sum + t.netPnl, 0);
+  const winningTrades = filteredTrades.filter(t => t.netPnl > 0).length;
+  const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
 
   const handleExportCsv = () => {
     if (filteredTrades.length === 0) return;
     const headers = ['Date', 'Symbol', 'Market', 'Direction', 'Status', 'Entry', 'Exit', 'Net P&L', 'Strategy'];
     const rows = filteredTrades.map(t => [
       getLocalYYYYMMDD(new Date(t.date)),
-      t.symbol,
-      t.market,
-      t.direction,
-      t.status,
+      t.symbol, t.market, t.direction, t.status,
       t.entryPrice.toString(),
       t.exitPrice?.toString() || '',
       t.netPnl.toString(),
-      t.strategyName || 'Untagged'
+      t.strategyName || 'Untagged',
     ]);
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(r => r.join(','))
-    ].join('\n');
-
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -148,201 +121,227 @@ export default function Trades() {
     document.body.removeChild(link);
   };
 
+  const getGroupDate = (trade: Trade): string => {
+    if (trade.isCarryForward && trade.exitTime) {
+      return getLocalYYYYMMDD(new Date(trade.exitTime));
+    }
+    return getLocalYYYYMMDD(new Date(trade.date));
+  };
+
+  const formatGroupDateFull = (dateKey: string): string => {
+    const [y, m, d] = dateKey.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric',
+    });
+  };
+
+  const groupedDateKeys = Array.from(new Set(filteredTrades.map(t => getGroupDate(t))))
+    .sort((a, b) => b.localeCompare(a));
+
   return (
     <>
-      <div className="space-y-4 page-enter">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-tv-lg font-bold text-primary font-ui">
-            Trades Log
-          </h2>
-          <p className="text-tv-sm text-secondary">
-            View, search, and inspect synced and manual trade executions.
-          </p>
+      <div className="space-y-8 page-enter font-ui pb-20 max-w-[1400px] mx-auto">
+        
+        {/* Workspace Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <h1 className="text-2xl font-bold text-primary tracking-tight">Trade Workspace</h1>
+            <p className="text-sm text-secondary mt-1">Search, filter, and review your market executions.</p>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <Button variant="secondary" size="sm" onClick={handleSync} disabled={isSyncing} className="shadow-sm">
+              <RefreshCw className={cn("w-4 h-4 mr-2", isSyncing && "animate-spin")} />
+              {isSyncing ? 'Syncing...' : 'Sync Data'}
+            </Button>
+            <Button variant="secondary" size="sm" onClick={handleExportCsv} className="shadow-sm">
+              <Download className="w-4 h-4 mr-2" />
+              Export
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => { setTradeToEdit(null); setIsFormOpen(true); }} className="shadow-sm font-semibold">
+              <Plus className="w-4 h-4 mr-2" />
+              Log Trade
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={<RefreshCw className={`h-[14px] w-[14px] ${isSyncing ? 'animate-spin' : ''}`} />}
-            onClick={handleSync}
-            disabled={isSyncing}
-          >
-            {isSyncing ? 'Syncing…' : 'Sync Now'}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={<Download className="h-[14px] w-[14px]" />}
-            onClick={handleExportCsv}
-          >
-            Export CSV
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Plus className="h-[14px] w-[14px]" />}
-            onClick={() => {
-              setTradeToEdit(null);
-              setIsFormOpen(true);
-            }}
-          >
-            Add Trade
-          </Button>
+
+        {/* Analytics Section */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <StatCard
+            label="Filtered Net P&L"
+            value={formatCurrency(netPnl)}
+            subLabel="Total across active filters"
+            icon={netPnl >= 0 ? ArrowUpRight : ArrowDownRight}
+            colorType="pnl"
+            rawValue={netPnl}
+          />
+          <StatCard
+            label="Win Rate"
+            value={`${winRate.toFixed(1)}%`}
+            subLabel={`${winningTrades} wins out of ${totalTrades} trades`}
+            icon={Percent}
+            colorType="winrate"
+            rawValue={winRate}
+          />
+          <StatCard
+            label="Total Executions"
+            value={totalTrades.toString()}
+            subLabel="Matching current filters"
+            icon={Activity}
+            colorType="default"
+            rawValue={totalTrades}
+          />
         </div>
-      </div>
 
-      {/* Live Syncing Banner */}
-      {isSyncing && (
-        <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-tv-md bg-accent/10 border border-accent/20 animate-in slide-in-from-top-2 fade-in duration-300">
-          <Loader2 className="h-4 w-4 text-accent animate-spin shrink-0" />
-          <span className="text-tv-sm text-accent-light font-medium">
-            Syncing trades{syncingBrokerNames.length > 0 ? ` from ${syncingBrokerNames.join(', ')}` : ''}…
-          </span>
-        </div>
-      )}
-
-      {/* Sync error banner */}
-      {lastSyncError && !isSyncing && (
-        <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-tv-md bg-red-500/10 border border-red-500/20 animate-in fade-in duration-300">
-          <span className="text-tv-sm text-red-400 font-medium">
-            Sync error: {lastSyncError}
-          </span>
-        </div>
-      )}
-
-      {/* Filter Bar */}
-      <FilterBar
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        marketFilter={marketFilter}
-        onMarketChange={setMarketFilter}
-        statusFilter={statusFilter}
-        onStatusChange={setStatusFilter}
-        dateFilter={dateFilter}
-        onDateChange={setDateFilter}
-      />
-
-      {/* Trade Count + Last Synced */}
-      <div className="flex items-center justify-between text-tv-sm text-secondary font-ui pl-1">
-        <span>
-          {filteredTrades.length} {filteredTrades.length === 1 ? 'trade' : 'trades'} match your filters
-        </span>
-        {lastSyncedAt && (
-          <span className="text-tv-xs text-muted">
-            Last synced: {getLastSyncedText()}
-          </span>
+        {/* Status Banners */}
+        {isSyncing && (
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 p-4 rounded-xl bg-accent/10 border border-accent/20">
+            <Loader2 className="w-5 h-5 text-accent animate-spin" />
+            <span className="text-sm font-bold text-accent">
+              Syncing trades{syncingBrokerNames.length > 0 ? ` from ${syncingBrokerNames.join(', ')}` : ''}…
+            </span>
+          </motion.div>
         )}
-      </div>
 
-      {/* Table / Grid Container */}
-      <div className="border border-tv-border rounded-tv-lg bg-surface/40 overflow-hidden flex flex-col">
-        {/* Table Header */}
-        <div className="grid grid-cols-[100px_1fr_70px_90px_80px_80px_90px_56px_24px] items-center h-[36px] px-4 border-b border-tv-border bg-base/30 select-none">
-          <span className="label-section">Date</span>
-          <span className="label-section">Symbol</span>
-          <span className="label-section">Market</span>
-          <span className="label-section">Strategy</span>
-          <span className="label-section">Entry</span>
-          <span className="label-section">Exit</span>
-          <span className="label-section">Net P&L</span>
-          <span className="label-section">Disc</span>
-          <span className="label-section"></span>
+        {lastSyncError && !isSyncing && (
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 p-4 rounded-xl bg-danger/10 border border-danger/20">
+            <span className="text-sm font-bold text-danger">Sync error: {lastSyncError}</span>
+          </motion.div>
+        )}
+
+        {/* Filters */}
+        <FilterBar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          marketFilter={marketFilter}
+          onMarketChange={setMarketFilter}
+          statusFilter={statusFilter}
+          onStatusChange={setStatusFilter}
+          dateFilter={dateFilter}
+          onDateChange={setDateFilter}
+        />
+
+        <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-widest text-secondary">
+          <span>{totalTrades} executions found</span>
+          {lastSyncedAt && <span>Last synced: {getLastSyncedText()}</span>}
         </div>
 
-        {/* Table Rows */}
-        <div className="divide-y divide-tv-border">
-          {filteredTrades.length === 0 ? (
-            <div className="py-12 text-center text-secondary font-ui text-tv-sm bg-[#060b1e]/10">
-              {loading
-                ? 'Loading trades…'
-                : 'No trades match your active filters. Try searching for a different ticker.'}
-            </div>
-          ) : (
-            Array.from(
-              new Set(filteredTrades.map(t => getGroupDate(t)))
-            )
-              .sort((a, b) => b.localeCompare(a))
-              .map(dateKey => {
-              const dayTrades = filteredTrades.filter(t => getGroupDate(t) === dateKey);
-              const dayPnl = dayTrades.reduce((sum, t) => sum + t.netPnl, 0);
-              const isProfit = dayPnl >= 0;
-              
-              return (
-                <div key={dateKey} className="flex flex-col">
-                  {/* Day Header */}
-                  <div 
-                    className="px-4 py-2 bg-base/50 border-b border-tv-border flex justify-between items-center text-tv-sm font-ui text-secondary cursor-pointer hover:bg-base/70 transition-colors"
-                    onClick={() => {
-                      setExpandedDates(prev => {
-                        const next = new Set(prev);
-                        if (next.has(dateKey)) next.delete(dateKey);
-                        else next.add(dateKey);
-                        return next;
-                      });
-                    }}
-                  >
-                    <div className="flex items-center gap-2">
-                       <span>{formatGroupDateFull(dateKey)}</span>
-                       <span className="text-tv-xs text-muted">({dayTrades.length} trades)</span>
+        {/* Desktop Table View */}
+        <div className="hidden md:block bg-surface-0 border border-black/10 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
+          <Table>
+            <TableHeader>
+              <UITableRow className="hover:bg-transparent border-b border-black/10 dark:border-white/10">
+                <TableHead className="w-[120px] text-[10px] font-bold uppercase tracking-widest">Date</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-widest">Asset</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-widest">Context</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-widest">Strategy</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-widest">Entry</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-widest">Exit</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-widest">Net P&L</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-widest">Rating</TableHead>
+                <TableHead className="w-[40px]"></TableHead>
+              </UITableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredTrades.length === 0 ? (
+                <UITableRow className="hover:bg-transparent">
+                  <TableCell colSpan={9} className="h-64 text-center">
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <div className="w-16 h-16 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 flex items-center justify-center mb-4 text-tertiary shadow-inner">
+                        {loading ? <Loader2 className="w-8 h-8 animate-spin" /> : <Activity className="w-8 h-8 opacity-50" />}
+                      </div>
+                      <h3 className="text-lg font-bold text-primary mb-2 tracking-tight">
+                        {loading ? 'Loading Executions...' : 'No trades found'}
+                      </h3>
+                      <p className="text-sm text-secondary max-w-sm mx-auto">
+                        {loading 
+                          ? 'Please wait while we sync your data.' 
+                          : 'No executions match your current workspace filters. Adjust your search criteria.'}
+                      </p>
                     </div>
-                    <span className={`font-mono font-medium ${isProfit ? 'text-profit' : 'text-loss'}`}>
-                      {isProfit ? '+' : ''}{formatCurrency(dayPnl)}
-                    </span>
-                  </div>
-                  {/* Trades for this day */}
-                  {expandedDates.has(dateKey) && (
-                    <div className="divide-y divide-tv-border">
-                      {dayTrades.map((trade) => (
+                  </TableCell>
+                </UITableRow>
+              ) : (
+                groupedDateKeys.map(dateKey => {
+                  const dayTrades = filteredTrades.filter(t => getGroupDate(t) === dateKey);
+                  return (
+                    <React.Fragment key={dateKey}>
+                      <UITableRow className="bg-black/5 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/5 border-b border-black/10 dark:border-white/10">
+                        <TableCell colSpan={9} className="py-2.5">
+                          <span className="text-xs font-bold uppercase tracking-widest text-secondary">
+                            {formatGroupDateFull(dateKey)}
+                          </span>
+                        </TableCell>
+                      </UITableRow>
+                      
+                      {dayTrades.map(trade => (
                         <TradeRow
                           key={trade.id}
                           trade={trade}
-                          onClick={() => setSelectedTrade(trade)}
+                          onEdit={(t) => { setTradeToEdit(t); setIsFormOpen(true); }}
+                        />
+                      ))}
+                    </React.Fragment>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="block md:hidden space-y-2">
+           {filteredTrades.length === 0 ? (
+             <div className="flex flex-col items-center justify-center py-16 px-4 text-center glass-panel rounded-2xl border-dashed">
+               <div className="w-16 h-16 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 flex items-center justify-center mb-4 text-tertiary shadow-inner">
+                 {loading ? <Loader2 className="w-8 h-8 animate-spin" /> : <Activity className="w-8 h-8 opacity-50" />}
+               </div>
+               <h3 className="text-lg font-bold text-primary mb-2 tracking-tight">
+                 {loading ? 'Loading Executions...' : 'No trades found'}
+               </h3>
+               <p className="text-sm text-secondary max-w-sm mx-auto">
+                 {loading 
+                   ? 'Please wait while we sync your data.' 
+                   : 'No executions match your current workspace filters.'}
+               </p>
+             </div>
+           ) : (
+             groupedDateKeys.map(dateKey => {
+                const dayTrades = filteredTrades.filter(t => getGroupDate(t) === dateKey);
+                return (
+                  <div key={dateKey} className="mb-6">
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-tertiary mb-3 pl-2">
+                      {formatGroupDateFull(dateKey)}
+                    </h3>
+                    <div className="space-y-3">
+                      {dayTrades.map(trade => (
+                        <TradeCard 
+                          key={trade.id} 
+                          trade={trade} 
+                          onEdit={(t) => { setTradeToEdit(t); setIsFormOpen(true); }}
                         />
                       ))}
                     </div>
-                  )}
-                </div>
-              );
-            })
-          )}
+                  </div>
+                )
+             })
+           )}
         </div>
-      </div>
 
       </div>
 
-      {/* Trade Detail Modal */}
-      <TradeModal
-        trade={selectedTrade}
-        isOpen={selectedTrade !== null}
-        onClose={() => setSelectedTrade(null)}
-        onEdit={(trade) => {
-          setSelectedTrade(null);
-          setTradeToEdit(trade);
-          setIsFormOpen(true);
-        }}
-        onDelete={(id) => {
-          if (confirm('Are you sure you want to delete this trade?')) {
-            deleteTrade(id);
-            setSelectedTrade(null);
-          }
-        }}
-      />
-
-      {/* Trade Form Modal */}
+      {/* Trade Form Modal (Edit or Add) */}
       <TradeFormModal
         isOpen={isFormOpen}
         initialData={tradeToEdit}
-        onClose={() => {
-          setIsFormOpen(false);
-          setTradeToEdit(null);
-        }}
-        onSave={async (data) => {
+        onClose={() => { setIsFormOpen(false); setTradeToEdit(null); }}
+        onSave={async data => {
           if (tradeToEdit) {
             await updateTrade(tradeToEdit.id, data);
+            notify.success('Trade updated successfully.');
           } else {
             await addTrade(data);
+            notify.success('Trade logged successfully.');
           }
         }}
       />

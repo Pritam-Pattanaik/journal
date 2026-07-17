@@ -29,10 +29,10 @@ interface ActivityItem {
 }
 
 const kpiConfig = [
-  { key: 'totalUsers', label: 'Total Users', icon: Users, prefix: '', suffix: '', decimals: 0, color: 'text-blue-500', bg: 'bg-blue-500/10', growthKey: 'userGrowth' },
+  { key: 'totalUsers', label: 'Total Users', icon: Users, prefix: '', suffix: '', decimals: 0, color: 'text-info', bg: 'bg-info/10', growthKey: 'userGrowth' },
   { key: 'totalTrades', label: 'Total Trades', icon: TrendingUp, prefix: '', suffix: '', decimals: 0, color: 'text-purple-500', bg: 'bg-purple-500/10', growthKey: 'tradeGrowth' },
-  { key: 'totalPnl', label: 'Net P&L', icon: DollarSign, prefix: '₹', suffix: '', decimals: 2, color: 'text-green-500', bg: 'bg-green-500/10', growthKey: null },
-  { key: 'activeBrokers', label: 'Active Brokers', icon: Link, prefix: '', suffix: '', decimals: 0, color: 'text-yellow-500', bg: 'bg-yellow-500/10', growthKey: null },
+  { key: 'totalPnl', label: 'Net P&L', icon: DollarSign, prefix: '₹', suffix: '', decimals: 2, color: 'text-success', bg: 'bg-success/10', growthKey: null },
+  { key: 'activeBrokers', label: 'Active Brokers', icon: Link, prefix: '', suffix: '', decimals: 0, color: 'text-warning', bg: 'bg-warning/10', growthKey: null },
   { key: 'aiInsights', label: 'AI Insights', icon: Brain, prefix: '', suffix: '', decimals: 0, color: 'text-indigo-500', bg: 'bg-indigo-500/10', growthKey: null },
 ];
 
@@ -84,8 +84,8 @@ export default function AdminOverview() {
 
   const getActivityIcon = (type: string) => {
     switch (type) {
-      case 'signup': return <Users className="w-4 h-4 text-blue-500" />;
-      case 'trade': return <TrendingUp className="w-4 h-4 text-green-500" />;
+      case 'signup': return <Users className="w-4 h-4 text-info" />;
+      case 'trade': return <TrendingUp className="w-4 h-4 text-success" />;
       case 'ai_insight': return <Brain className="w-4 h-4 text-purple-500" />;
       default: return <Activity className="w-4 h-4 text-text-secondary" />;
     }
@@ -106,7 +106,7 @@ export default function AdminOverview() {
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-4 rounded-lg">
+        <div className="bg-danger/10 border border-danger/50 text-danger p-4 rounded-lg">
           {error}
         </div>
       )}
@@ -134,7 +134,7 @@ export default function AdminOverview() {
                   <AnimatedNumber value={val} prefix={kpi.prefix} suffix={kpi.suffix} decimals={kpi.decimals} />
                 </div>
                 {growth !== null && (
-                  <div className={`flex items-center gap-1 mt-2 text-xs font-medium ${growth >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  <div className={`flex items-center gap-1 mt-2 text-xs font-medium ${growth >= 0 ? 'text-success' : 'text-danger'}`}>
                     {growth >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
                     <span>{Math.abs(growth)}% from last period</span>
                   </div>
@@ -174,7 +174,7 @@ export default function AdminOverview() {
                 <XAxis dataKey="date" tick={{ fill: '#9ca3af', fontSize: 12 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} axisLine={false} tickLine={false} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }}
+                  contentStyle={{ backgroundColor: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 'var(--radius-lg)', color: '#fff' }}
                 />
                 <Line type="monotone" dataKey="count" stroke="#6366f1" strokeWidth={2} dot={{ fill: '#6366f1', r: 4 }} activeDot={{ r: 6 }} />
               </LineChart>
@@ -192,7 +192,7 @@ export default function AdminOverview() {
                 <XAxis dataKey="date" tick={{ fill: '#9ca3af', fontSize: 12 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} axisLine={false} tickLine={false} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }}
+                  contentStyle={{ backgroundColor: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 'var(--radius-lg)', color: '#fff' }}
                 />
                 <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
               </BarChart>

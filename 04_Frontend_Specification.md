@@ -275,12 +275,13 @@ Save button:  Gradient button (accent → purple)
 
 ### 4.4 AI Coach Page
 ```
-Layout:       Max-width 800px
-Row 1:        3 insight cards (revenge | boredom | best strategy)
-Row 2:        AI analysis panel
-  Header:     Title + subtitle + "Run Analysis" CTA button
-  Loading:    RefreshCw spin icon + "Analyzing..." text
-  Response:   Pre-formatted white-space: pre-wrap display
+Layout:       Two-column split layout (Desktop) / Single column (Mobile)
+Left Sidebar: Portfolio Context Widgets (P&L, Win Rate, Discipline, Streak) + Quick Prompts
+Main Area:    Chat thread with AI
+  Header:     Title + "Online & Ready" status
+  Empty State: Premium welcome screen with animated prompt buttons
+  Response:   Markdown formatted bubbles, hoverable action buttons (Copy, Regenerate, Feedback)
+  Input Area: Sticky bottom command bar, text input, Paperclip/Mic icons, Send button with shortcut hint
 ```
 
 ### 4.5 Strategies Page
@@ -338,15 +339,15 @@ All interactive elements must have defined states for:
 
 | Element | Animation | Duration |
 |---|---|---|
-| Page transitions | fade + translateY(8px) in | 300ms ease |
-| Modal open | fade + scale(0.97→1) | 200ms ease |
+| Page transitions | blur + translateY(10px) in | 300ms easeExpo |
+| Modal open | scale(0.95→1) + spring | springConfig |
 | Sidebar toggle | width transition | 200ms ease |
-| Loading spinner | spin | 1s linear infinite |
-| Trade row hover | background | 100ms |
-| Filter pill toggle | all properties | 150ms |
-| Chart bars/lines | Recharts default (500ms) | 500ms |
+| Loading spinner | SkeletonShimmer sequence | infinite |
+| Staggered lists | translateY(15px) + opacity | springConfig (stagger 0.05s) |
+| Interactive elements | HoverLift (scale 1.01, y: -2) | springConfig |
+| Chart bars/lines | Recharts default | 500ms |
 
-No bounce animations. No parallax. No enter/exit animations on list items.
+Fluid, spring-based animations powered by Framer Motion. Micro-interactions enhance premium feel.
 
 ---
 

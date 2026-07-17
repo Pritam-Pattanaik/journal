@@ -1,7 +1,7 @@
 # Technical Architecture Document — TradeVault
 **Version:** 1.0  
 **Date:** June 2026  
-**Status:** Draft
+**Status:** Production Ready
 
 ---
 
@@ -34,6 +34,7 @@ TradeVault is a full-stack web application built on a React frontend, an Express
 |---|---|---|
 | Framework | React 18 + Vite | Fast dev server, small bundle |
 | Styling | Tailwind CSS v3 | Utility-first, consistent design |
+| Motion | Framer Motion | Fluid UI animations & transitions |
 | Charts | Recharts | React-native, lightweight |
 | Icons | Lucide React | Clean, consistent icon set |
 | State | Zustand | Minimal, no boilerplate |
@@ -283,8 +284,8 @@ TanStack Query Cache (If used alongside Zustand)
 
 ```
 src/
-├── main.jsx
-├── App.jsx                    # Routes + auth guard
+├── main.tsx
+├── App.tsx                    # Routes + auth guard
 ├── components/
 │   ├── ui/                    # Reusable: Button, Input, Modal, Badge, Card
 │   ├── charts/                # PnLCurve, DisciplinePie, StrategyBar
@@ -292,20 +293,20 @@ src/
 │   ├── journal/               # JournalForm, MoodSelector, DisciplineRater
 │   └── layout/                # Sidebar, Header, PageWrapper
 ├── pages/
-│   ├── Dashboard.jsx
-│   ├── Trades.jsx
-│   ├── Journal.jsx
-│   ├── AICoach.jsx
-│   ├── Strategies.jsx
-│   ├── Settings.jsx
+│   ├── Dashboard.tsx
+│   ├── Trades.tsx
+│   ├── Journal.tsx
+│   ├── AICoach.tsx
+│   ├── Strategies.tsx
+│   ├── Settings.tsx
 │   └── auth/
-│       ├── Login.jsx
-│       └── Signup.jsx
+│       ├── Login.tsx
+│       └── Signup.tsx
 ├── hooks/
-│   ├── useTrades.js           # Query wrappers
-│   ├── useJournal.js
-│   ├── useAICoach.js
-│   └── useBroker.js
+│   ├── useTrades.ts           # Query wrappers
+│   ├── useJournal.ts
+│   ├── useAICoach.ts
+│   └── useBroker.ts
 ├── lib/
 │   ├── api.ts                 # Axios / Fetch client
 │   ├── analytics.js           # Stats computation

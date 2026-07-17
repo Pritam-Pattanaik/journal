@@ -33,7 +33,7 @@ export default function DisciplineRater({
               key={num}
               type="button"
               onClick={() => onChange && onChange(num)}
-              className="h-9 w-9 border rounded flex items-center justify-center font-mono text-tv-sm font-semibold transition-all duration-150 active:scale-95"
+              className="h-9 w-9 border rounded flex items-center justify-center font-mono text-sm font-semibold transition-all duration-150 active:scale-95"
               style={{
                 borderColor: isSelected ? activeColor : 'rgba(99, 102, 241, 0.12)',
                 backgroundColor: isSelected ? `${boxColor}15` : 'transparent',

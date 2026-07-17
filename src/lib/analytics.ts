@@ -1,4 +1,7 @@
 import type { Trade, DashboardStats } from '../types';
+import { formatCurrency, formatCompactCurrency, formatPercentage as formatPercent } from '../utils/currency';
+
+export { formatCurrency, formatCompactCurrency, formatPercent };
 
 /** Convert any date value to a local-timezone YYYY-MM-DD string.
  *  Using new Date(str).toLocaleDateString ensures the calendar date
@@ -9,25 +12,6 @@ function getLocalDateKey(date: string | Date): string {
   const mm   = String(d.getMonth() + 1).padStart(2, '0');
   const dd   = String(d.getDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
-}
-
-export function formatCurrency(value: number): string {
-  const absVal = Math.abs(value);
-  if (absVal >= 100000) {
-    return `₹${(value / 100000).toFixed(1)}L`;
-  }
-  if (absVal >= 1000) {
-    return `₹${(value / 1000).toFixed(1)}k`;
-  }
-  return `₹${value.toFixed(0)}`;
-}
-
-export function formatCurrencyFull(value: number): string {
-  return `₹${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-export function formatPercent(value: number): string {
-  return `${value.toFixed(1)}%`;
 }
 
 export function formatDate(dateStr: string): string {

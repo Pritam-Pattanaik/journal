@@ -28,9 +28,9 @@ const tabs = [
 const roleBadge = (role: string) => {
   const styles: Record<string, string> = {
     SUPER_ADMIN: 'bg-purple-500/10 text-purple-500 border border-purple-500/20',
-    ADMIN: 'bg-blue-500/10 text-blue-500 border border-blue-500/20',
-    SUB_ADMIN: 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20',
-    USER: 'bg-green-500/10 text-green-500 border border-green-500/20',
+    ADMIN: 'bg-info/10 text-info border border-info/20',
+    SUB_ADMIN: 'bg-warning/10 text-warning border border-warning/20',
+    USER: 'bg-success/10 text-success border border-success/20',
   };
   return styles[role] || styles.USER;
 };
@@ -84,13 +84,13 @@ export default function AdminUserDetail() {
                 <td className="px-6 py-4 text-text-secondary">{t.market || '-'}</td>
                 <td className="px-6 py-4">
                   <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                    t.direction === 'LONG' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
+                    t.direction === 'LONG' ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'
                   }`}>{t.direction || '-'}</span>
                 </td>
                 <td className="px-6 py-4 text-text-secondary">₹{Number(t.entryPrice || 0).toLocaleString()}</td>
                 <td className="px-6 py-4 text-text-secondary">₹{Number(t.exitPrice || 0).toLocaleString()}</td>
                 <td className="px-6 py-4 text-right">
-                  <span className={`font-medium ${(t.pnl || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  <span className={`font-medium ${(t.pnl || 0) >= 0 ? 'text-success' : 'text-danger'}`}>
                     {(t.pnl || 0) >= 0 ? '+' : ''}₹{Number(t.pnl || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                 </td>
@@ -112,7 +112,7 @@ export default function AdminUserDetail() {
             <h4 className="text-text-primary font-medium mb-1">{s.name || 'Unnamed Strategy'}</h4>
             <p className="text-text-secondary text-sm mb-3 line-clamp-2">{s.description || 'No description'}</p>
             <div className="flex items-center gap-4 text-xs text-text-secondary">
-              <span>Win Rate: <span className="text-green-500 font-medium">{s.winRate || 0}%</span></span>
+              <span>Win Rate: <span className="text-success font-medium">{s.winRate || 0}%</span></span>
               <span>Trades: {s.tradeCount || 0}</span>
             </div>
           </div>
@@ -164,7 +164,7 @@ export default function AdminUserDetail() {
                 <td className="px-6 py-4 text-text-secondary font-mono text-xs">{b.clientId || '-'}</td>
                 <td className="px-6 py-4">
                   <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                    b.status === 'active' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
+                    b.status === 'active' ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'
                   }`}>{b.status || 'unknown'}</span>
                 </td>
                 <td className="px-6 py-4 text-text-secondary">{b.lastSynced ? new Date(b.lastSynced).toLocaleString() : 'Never'}</td>
@@ -186,8 +186,8 @@ export default function AdminUserDetail() {
           <div key={i} className="bg-base rounded-lg border border-border-color p-4 hover:border-brand-500/30 transition-colors">
             <div className="flex items-center justify-between mb-2">
               <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                a.type === 'warning' ? 'bg-yellow-500/10 text-yellow-500' :
-                a.type === 'suggestion' ? 'bg-blue-500/10 text-blue-500' :
+                a.type === 'warning' ? 'bg-warning/10 text-warning' :
+                a.type === 'suggestion' ? 'bg-info/10 text-info' :
                 'bg-purple-500/10 text-purple-500'
               }`}>{a.type || 'insight'}</span>
               <span className="text-text-secondary text-xs">{new Date(a.createdAt).toLocaleDateString()}</span>
@@ -226,7 +226,7 @@ export default function AdminUserDetail() {
         <button onClick={() => navigate('/app/admin/users')} className="flex items-center gap-2 text-text-secondary hover:text-text-primary mb-6 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back to Users
         </button>
-        <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-4 rounded-lg">
+        <div className="bg-danger/10 border border-danger/50 text-danger p-4 rounded-lg">
           {error || 'User not found'}
         </div>
       </div>

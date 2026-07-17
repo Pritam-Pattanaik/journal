@@ -2,75 +2,64 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Trade } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/analytics';
-import Badge from '../ui/Badge';
+import { cn } from '../../lib/cn';
+import { Badge } from '../ui/Badge';
+import { ArrowRight } from 'lucide-react';
+import { Table, TableBody, TableRow, TableCell } from '../ui/Table';
 
 interface RecentTradesProps {
   trades: Trade[];
 }
 
 export default function RecentTrades({ trades }: RecentTradesProps) {
-  // Take 5 most recent trades
   const recentTrades = [...trades]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5);
 
   return (
-    <div className="card flex-1 min-w-[320px] flex flex-col justify-between">
-      <div className="flex items-center justify-between mb-3">
-        <span className="label-section">Recent Trades</span>
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-xs font-semibold text-tertiary uppercase tracking-wider">
+          Recent Trades
+        </span>
         <Link
-          to="/trades"
-          className="text-tv-xs text-accent hover:text-accent-light transition-colors font-ui font-medium uppercase tracking-wider"
+          to="/app/trades"
+          className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent/80 transition-colors"
         >
-          View All →
+          View All
+          <ArrowRight size={12} strokeWidth={2} />
         </Link>
       </div>
 
-      <div className="flex-1 overflow-x-auto">
+      <div className="flex-1 overflow-hidden">
         {recentTrades.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-muted font-ui text-tv-sm min-h-[160px]">
+          <div className="flex items-center justify-center min-h-[160px] text-sm text-tertiary">
             No recent trades recorded
           </div>
         ) : (
-          <table className="w-full text-left border-collapse">
-            <tbody>
+          <Table>
+            <TableBody>
               {recentTrades.map((trade) => {
                 const isProfit = trade.netPnl >= 0;
-                
                 return (
-                  <tr
-                    key={trade.id}
-                    className="h-10 hover:bg-surface-hover transition-colors border-b border-tv-border last:border-0"
-                  >
-                    {/* Date Column */}
-                    <td className="font-mono text-tv-xs text-secondary pl-1 pr-2 whitespace-nowrap">
+                  <TableRow key={trade.id} className="hover:bg-surface-2 group">
+                    <TableCell className="w-[80px] text-xs text-tertiary py-3">
                       {formatDate(trade.date)}
-                    </td>
-
-                    {/* Symbol Column */}
-                    <td className="text-tv-base font-medium text-primary px-2">
+                    </TableCell>
+                    <TableCell className="font-medium text-primary py-3">
                       {trade.symbol}
-                    </td>
-
-                    {/* Market Column */}
-                    <td className="px-2">
-                      <Badge variant="accent">{trade.market}</Badge>
-                    </td>
-
-                    {/* P&L Column */}
-                    <td
-                      className={`font-mono text-tv-sm text-right pr-1 font-semibold whitespace-nowrap ${
-                        isProfit ? 'text-profit' : 'text-loss'
-                      }`}
-                    >
-                      {isProfit ? '+' : ''}
-                      {formatCurrency(trade.netPnl)}
-                    </td>
-                  </tr>
+                    </TableCell>
+                    <TableCell className="py-3 hidden sm:table-cell">
+                      <Badge variant="primary">{trade.market}</Badge>
+                    </TableCell>
+                    <TableCell className={cn("text-right font-medium tabular-nums py-3", isProfit ? 'text-success' : 'text-danger')}>
+                      {isProfit ? '+' : ''}{formatCurrency(trade.netPnl)}
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         )}
       </div>
     </div>

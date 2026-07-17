@@ -120,7 +120,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave, initialData }:
       <div className="relative w-full max-w-2xl bg-surface border border-tv-border rounded-xl shadow-2xl modal-enter max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-tv-border shrink-0">
-          <h2 className="text-tv-lg font-bold font-ui">{initialData ? 'Edit Trade' : 'Add Manual Trade'}</h2>
+          <h2 className="text-lg font-bold font-ui">{initialData ? 'Edit Trade' : 'Add Manual Trade'}</h2>
           <button
             onClick={onClose}
             className="p-1.5 text-secondary hover:text-primary hover:bg-base rounded-md transition-colors"

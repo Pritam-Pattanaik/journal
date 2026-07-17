@@ -12,10 +12,10 @@ interface UIState {
 export const useUIStore = create<UIState>((set) => {
   const savedTheme = (localStorage.getItem('tv-theme') as 'dark' | 'light') || 'dark';
 
-  if (savedTheme === 'light') {
-    document.documentElement.classList.add('light');
+  if (savedTheme === 'dark') {
+    document.documentElement.classList.add('dark');
   } else {
-    document.documentElement.classList.remove('light');
+    document.documentElement.classList.remove('dark');
   }
 
   return {
@@ -25,10 +25,10 @@ export const useUIStore = create<UIState>((set) => {
     toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
     setTheme: (theme) => {
       localStorage.setItem('tv-theme', theme);
-      if (theme === 'light') {
-        document.documentElement.classList.add('light');
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
       } else {
-        document.documentElement.classList.remove('light');
+        document.documentElement.classList.remove('dark');
       }
       set({ theme });
     },
@@ -36,10 +36,10 @@ export const useUIStore = create<UIState>((set) => {
       set((state) => {
         const newTheme = state.theme === 'dark' ? 'light' : 'dark';
         localStorage.setItem('tv-theme', newTheme);
-        if (newTheme === 'light') {
-          document.documentElement.classList.add('light');
+        if (newTheme === 'dark') {
+          document.documentElement.classList.add('dark');
         } else {
-          document.documentElement.classList.remove('light');
+          document.documentElement.classList.remove('dark');
         }
         return { theme: newTheme };
       }),

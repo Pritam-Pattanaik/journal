@@ -87,7 +87,7 @@ export default function AdminSystemSettings() {
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-4 rounded-lg flex items-center gap-2">
+        <div className="bg-danger/10 border border-danger/50 text-danger p-4 rounded-lg flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 shrink-0" /> {error}
         </div>
       )}
@@ -101,7 +101,7 @@ export default function AdminSystemSettings() {
           const isSaved = saved === setting.key;
           return (
             <div key={setting.key} className={`bg-surface rounded-xl border p-6 transition-all ${
-              setting.danger && isEnabled ? 'border-red-500/50' : 'border-border-color'
+              setting.danger && isEnabled ? 'border-danger/50' : 'border-border-color'
             }`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -110,12 +110,12 @@ export default function AdminSystemSettings() {
                     <h3 className="text-text-primary font-medium flex items-center gap-2">
                       {setting.label}
                       {isSaved && (
-                        <span className="flex items-center gap-1 text-green-500 text-xs animate-fade-in">
+                        <span className="flex items-center gap-1 text-success text-xs animate-fade-in">
                           <CheckCircle className="w-3.5 h-3.5" /> Saved
                         </span>
                       )}
                       {setting.danger && isEnabled && (
-                        <span className="flex items-center gap-1 text-red-500 text-xs">
+                        <span className="flex items-center gap-1 text-danger text-xs">
                           <AlertTriangle className="w-3.5 h-3.5" /> Active
                         </span>
                       )}
@@ -132,7 +132,7 @@ export default function AdminSystemSettings() {
                   {isSaving ? (
                     <Loader2 className="w-10 h-10 text-brand-500 animate-spin" />
                   ) : isEnabled ? (
-                    <ToggleRight className={`w-10 h-10 ${setting.danger ? 'text-red-500' : 'text-green-500'}`} />
+                    <ToggleRight className={`w-10 h-10 ${setting.danger ? 'text-danger' : 'text-success'}`} />
                   ) : (
                     <ToggleLeft className="w-10 h-10 text-gray-500" />
                   )}
@@ -148,8 +148,8 @@ export default function AdminSystemSettings() {
         <h2 className="text-sm font-medium text-text-secondary uppercase tracking-wider">Platform Announcement</h2>
         <div className="bg-surface rounded-xl border border-border-color p-6">
           <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0 mt-1">
-              <Megaphone className="w-5 h-5 text-blue-500" />
+            <div className="w-10 h-10 rounded-xl bg-info/10 flex items-center justify-center shrink-0 mt-1">
+              <Megaphone className="w-5 h-5 text-info" />
             </div>
             <div className="flex-1">
               <h3 className="text-text-primary font-medium mb-1">System Announcement</h3>

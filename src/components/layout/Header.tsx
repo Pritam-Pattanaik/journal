@@ -1,12 +1,15 @@
-import React, { useState, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
-import { RefreshCw, Menu, Sun, Moon } from 'lucide-react';
+import React, { useState, useCallback, useEffect } from 'react';
+import { useLocation, Link } from 'react-router-dom';
+import { RefreshCw, Search, Moon, Sun, ChevronRight } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useBrokerStore } from '../../stores/brokerStore';
 import { useTradeStore } from '../../stores/tradeStore';
+import { CommandPalette } from '../ui/CommandPalette';
+import { cn } from '../../lib/cn';
+import { Button } from '../ui/Button';
+import UserProfileDropdown from './UserProfileDropdown';
 
-/** Format a Date into a human-readable relative string like "2h ago", "just now" */
 function relativeTime(date: Date): string {
   const diffMs = Date.now() - date.getTime();
   const diffSec = Math.floor(diffMs / 1000);
@@ -21,46 +24,38 @@ function relativeTime(date: Date): string {
 
 export default function Header() {
   const location = useLocation();
-  const { theme, toggleTheme, toggleSidebar } = useUIStore();
+  const { theme, toggleTheme } = useUIStore();
   const { profile } = useAuthStore();
   const { connections, syncConnection } = useBrokerStore();
   const fetchTrades = useTradeStore(state => state.fetchTrades);
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
-  // Track when the last manual sync completed (so we can show a local "just now" state)
   const [lastManualSync, setLastManualSync] = useState<Date | null>(null);
+  const [cmdOpen, setCmdOpen] = useState(false);
 
-  const getTitle = (pathname: string) => {
-    switch (pathname) {
-      case '/app':
-      case '/app/':
-        return 'Dashboard';
-      case '/app/trades':
-        return 'Trade Log';
-      case '/app/journal':
-        return 'Daily Journal';
-      case '/app/ai-coach':
-        return 'AI Coach';
-      case '/app/strategies':
-        return 'Strategies';
-      case '/app/settings':
-        return 'Settings';
-      default:
-        return 'TradeVault';
+  const getBreadcrumbs = (pathname: string) => {
+    const paths = pathname.split('/').filter(Boolean);
+    if (paths.length === 0 || paths[0] !== 'app') return [];
+    
+    const breadcrumbs = [{ name: 'Dashboard', path: '/app' }];
+    if (paths[1]) {
+      breadcrumbs.push({
+        name: paths[1].charAt(0).toUpperCase() + paths[1].slice(1),
+        path: `/app/${paths[1]}`
+      });
     }
+    return breadcrumbs;
   };
 
-  const title = getTitle(location.pathname);
+  const breadcrumbs = getBreadcrumbs(location.pathname);
 
-  /** Derive the most recent lastSyncedAt across all active connections */
   const latestSyncedAt = React.useMemo(() => {
     const activeTimes = connections
       .filter(c => c.isActive && c.lastSyncedAt)
       .map(c => new Date(c.lastSyncedAt!).getTime())
       .filter(t => !isNaN(t));
     if (activeTimes.length === 0) return null;
-    // Also factor in any completed manual sync from this session
     const extra = lastManualSync ? lastManualSync.getTime() : 0;
     return new Date(Math.max(...activeTimes, extra));
   }, [connections, lastManualSync]);
@@ -82,79 +77,88 @@ export default function Header() {
       const results = await Promise.allSettled(
         activeBrokers.map(c => syncConnection(c.broker))
       );
-      const failed = results
-        .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-        .map(r => r.reason?.message || 'Unknown error');
-      const errors = results
-        .filter(r => r.status === 'fulfilled' && (r as PromiseFulfilledResult<any>).value?.error)
-        .map(r => (r as PromiseFulfilledResult<any>).value.error);
-      const allErrors = [...failed, ...errors];
-      if (allErrors.length > 0) {
-        setSyncError(allErrors[0]);
-        setTimeout(() => setSyncError(null), 5000);
-      }
       await fetchTrades();
       setLastManualSync(new Date());
     } catch (e: any) {
       setSyncError(e.message || 'Sync failed');
-      setTimeout(() => setSyncError(null), 5000);
     } finally {
       setIsSyncing(false);
     }
   }, [isSyncing, connections, syncConnection, fetchTrades]);
 
+  const initials = profile?.fullName
+    ? profile.fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : 'U';
+
   return (
-    <header className="flex items-center justify-between h-[60px] px-4 md:px-6 glass-panel !border-b-0 sticky top-0 z-20">
-      <div className="flex items-center gap-3">
-        {/* Mobile Hamburger */}
-        <button 
-          onClick={toggleSidebar}
-          className="md:hidden p-1.5 rounded text-secondary hover:text-primary transition-all hover:bg-white/10 active:bg-white/20"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-        {/* Page Title */}
-        <h1 className="text-tv-md font-semibold text-primary select-none">
-          {title}
-        </h1>
-      </div>
-
-      {/* Header Actions & Meta */}
-      <div className="flex items-center gap-4">
-        {/* Live Sync Status — clickable to force re-sync */}
-        <button
-          onClick={handleForceSync}
-          disabled={isSyncing || connections.filter(c => c.isActive).length === 0}
-          title={syncError ?? (isSyncing ? 'Syncing…' : 'Click to sync broker trades now')}
-          className={`flex items-center gap-2 glass-panel px-3 py-1.5 rounded-tv-lg text-tv-sm transition-all
-            ${isSyncing ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:bg-white/10 active:bg-white/20'}
-            ${syncError ? 'border-red-500/40 text-red-400' : 'text-secondary'}`}
-        >
-          <span className={`h-1.5 w-1.5 rounded-full inline-block shrink-0 ${
-            syncError ? 'bg-red-400' : isSyncing ? 'bg-gold animate-pulse' : 'bg-profit animate-pulse'
-          }`} />
-          <span className="text-tv-xs select-none whitespace-nowrap">
-            {syncError ? 'Sync failed' : syncLabel}
-          </span>
-          <RefreshCw className={`h-[12px] w-[12px] shrink-0 ${
-            isSyncing ? 'animate-spin text-gold' : 'text-accent hover:text-accent-light'
-          }`} />
-        </button>
-
-        {/* Theme Toggle */}
-        <button
-          onClick={toggleTheme}
-          className="p-1.5 rounded text-secondary hover:text-primary transition-all hover:bg-white/10 active:bg-white/20"
-          aria-label="Toggle theme"
-        >
-          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-        </button>
-
-        {/* User Avatar */}
-        <div className="h-8 w-8 rounded-full glass-panel flex items-center justify-center text-accent-light font-medium text-tv-sm hover:bg-white/10 active:bg-white/20 cursor-pointer select-none">
-          {profile?.fullName ? profile.fullName.substring(0, 2).toUpperCase() : 'U'}
+    <>
+      <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-black/5 dark:border-white/5 bg-canvas/80 backdrop-blur-md px-8 lg:px-12 transition-colors">
+        {/* Left: Breadcrumbs */}
+        <div className="flex items-center gap-2">
+          {breadcrumbs.map((crumb, idx) => (
+            <React.Fragment key={crumb.path}>
+              {idx > 0 && <ChevronRight className="h-4 w-4 text-tertiary" />}
+              <Link 
+                to={crumb.path}
+                className={cn(
+                  "text-[13px] font-medium transition-colors hover:text-primary",
+                  idx === breadcrumbs.length - 1 ? "text-primary font-bold" : "text-secondary"
+                )}
+              >
+                {crumb.name}
+              </Link>
+            </React.Fragment>
+          ))}
         </div>
-      </div>
-    </header>
+
+        {/* Center: Command Palette Trigger */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden md:block">
+          <button
+            onClick={() => setCmdOpen(true)}
+            className="flex h-10 w-[320px] items-center gap-3 rounded-xl border border-black/10 dark:border-white/10 bg-surface-1 px-4 text-[13px] text-tertiary font-medium transition-all hover:bg-surface-2 hover:text-primary outline-none focus-visible:ring-1 focus-visible:ring-accent shadow-sm"
+          >
+            <Search className="h-4 w-4" />
+            <span>Search commands...</span>
+            <kbd className="ml-auto flex h-6 items-center justify-center gap-1 rounded bg-black/5 dark:bg-white/10 px-2 font-mono text-[10px] font-bold text-secondary">
+              <span>⌘</span>K
+            </kbd>
+          </button>
+        </div>
+
+        {/* Right: Actions */}
+        <div className="flex items-center gap-5">
+          <div className="hidden items-center gap-3 md:flex">
+            {syncError && (
+              <span className="text-[11px] font-bold uppercase tracking-widest text-danger">{syncError}</span>
+            )}
+            <span className="text-[11px] font-bold uppercase tracking-widest text-tertiary">{syncLabel}</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleForceSync}
+              disabled={isSyncing || connections.filter(c => c.isActive).length === 0}
+              className="h-9 w-9 rounded-xl hover:bg-surface-2 text-secondary"
+            >
+              <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin text-primary")} />
+            </Button>
+          </div>
+
+          <div className="h-5 w-px bg-black/10 dark:bg-white/10 hidden md:block" />
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="h-9 w-9 rounded-xl hover:bg-surface-2 text-secondary"
+          >
+            {theme === 'dark' ? <Sun className="h-4 w-4 hover:text-primary transition-colors" /> : <Moon className="h-4 w-4 hover:text-primary transition-colors" />}
+          </Button>
+
+          <UserProfileDropdown />
+        </div>
+      </header>
+
+      <CommandPalette open={cmdOpen} setOpen={setCmdOpen} />
+    </>
   );
 }

@@ -15,14 +15,50 @@ export default function DisciplinePie({ data }: DisciplinePieProps) {
   const total = data.reduce((sum, item) => sum + item.value, 0);
 
   return (
-    <div className="card flex-1 min-w-[240px] flex flex-col justify-between relative">
-      <div>
-        <span className="label-section">Discipline Distribution</span>
-      </div>
+    <div
+      style={{
+        background: 'rgb(var(--color-surface))',
+        border: '1px solid rgb(var(--color-border))',
+        borderRadius: 'var(--radius-lg)',
+        padding: 16,
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minWidth: 220,
+      }}
+    >
+      {/* Header */}
+      <span
+        style={{
+          fontSize: 'var(--text-xs)',
+          fontWeight: 500,
+          color: 'rgb(var(--color-text-tertiary))',
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em',
+          marginBottom: 12,
+        }}
+      >
+        Discipline Distribution
+      </span>
 
-      <div className="h-[130px] w-full relative flex items-center justify-center">
+      {/* Donut Chart */}
+      <div
+        style={{
+          height: 130,
+          width: '100%',
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
         {total === 0 ? (
-          <div className="text-muted font-ui text-tv-sm">
+          <div
+            style={{
+              fontSize: 'var(--text-sm)',
+              color: 'rgb(var(--color-text-tertiary))',
+            }}
+          >
             No rated trades
           </div>
         ) : (
@@ -37,6 +73,7 @@ export default function DisciplinePie({ data }: DisciplinePieProps) {
                   outerRadius={56}
                   paddingAngle={2}
                   dataKey="value"
+                  strokeWidth={0}
                 >
                   {data.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -46,11 +83,39 @@ export default function DisciplinePie({ data }: DisciplinePieProps) {
             </ResponsiveContainer>
 
             {/* Central Text */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center select-none pointer-events-none">
-              <span className="text-tv-md font-mono font-semibold text-primary">
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                pointerEvents: 'none',
+                userSelect: 'none',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 'var(--text-lg)',
+                  fontFamily: 'var(--font-mono)',
+                  fontVariantNumeric: 'tabular-nums',
+                  fontWeight: 600,
+                  color: 'rgb(var(--color-text-primary))',
+                  lineHeight: 1,
+                }}
+              >
                 {total}
               </span>
-              <span className="text-[9px] uppercase tracking-wider text-muted font-ui">
+              <span
+                style={{
+                  fontSize: 9,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                  color: 'rgb(var(--color-text-tertiary))',
+                  marginTop: 2,
+                }}
+              >
                 Trades
               </span>
             </div>
@@ -58,17 +123,49 @@ export default function DisciplinePie({ data }: DisciplinePieProps) {
         )}
       </div>
 
-      {/* Custom Horizontal Legend */}
+      {/* Legend */}
       {total > 0 && (
-        <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2">
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            gap: '4px 12px',
+            marginTop: 12,
+          }}
+        >
           {data.map((item, idx) => (
-            <div key={idx} className="flex items-center gap-1.5 text-tv-xs font-ui">
+            <div
+              key={idx}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                fontSize: 'var(--text-xs)',
+              }}
+            >
               <span
-                className="h-2 w-2 rounded-full shrink-0"
-                style={{ backgroundColor: item.color }}
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  flexShrink: 0,
+                  background: item.color,
+                }}
               />
-              <span className="text-secondary select-none">{item.name.split(' ')[0]}</span>
-              <span className="font-mono text-primary font-medium">{item.value}</span>
+              <span style={{ color: 'rgb(var(--color-text-secondary))' }}>
+                {item.name.split(' ')[0]}
+              </span>
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontVariantNumeric: 'tabular-nums',
+                  fontWeight: 500,
+                  color: 'rgb(var(--color-text-primary))',
+                }}
+              >
+                {item.value}
+              </span>
             </div>
           ))}
         </div>
