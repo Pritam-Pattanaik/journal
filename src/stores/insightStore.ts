@@ -168,7 +168,7 @@ export const useInsightStore = create<InsightState>((set, get) => ({
     try {
       // We cannot use standard API wrapper for SSE, use native fetch
       const token = localStorage.getItem('token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+      const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3000/api');
       
       const response = await fetch(`${apiUrl}/ai/chat`, {
         method: 'POST',

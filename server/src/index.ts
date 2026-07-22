@@ -56,14 +56,15 @@ const allowedOrigins: string[] = (
         'http://localhost:5175',
         'http://127.0.0.1:5173',
         'http://127.0.0.1:5174',
-        'http://localhost:3000'
+        'http://localhost:3000',
+        'https://journal-puce-seven.vercel.app'
       ]
 ).map(o => o.trim());
 
 app.use(cors({
   origin: (incomingOrigin, callback) => {
     if (!incomingOrigin) return callback(null, true);
-    if (allowedOrigins.includes(incomingOrigin) || incomingOrigin.startsWith('http://localhost:')) {
+    if (allowedOrigins.includes(incomingOrigin) || incomingOrigin.startsWith('http://localhost:') || incomingOrigin.endsWith('.vercel.app')) {
       return callback(null, true);
     }
     callback(new Error(`CORS policy: origin '${incomingOrigin}' not allowed`));
