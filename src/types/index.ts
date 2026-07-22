@@ -22,6 +22,9 @@ export interface Trade {
   learnings?: string;
   disciplineScore?: number;
   tags?: string[];
+  stopLoss?: number | null;
+  mistakes?: string[];
+  checklist?: Record<string, boolean>;
   source: string;
 }
 
@@ -51,6 +54,33 @@ export interface JournalEntry {
   whatToImprove?: string;
   mood?: string;
   overallDiscipline?: number;
+  tags?: string[];
+  image?: string;
+}
+
+export interface EnrichedNews {
+  id: string;
+  headline: string;
+  url: string;
+  publishedAt: number;
+  source: string;
+  image?: string;
+  originalSummary?: string;
+  aiSummary: string;
+  tldr: string;
+  whyItMatters: string;
+  historicalContext: string;
+  categories: string[];
+  sectors: string[];
+  companies: string[];
+  financialTerms: { term: string; definition: string }[];
+  shortTermImpact?: string;
+  longTermImpact?: string;
+  whatToWatchNext?: string;
+  riskFactors?: string;
+  probability?: number;
+  confidence?: number;
+  marketImpact?: { asset: string; impact: string; sentiment: string }[];
 }
 
 export interface AIInsight {
@@ -61,6 +91,27 @@ export interface AIInsight {
   dateRangeStart: string;
   dateRangeEnd: string;
   createdAt: string;
+}
+
+export interface AiMessage {
+  id?: string;
+  conversationId?: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt?: string;
+}
+
+export interface AiConversation {
+  id: string;
+  userId: string;
+  title: string;
+  isPinned?: boolean;
+  isArchived?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  _count?: {
+    messages: number;
+  };
 }
 
 export interface BrokerConnection {

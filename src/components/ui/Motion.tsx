@@ -126,7 +126,7 @@ export const NumberCounter = ({
     if (!node) return;
     
     // Animate from 0 to target value
-    const controls = import('framer-motion').then(({ animate }) => {
+    import('framer-motion').then(({ animate }) => {
       animate(0, value, {
         duration,
         ease: [0.16, 1, 0.3, 1], // easeExpo

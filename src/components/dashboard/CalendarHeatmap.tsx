@@ -6,7 +6,7 @@ interface CalendarHeatmapProps {
   trades: Trade[];
 }
 
-export default function CalendarHeatmap({ trades }: CalendarHeatmapProps) {
+export default React.memo(function CalendarHeatmap({ trades }: CalendarHeatmapProps) {
   // Aggregate PnL by day for the last 90 days
   const today = new Date();
   const days: string[] = [];
@@ -24,20 +24,20 @@ export default function CalendarHeatmap({ trades }: CalendarHeatmapProps) {
   });
 
   const getCellColor = (pnl: number | undefined): string => {
-    if (pnl === undefined) return 'rgba(39,39,42,0.25)';
-    if (pnl > 1000)  return 'rgba(16,185,129,0.9)';
-    if (pnl > 0)     return 'rgba(16,185,129,0.4)';
-    if (pnl < -1000) return 'rgba(239,68,68,0.9)';
-    if (pnl < 0)     return 'rgba(239,68,68,0.4)';
-    return 'rgba(245,158,11,0.4)'; // Breakeven
+    if (pnl === undefined) return 'rgb(var(--color-border) / 0.15)';
+    if (pnl > 1000)  return 'rgb(var(--color-success) / 0.9)';
+    if (pnl > 0)     return 'rgb(var(--color-success) / 0.4)';
+    if (pnl < -1000) return 'rgb(var(--color-danger) / 0.9)';
+    if (pnl < 0)     return 'rgb(var(--color-danger) / 0.4)';
+    return 'rgb(var(--color-warning) / 0.4)'; // Breakeven
   };
 
   const legendSquares = [
-    { color: 'rgba(239,68,68,0.9)',  label: 'Big loss' },
-    { color: 'rgba(239,68,68,0.4)',  label: 'Loss' },
-    { color: 'rgba(39,39,42,0.25)', label: 'No trades' },
-    { color: 'rgba(16,185,129,0.4)', label: 'Profit' },
-    { color: 'rgba(16,185,129,0.9)', label: 'Big profit' },
+    { color: 'rgb(var(--color-danger) / 0.9)',  label: 'Big loss' },
+    { color: 'rgb(var(--color-danger) / 0.4)',  label: 'Loss' },
+    { color: 'rgb(var(--color-border) / 0.15)', label: 'No trades' },
+    { color: 'rgb(var(--color-success) / 0.4)', label: 'Profit' },
+    { color: 'rgb(var(--color-success) / 0.9)', label: 'Big profit' },
   ];
 
   return (
@@ -48,6 +48,8 @@ export default function CalendarHeatmap({ trades }: CalendarHeatmapProps) {
         borderRadius: 'var(--radius-lg)',
         padding: 16,
       }}
+      role="img"
+      aria-label="Trading Heatmap showing PnL for the last 90 days"
     >
       {/* Header */}
       <div
@@ -67,35 +69,63 @@ export default function CalendarHeatmap({ trades }: CalendarHeatmapProps) {
         >
           Trading Heatmap (Last 90 Days)
         </h3>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            fontSize: 'var(--text-xs)',
-            color: 'rgb(var(--color-text-tertiary))',
-          }}
-        >
-          <span>Less</span>
-          {legendSquares.map((sq, i) => (
-            <div
-              key={i}
-              title={sq.label}
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: 2,
-                background: sq.color,
-              }}
-            />
-          ))}
-          <span>More</span>
-        </div>
+        {trades.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: 'var(--text-xs)',
+              color: 'rgb(var(--color-text-secondary))',
+            }}
+          >
+            <span>Less</span>
+            {legendSquares.map((sq, i) => (
+              <div
+                key={i}
+                title={sq.label}
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 2,
+                  background: sq.color,
+                }}
+              />
+            ))}
+            <span>More</span>
+          </div>
+        )}
       </div>
 
-      {/* Grid */}
-      <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
-        <div style={{ display: 'flex', gap: 4, minWidth: 'max-content' }}>
+      {/* Grid with Empty State Overlay */}
+      <div style={{ position: 'relative', overflowX: 'auto', paddingBottom: 4 }}>
+        {trades.length === 0 && (
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(var(--color-surface), 0.6)',
+            backdropFilter: 'blur(2px)',
+            zIndex: 10,
+            borderRadius: 'var(--radius-md)'
+          }}>
+            <p style={{
+              fontSize: 'var(--text-sm)',
+              fontWeight: 600,
+              color: 'rgb(var(--color-text-secondary))',
+              background: 'rgb(var(--color-surface))',
+              padding: '6px 12px',
+              borderRadius: 'var(--radius-lg)',
+              boxShadow: 'var(--shadow-sm)',
+              border: '1px solid rgb(var(--color-border))'
+            }}>
+              Not enough data to generate heatmap
+            </p>
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 4, minWidth: 'max-content', opacity: trades.length === 0 ? 0.3 : 1 }}>
           {Array.from({ length: Math.ceil(90 / 7) }).map((_, weekIndex) => (
             <div key={weekIndex} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {Array.from({ length: 7 }).map((_, dayIndex) => {
@@ -114,10 +144,10 @@ export default function CalendarHeatmap({ trades }: CalendarHeatmapProps) {
                       borderRadius: 2,
                       background: getCellColor(pnl),
                       transition: 'transform var(--duration-fast) var(--ease-out)',
-                      cursor: 'default',
+                      cursor: trades.length === 0 ? 'default' : 'pointer',
                     }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.3)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)'; }}
+                    onMouseEnter={e => { if (trades.length > 0) (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.3)'; }}
+                    onMouseLeave={e => { if (trades.length > 0) (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)'; }}
                   />
                 );
               })}
@@ -127,4 +157,4 @@ export default function CalendarHeatmap({ trades }: CalendarHeatmapProps) {
       </div>
     </div>
   );
-}
+});

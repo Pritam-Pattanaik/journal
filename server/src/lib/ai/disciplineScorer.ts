@@ -268,7 +268,7 @@ export function assignDisciplineScores(
   const avg = (arr: number[]) =>
     arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 
-  for (const [_date, dayTrades] of byDate) {
+  for (const [, dayTrades] of byDate) {
     const avgQty = avg(priorQtys);
     const avgLoss = avg(priorLosses);
     const avgWin = avg(priorWins);

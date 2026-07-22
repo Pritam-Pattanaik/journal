@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Check, X, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Reveal, StaggerContainer, StaggerItem, HoverLift } from '../../components/ui/Motion';
 
 const plans = [
   {
@@ -73,307 +75,136 @@ const faqs = [
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = React.useState(false);
   return (
-    <div
-      style={{
-        background: 'rgb(var(--color-surface))',
-        border: '1px solid rgb(var(--color-border))',
-        borderRadius: 'var(--radius-lg)',
-        overflow: 'hidden',
-      }}
-    >
+    <div className="card bg-surface border border-border rounded-xl overflow-hidden mb-3">
       <button
         onClick={() => setOpen(x => !x)}
-        style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '16px 20px',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          textAlign: 'left',
-          gap: 12,
-        }}
+        className="w-full flex items-center justify-between p-5 bg-transparent border-none cursor-pointer text-left gap-4 outline-none focus-ring"
       >
-        <span
-          style={{
-            fontSize: 'var(--text-base)',
-            fontWeight: 500,
-            color: 'rgb(var(--color-text-primary))',
-            lineHeight: 1.4,
-          }}
-        >
+        <span className="text-base font-semibold text-primary leading-tight font-display">
           {q}
         </span>
         {open ? (
-          <ChevronUp size={18} strokeWidth={1.5} style={{ color: 'rgb(var(--color-text-tertiary))', flexShrink: 0 }} />
+          <ChevronUp size={20} strokeWidth={1.5} className="text-tertiary shrink-0" />
         ) : (
-          <ChevronDown size={18} strokeWidth={1.5} style={{ color: 'rgb(var(--color-text-tertiary))', flexShrink: 0 }} />
+          <ChevronDown size={20} strokeWidth={1.5} className="text-tertiary shrink-0" />
         )}
       </button>
-      {open && (
-        <div
-          style={{
-            padding: '0 20px 16px',
-            fontSize: 'var(--text-sm)',
-            color: 'rgb(var(--color-text-secondary))',
-            lineHeight: 1.6,
-            borderTop: '1px solid rgb(var(--color-border))',
-            paddingTop: 14,
-          }}
-        >
-          {a}
-        </div>
-      )}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: 'easeInOut' }}
+            className="overflow-hidden"
+          >
+            <div className="px-5 pb-5 pt-1 text-sm text-secondary leading-relaxed font-medium border-t border-border mt-1">
+              {a}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
 export default function Pricing() {
   return (
-    <div style={{ width: '100%', paddingBottom: 96 }}>
+    <div className="w-full pb-24 bg-canvas text-primary min-h-screen">
       {/* Header */}
-      <section
-        style={{
-          textAlign: 'center',
-          padding: '80px 24px 64px',
-          maxWidth: 640,
-          margin: '0 auto',
-        }}
-      >
-        <div
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '4px 12px',
-            borderRadius: 'var(--radius-full)',
-            background: 'rgba(16,185,129,0.1)',
-            border: '1px solid rgba(16,185,129,0.2)',
-            color: 'rgb(var(--color-success))',
-            fontSize: 'var(--text-xs)',
-            fontWeight: 500,
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            marginBottom: 20,
-          }}
-        >
-          Simple Pricing
-        </div>
-        <h1
-          style={{
-            fontSize: 'var(--text-4xl)',
-            fontWeight: 600,
-            color: 'rgb(var(--color-text-primary))',
-            letterSpacing: '-0.02em',
-            lineHeight: 1.1,
-            marginBottom: 16,
-          }}
-        >
-          Invest in your{' '}
-          <span style={{ color: 'rgb(var(--color-accent))' }}>edge.</span>
-        </h1>
-        <p
-          style={{
-            fontSize: 'var(--text-lg)',
-            color: 'rgb(var(--color-text-secondary))',
-            lineHeight: 1.6,
-          }}
-        >
-          Start for free to explore the platform. Upgrade when you're ready to scale your trading.
-        </p>
+      <section className="text-center pt-32 pb-16 max-w-2xl mx-auto px-6">
+        <Reveal>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-success/10 border border-success/20 text-success text-xs font-bold uppercase tracking-widest mb-6">
+            Simple Pricing
+          </div>
+          <h1 className="font-display text-5xl md:text-6xl font-bold text-primary tracking-tight leading-[1.1] mb-6">
+            Invest in your <span className="text-gradient">edge.</span>
+          </h1>
+          <p className="text-lg text-secondary leading-relaxed font-medium">
+            Start for free to explore the platform. Upgrade when you're ready to scale your trading.
+          </p>
+        </Reveal>
       </section>
 
       {/* Pricing Cards */}
-      <section
-        style={{
-          maxWidth: 1024,
-          margin: '0 auto',
-          padding: '0 24px 80px',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: 24,
-          alignItems: 'start',
-        }}
-        className="max-md:grid-cols-1"
-      >
-        {plans.map(plan => (
-          <div
-            key={plan.name}
-            style={{
-              background: 'rgb(var(--color-surface))',
-              border: plan.highlight
-                ? '1px solid rgba(99,102,241,0.5)'
-                : '1px solid rgb(var(--color-border))',
-              borderRadius: 'var(--radius-xl)',
-              padding: 28,
-              display: 'flex',
-              flexDirection: 'column',
-              position: 'relative',
-              boxShadow: plan.highlight ? '0 0 0 3px rgba(99,102,241,0.08)' : 'none',
-            }}
-          >
-            {/* Popular Badge */}
-            {plan.badge && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: -12,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  background: 'rgb(var(--color-accent))',
-                  color: 'rgb(var(--color-text-inverse))',
-                  fontSize: 'var(--text-xs)',
-                  fontWeight: 600,
-                  padding: '3px 12px',
-                  borderRadius: 'var(--radius-full)',
-                  whiteSpace: 'nowrap',
-                  letterSpacing: '0.02em',
-                }}
+      <section className="max-w-5xl mx-auto px-6 pb-24">
+        <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start" staggerChildren={0.1}>
+          {plans.map(plan => (
+            <StaggerItem key={plan.name}>
+              <HoverLift 
+                className={`card-raised p-8 flex flex-col relative h-full bg-surface ${
+                  plan.highlight ? 'border border-iris/50 shadow-iris' : 'border border-border'
+                }`}
               >
-                {plan.badge}
-              </div>
-            )}
+                {/* Popular Badge */}
+                {plan.badge && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-accent text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap tracking-wide shadow-md shadow-accent/20">
+                    {plan.badge}
+                  </div>
+                )}
 
-            <h3
-              style={{
-                fontSize: 'var(--text-xl)',
-                fontWeight: 600,
-                color: plan.highlight ? 'rgb(var(--color-accent))' : 'rgb(var(--color-text-primary))',
-                marginBottom: 6,
-                letterSpacing: '-0.01em',
-              }}
-            >
-              {plan.name}
-            </h3>
+                <h3 className={`font-display text-2xl font-bold mb-2 tracking-tight ${
+                  plan.highlight ? 'text-accent' : 'text-primary'
+                }`}>
+                  {plan.name}
+                </h3>
 
-            <p
-              style={{
-                fontSize: 'var(--text-sm)',
-                color: 'rgb(var(--color-text-secondary))',
-                marginBottom: 20,
-                minHeight: 40,
-                lineHeight: 1.5,
-              }}
-            >
-              {plan.description}
-            </p>
+                <p className="text-sm text-secondary mb-6 min-h-[40px] leading-relaxed font-medium">
+                  {plan.description}
+                </p>
 
-            <div
-              style={{
-                fontSize: 'var(--text-4xl)',
-                fontWeight: 700,
-                color: 'rgb(var(--color-text-primary))',
-                fontFamily: 'var(--font-mono)',
-                fontVariantNumeric: 'tabular-nums',
-                letterSpacing: '-0.02em',
-                marginBottom: 24,
-                lineHeight: 1,
-              }}
-            >
-              {plan.price}
-              {plan.price !== '₹0' && (
-                <span
-                  style={{
-                    fontSize: 'var(--text-sm)',
-                    fontWeight: 400,
-                    color: 'rgb(var(--color-text-secondary))',
-                    fontFamily: 'var(--font-sans)',
-                    marginLeft: 4,
-                  }}
-                >
-                  /mo
-                </span>
-              )}
-            </div>
-
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28, flex: 1 }}>
-              {plan.features.map((f, i) => (
-                <li
-                  key={i}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    fontSize: 'var(--text-sm)',
-                    color: f.included ? 'rgb(var(--color-text-primary))' : 'rgb(var(--color-text-tertiary))',
-                  }}
-                >
-                  {f.included ? (
-                    <Check size={16} strokeWidth={2} style={{ color: 'rgb(var(--color-success))', flexShrink: 0 }} />
-                  ) : (
-                    <X size={16} strokeWidth={2} style={{ color: 'rgb(var(--color-text-disabled))', flexShrink: 0 }} />
+                <div className="font-mono-premium text-4xl font-bold text-primary tracking-tight mb-8 tabular-nums">
+                  {plan.price}
+                  {plan.price !== '₹0' && (
+                    <span className="text-sm font-normal text-secondary font-sans ml-1">
+                      /mo
+                    </span>
                   )}
-                  {f.label}
-                </li>
-              ))}
-            </ul>
+                </div>
 
-            <Link
-              to="/signup"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '10px 16px',
-                borderRadius: 'var(--radius-md)',
-                fontSize: 'var(--text-sm)',
-                fontWeight: 500,
-                textDecoration: 'none',
-                textAlign: 'center',
-                background: plan.highlight ? 'rgb(var(--color-accent))' : 'transparent',
-                color: plan.highlight ? 'rgb(var(--color-text-inverse))' : 'rgb(var(--color-text-primary))',
-                border: plan.highlight ? 'none' : '1px solid rgb(var(--color-border))',
-                transition: 'background-color var(--duration-fast) var(--ease-out)',
-              }}
-              onMouseEnter={e => {
-                if (plan.highlight) {
-                  (e.currentTarget as HTMLAnchorElement).style.background = 'rgb(var(--color-accent-hover))';
-                } else {
-                  (e.currentTarget as HTMLAnchorElement).style.background = 'rgb(var(--color-surface-hover))';
-                }
-              }}
-              onMouseLeave={e => {
-                if (plan.highlight) {
-                  (e.currentTarget as HTMLAnchorElement).style.background = 'rgb(var(--color-accent))';
-                } else {
-                  (e.currentTarget as HTMLAnchorElement).style.background = 'transparent';
-                }
-              }}
-            >
-              {plan.cta}
-            </Link>
-          </div>
-        ))}
+                <ul className="flex flex-col gap-4 mb-8 flex-1">
+                  {plan.features.map((f, i) => (
+                    <li key={i} className={`flex items-center gap-3 text-sm font-medium ${
+                      f.included ? 'text-primary' : 'text-tertiary'
+                    }`}>
+                      {f.included ? (
+                        <Check size={18} strokeWidth={2.5} className="text-success shrink-0" />
+                      ) : (
+                        <X size={18} strokeWidth={2.5} className="text-muted shrink-0" />
+                      )}
+                      {f.label}
+                    </li>
+                  ))}
+                </ul>
+
+                <Link
+                  to="/signup"
+                  className={`flex items-center justify-center py-3 px-6 rounded-xl text-[15px] font-bold text-center transition-all focus-ring ${
+                    plan.highlight 
+                      ? 'bg-accent text-white hover:bg-accent-hover shadow-md shadow-accent/20' 
+                      : 'bg-surface-1 border border-border text-primary hover:bg-surface-2'
+                  }`}
+                >
+                  {plan.cta}
+                </Link>
+              </HoverLift>
+            </StaggerItem>
+          ))}
+        </StaggerContainer>
       </section>
 
       {/* FAQ Section */}
-      <section
-        style={{
-          maxWidth: 720,
-          margin: '0 auto',
-          padding: '0 24px',
-        }}
-      >
-        <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <h2
-            style={{
-              fontSize: 'var(--text-3xl)',
-              fontWeight: 600,
-              color: 'rgb(var(--color-text-primary))',
-              letterSpacing: '-0.02em',
-              lineHeight: 1.2,
-            }}
-          >
+      <section className="max-w-3xl mx-auto px-6">
+        <Reveal className="text-center mb-10">
+          <h2 className="font-display text-3xl md:text-4xl font-bold text-primary tracking-tight">
             Frequently Asked Questions
           </h2>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        </Reveal>
+        <Reveal delay={0.2} className="flex flex-col gap-1">
           {faqs.map((faq, i) => (
             <FAQItem key={i} q={faq.q} a={faq.a} />
           ))}
-        </div>
+        </Reveal>
       </section>
     </div>
   );

@@ -45,11 +45,56 @@ const TableCell = React.forwardRef<HTMLTableCellElement, React.TdHTMLAttributes<
 );
 TableCell.displayName = "TableCell";
 
+const ResizableTableHead = React.forwardRef<HTMLTableCellElement, React.ThHTMLAttributes<HTMLTableCellElement>>(
+  ({ className, children, style, ...props }, ref) => {
+    const [width, setWidth] = React.useState<number | 'auto'>('auto');
+    const startX = React.useRef(0);
+    const startWidth = React.useRef(0);
+
+    const onMouseDown = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      startX.current = e.clientX;
+      const th = (e.target as HTMLElement).closest('th');
+      startWidth.current = th?.getBoundingClientRect().width || 0;
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      const newWidth = Math.max(50, startWidth.current + (e.clientX - startX.current));
+      setWidth(newWidth);
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    return (
+      <th 
+        ref={ref} 
+        style={{ ...style, width, minWidth: width !== 'auto' ? width : undefined, maxWidth: width !== 'auto' ? width : undefined }} 
+        className={cn("h-10 px-4 text-left align-middle font-medium text-secondary relative group/th whitespace-nowrap", className)} 
+        {...props}
+      >
+        {children}
+        <div 
+          onMouseDown={onMouseDown}
+          className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-accent/50 active:bg-accent z-10 opacity-0 group-hover/th:opacity-100 transition-opacity"
+        />
+      </th>
+    );
+  }
+);
+ResizableTableHead.displayName = "ResizableTableHead";
+
+
 export {
   Table,
   TableHeader,
   TableBody,
   TableHead,
+  ResizableTableHead,
   TableRow,
   TableCell,
 };

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Download, RefreshCw, Loader2, ArrowUpRight, ArrowDownRight, Activity, Percent } from 'lucide-react';
+import { Plus, Download, RefreshCw, Loader2, ArrowUpRight, ArrowDownRight, Activity, Percent, Trash2, ArrowUpDown, ArrowDown, ArrowUp } from 'lucide-react';
 import { Trade } from '../types';
 import FilterBar from '../components/trade/FilterBar';
 import TradeRow from '../components/trade/TradeRow';
 import TradeCard from '../components/trade/TradeCard';
 import TradeFormModal from '../components/trade/TradeFormModal';
-import { Table, TableHeader, TableBody, TableRow as UITableRow, TableHead, TableCell } from '../components/ui/Table';
+import TradeCalendarView from '../components/trade/TradeCalendarView';
+import DailyTradeAccordion from '../components/trade/DailyTradeAccordion';
 import { Button } from '../components/ui/Button';
 import { useTradeStore } from '../stores/tradeStore';
 import { useBrokerStore } from '../stores/brokerStore';
@@ -13,7 +14,7 @@ import { formatCurrency } from '../lib/analytics';
 import { notify } from '../lib/notify';
 import { getLocalYYYYMMDD } from '../lib/dateUtils';
 import StatCard from '../components/dashboard/StatCard';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/cn';
 
 export default function Trades() {
@@ -24,6 +25,10 @@ export default function Trades() {
   const [dateFilter, setDateFilter] = useState('all');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [tradeToEdit, setTradeToEdit] = useState<Trade | null>(null);
+  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
+
+  const [selectedTrades, setSelectedTrades] = useState<Set<string>>(new Set());
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
 
   const { isSyncing, lastSyncedAt, lastSyncError, syncingBrokers } = useBrokerStore();
   const syncAll = useBrokerStore(state => state.syncAll);
@@ -32,7 +37,7 @@ export default function Trades() {
     if (trades.length === 0 && !loading) {
       fetchTrades();
     }
-  }, []);
+  }, [trades.length, loading, fetchTrades]);
 
   const handleSync = async () => {
     if (isSyncing) return;
@@ -88,26 +93,39 @@ export default function Trades() {
       return matchesSearch && matchesMarket && matchesStatus && matchesDate;
     })
     .sort((a, b) => {
-      const dateA = a.isCarryForward && a.exitTime ? new Date(a.exitTime) : new Date(a.date);
-      const dateB = b.isCarryForward && b.exitTime ? new Date(b.exitTime) : new Date(b.date);
-      return dateB.getTime() - dateA.getTime();
+      let valA: any = a[sortConfig.key as keyof Trade] || 0;
+      let valB: any = b[sortConfig.key as keyof Trade] || 0;
+
+      if (sortConfig.key === 'date') {
+        valA = a.isCarryForward && a.exitTime ? new Date(a.exitTime).getTime() : new Date(a.date).getTime();
+        valB = b.isCarryForward && b.exitTime ? new Date(b.exitTime).getTime() : new Date(b.date).getTime();
+      } else if (sortConfig.key === 'symbol' || sortConfig.key === 'status') {
+        valA = (a[sortConfig.key as keyof Trade] as string)?.toLowerCase() || '';
+        valB = (b[sortConfig.key as keyof Trade] as string)?.toLowerCase() || '';
+      }
+
+      if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
     });
 
   // Calculate Metrics for Header
   const totalTrades = filteredTrades.length;
+  const grossPnl = filteredTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
   const netPnl = filteredTrades.reduce((sum, t) => sum + t.netPnl, 0);
   const winningTrades = filteredTrades.filter(t => t.netPnl > 0).length;
   const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
 
-  const handleExportCsv = () => {
-    if (filteredTrades.length === 0) return;
-    const headers = ['Date', 'Symbol', 'Market', 'Direction', 'Status', 'Entry', 'Exit', 'Net P&L', 'Strategy'];
-    const rows = filteredTrades.map(t => [
+  const exportCsvData = (dataToExport: Trade[]) => {
+    if (dataToExport.length === 0) return;
+    const headers = ['Date', 'Symbol', 'Market', 'Direction', 'Status', 'Entry', 'Exit', 'Net P&L', 'Discipline Score', 'Strategy'];
+    const rows = dataToExport.map(t => [
       getLocalYYYYMMDD(new Date(t.date)),
       t.symbol, t.market, t.direction, t.status,
       t.entryPrice.toString(),
       t.exitPrice?.toString() || '',
       t.netPnl.toString(),
+      t.disciplineScore?.toString() || '',
       t.strategyName || 'Untagged',
     ]);
     const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -119,6 +137,38 @@ export default function Trades() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleExportCsv = () => {
+    exportCsvData(filteredTrades);
+  };
+
+  const handleExportSelected = () => {
+    const dataToExport = trades.filter(t => selectedTrades.has(t.id));
+    exportCsvData(dataToExport);
+  };
+
+  const handleDeleteSelected = async () => {
+    if (!confirm(`Are you sure you want to delete ${selectedTrades.size} selected trades?`)) return;
+    for (const id of Array.from(selectedTrades)) {
+      await deleteTrade(id);
+    }
+    setSelectedTrades(new Set());
+    notify.success('Selected trades deleted successfully.');
+  };
+
+  const handleSort = (key: string) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc'
+    }));
+  };
+
+  const getSortIcon = (key: string) => {
+    if (sortConfig.key !== key) return <ArrowUpDown className="w-3 h-3 ml-1 inline opacity-0 group-hover:opacity-100 transition-opacity" />;
+    return sortConfig.direction === 'asc' 
+      ? <ArrowUp className="w-3 h-3 ml-1 inline text-primary" />
+      : <ArrowDown className="w-3 h-3 ml-1 inline text-primary" />;
   };
 
   const getGroupDate = (trade: Trade): string => {
@@ -140,30 +190,59 @@ export default function Trades() {
 
   return (
     <>
-      <div className="space-y-8 page-enter font-ui pb-20 max-w-[1400px] mx-auto">
+      <div className="space-y-6 pt-4 pb-20 max-w-[1400px] mx-auto relative">
         
         {/* Workspace Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <h1 className="text-2xl font-bold text-primary tracking-tight">Trade Workspace</h1>
+            <h1 className="font-display text-2xl font-bold text-primary tracking-tight">Trade Workspace</h1>
             <p className="text-sm text-secondary mt-1">Search, filter, and review your market executions.</p>
           </div>
           
           <div className="flex items-center gap-3">
-            <Button variant="secondary" size="sm" onClick={handleSync} disabled={isSyncing} className="shadow-sm">
+            {lastSyncError && !isSyncing && (
+              <span className="text-[10px] uppercase tracking-widest font-bold text-danger bg-danger/10 px-3 py-1.5 rounded-lg border border-danger/20">
+                Sync Error
+              </span>
+            )}
+            <Button variant="secondary" size="sm" onClick={handleSync} disabled={isSyncing} className="shadow-sm font-semibold border-border-subtle hover:bg-surface-2">
               <RefreshCw className={cn("w-4 h-4 mr-2", isSyncing && "animate-spin")} />
               {isSyncing ? 'Syncing...' : 'Sync Data'}
             </Button>
-            <Button variant="secondary" size="sm" onClick={handleExportCsv} className="shadow-sm">
+            <Button variant="secondary" size="sm" onClick={handleExportCsv} className="shadow-sm font-semibold border-border-subtle hover:bg-surface-2">
               <Download className="w-4 h-4 mr-2" />
               Export
             </Button>
-            <Button variant="primary" size="sm" onClick={() => { setTradeToEdit(null); setIsFormOpen(true); }} className="shadow-sm font-semibold">
+            <div className="w-px h-6 bg-border-subtle mx-1 hidden sm:block" />
+            <Button variant="primary" size="sm" onClick={() => { setTradeToEdit(null); setIsFormOpen(true); }} className="shadow-sm font-bold shadow-accent/20">
               <Plus className="w-4 h-4 mr-2" />
               Log Trade
             </Button>
           </div>
         </div>
+
+        {/* Floating Action Bar */}
+        <AnimatePresence>
+          {selectedTrades.size > 0 && (
+            <motion.div
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 50, opacity: 0 }}
+              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 bg-surface px-6 py-3 rounded-full border border-border shadow-xl shadow-black/10 dark:shadow-black/40"
+            >
+              <span className="text-sm font-semibold text-primary">{selectedTrades.size} selected</span>
+              <div className="w-px h-4 bg-border" />
+              <Button variant="secondary" size="sm" onClick={handleExportSelected} className="h-8">
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
+              <Button variant="danger" size="sm" onClick={handleDeleteSelected} className="h-8 bg-danger/10 text-danger hover:bg-danger/20 border-danger/20">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Selected
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Analytics Section */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -203,12 +282,6 @@ export default function Trades() {
           </motion.div>
         )}
 
-        {lastSyncError && !isSyncing && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 p-4 rounded-xl bg-danger/10 border border-danger/20">
-            <span className="text-sm font-bold text-danger">Sync error: {lastSyncError}</span>
-          </motion.div>
-        )}
-
         {/* Filters */}
         <FilterBar
           searchQuery={searchQuery}
@@ -221,79 +294,114 @@ export default function Trades() {
           onDateChange={setDateFilter}
         />
 
-        <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-widest text-secondary">
-          <span>{totalTrades} executions found</span>
-          {lastSyncedAt && <span>Last synced: {getLastSyncedText()}</span>}
+        {/* Desktop View Toggle */}
+        <div className="hidden md:flex justify-end mb-4">
+          <div className="flex items-center gap-1 p-1 bg-surface-1/50 rounded-full border border-border-subtle shadow-sm">
+            <button 
+              onClick={() => setViewMode('table')}
+              className={cn("px-4 py-1.5 text-xs font-bold rounded-full transition-colors", viewMode === 'table' ? "bg-surface-2 text-primary shadow-sm border border-border-subtle" : "text-tertiary hover:text-secondary hover:bg-surface-1")}
+            >
+              Table View
+            </button>
+            <button 
+              onClick={() => setViewMode('calendar')}
+              className={cn("px-4 py-1.5 text-xs font-bold rounded-full transition-colors", viewMode === 'calendar' ? "bg-surface-2 text-primary shadow-sm border border-border-subtle" : "text-tertiary hover:text-secondary hover:bg-surface-1")}
+            >
+              Calendar View
+            </button>
+          </div>
         </div>
 
+        {/* Calendar View */}
+        {viewMode === 'calendar' && (
+          <div className="hidden md:block">
+            <TradeCalendarView 
+              trades={filteredTrades} 
+              onDayClick={(dateStr) => {
+                // Assuming dateStr is in YYYY-MM-DD
+                // To filter to a specific day, we would need to add support for exact date string matching.
+                // For now, we will simply switch to table view. A custom date filter can be added.
+                setViewMode('table');
+              }} 
+            />
+          </div>
+        )}
+
         {/* Desktop Table View */}
-        <div className="hidden md:block bg-surface-0 border border-black/10 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
-          <Table>
-            <TableHeader>
-              <UITableRow className="hover:bg-transparent border-b border-black/10 dark:border-white/10">
-                <TableHead className="w-[120px] text-[10px] font-bold uppercase tracking-widest">Date</TableHead>
-                <TableHead className="text-[10px] font-bold uppercase tracking-widest">Asset</TableHead>
-                <TableHead className="text-[10px] font-bold uppercase tracking-widest">Context</TableHead>
-                <TableHead className="text-[10px] font-bold uppercase tracking-widest">Strategy</TableHead>
-                <TableHead className="text-[10px] font-bold uppercase tracking-widest">Entry</TableHead>
-                <TableHead className="text-[10px] font-bold uppercase tracking-widest">Exit</TableHead>
-                <TableHead className="text-[10px] font-bold uppercase tracking-widest">Net P&L</TableHead>
-                <TableHead className="text-[10px] font-bold uppercase tracking-widest">Rating</TableHead>
-                <TableHead className="w-[40px]"></TableHead>
-              </UITableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTrades.length === 0 ? (
-                <UITableRow className="hover:bg-transparent">
-                  <TableCell colSpan={9} className="h-64 text-center">
-                    <div className="flex flex-col items-center justify-center py-12">
-                      <div className="w-16 h-16 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 flex items-center justify-center mb-4 text-tertiary shadow-inner">
-                        {loading ? <Loader2 className="w-8 h-8 animate-spin" /> : <Activity className="w-8 h-8 opacity-50" />}
-                      </div>
-                      <h3 className="text-lg font-bold text-primary mb-2 tracking-tight">
-                        {loading ? 'Loading Executions...' : 'No trades found'}
-                      </h3>
-                      <p className="text-sm text-secondary max-w-sm mx-auto">
-                        {loading 
-                          ? 'Please wait while we sync your data.' 
-                          : 'No executions match your current workspace filters. Adjust your search criteria.'}
-                      </p>
-                    </div>
-                  </TableCell>
-                </UITableRow>
-              ) : (
-                groupedDateKeys.map(dateKey => {
-                  const dayTrades = filteredTrades.filter(t => getGroupDate(t) === dateKey);
-                  return (
-                    <React.Fragment key={dateKey}>
-                      <UITableRow className="bg-black/5 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/5 border-b border-black/10 dark:border-white/10">
-                        <TableCell colSpan={9} className="py-2.5">
-                          <span className="text-xs font-bold uppercase tracking-widest text-secondary">
-                            {formatGroupDateFull(dateKey)}
-                          </span>
-                        </TableCell>
-                      </UITableRow>
-                      
-                      {dayTrades.map(trade => (
-                        <TradeRow
-                          key={trade.id}
-                          trade={trade}
-                          onEdit={(t) => { setTradeToEdit(t); setIsFormOpen(true); }}
-                        />
-                      ))}
-                    </React.Fragment>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+        <div className={cn("hidden md:block space-y-4 relative", viewMode === 'calendar' && "md:hidden")}>
+          {filteredTrades.length === 0 ? (
+            <div className="card hover:bg-transparent">
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="w-16 h-16 rounded-2xl bg-surface-1 border border-border flex items-center justify-center mb-4 text-tertiary">
+                  {loading ? <Loader2 className="w-8 h-8 animate-spin" /> : <Activity className="w-8 h-8 opacity-50" />}
+                </div>
+                <h3 className="text-lg font-bold text-primary mb-2 tracking-tight">
+                  {loading ? 'Loading Executions...' : 'No trades found'}
+                </h3>
+                <p className="text-sm text-secondary max-w-sm mx-auto">
+                  {loading 
+                    ? 'Please wait while we sync your data.' 
+                    : 'No executions match your current workspace filters. Adjust your search criteria.'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            groupedDateKeys.map((dateKey, index) => {
+              const dayTrades = filteredTrades.filter(t => getGroupDate(t) === dateKey);
+              const allDaySelected = dayTrades.every(t => selectedTrades.has(t.id));
+              const isFirst = index === 0;
+
+              return (
+                <DailyTradeAccordion
+                  key={dateKey}
+                  dateKey={dateKey}
+                  trades={dayTrades}
+                  isInitiallyExpanded={isFirst}
+                  sortConfig={sortConfig}
+                  onSort={handleSort}
+                  allSelected={allDaySelected && dayTrades.length > 0}
+                  onSelectAll={(checked) => {
+                    const next = new Set(selectedTrades);
+                    if (checked) {
+                      dayTrades.forEach(t => next.add(t.id));
+                    } else {
+                      dayTrades.forEach(t => next.delete(t.id));
+                    }
+                    setSelectedTrades(next);
+                  }}
+                >
+                  {dayTrades.map(trade => (
+                    <TradeRow
+                      key={trade.id}
+                      trade={trade}
+                      onEdit={(t) => { setTradeToEdit(t); setIsFormOpen(true); }}
+                      onUpdateTrade={updateTrade}
+                      isSelected={selectedTrades.has(trade.id)}
+                      onToggleSelect={() => {
+                        const next = new Set(selectedTrades);
+                        if (next.has(trade.id)) next.delete(trade.id);
+                        else next.add(trade.id);
+                        setSelectedTrades(next);
+                      }}
+                    />
+                  ))}
+                </DailyTradeAccordion>
+              );
+            })
+          )}
+          {/* Table Footer / Pagination */}
+          <div className="flex items-center justify-center p-4">
+            <span className="text-xs font-semibold text-tertiary">
+              Showing all {filteredTrades.length} executions
+            </span>
+          </div>
         </div>
 
         {/* Mobile Card View */}
         <div className="block md:hidden space-y-2">
            {filteredTrades.length === 0 ? (
-             <div className="flex flex-col items-center justify-center py-16 px-4 text-center glass-panel rounded-2xl border-dashed">
-               <div className="w-16 h-16 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 flex items-center justify-center mb-4 text-tertiary shadow-inner">
+             <div className="flex flex-col items-center justify-center py-16 px-4 text-center card rounded-2xl border-dashed">
+               <div className="w-16 h-16 rounded-2xl bg-surface-1 border border-border flex items-center justify-center mb-4 text-tertiary">
                  {loading ? <Loader2 className="w-8 h-8 animate-spin" /> : <Activity className="w-8 h-8 opacity-50" />}
                </div>
                <h3 className="text-lg font-bold text-primary mb-2 tracking-tight">
@@ -319,6 +427,12 @@ export default function Trades() {
                           key={trade.id} 
                           trade={trade} 
                           onEdit={(t) => { setTradeToEdit(t); setIsFormOpen(true); }}
+                          onDelete={async (id) => {
+                            if(confirm('Delete this trade?')) {
+                              await deleteTrade(id);
+                              notify.success('Trade deleted');
+                            }
+                          }}
                         />
                       ))}
                     </div>

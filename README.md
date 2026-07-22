@@ -1,56 +1,50 @@
 # TradeVault
 
-TradeVault is a premium, web-based trading journal and performance analytics platform designed for retail traders. It enables traders to automatically sync trades, annotate them with strategy, mindset, and learnings, and receive AI-powered coaching from behavioral pattern analysis.
+TradeVault is a premium, AI-powered trading journal and performance analytics platform designed for retail traders. It enables traders to automatically sync trades, annotate them with strategy, mindset, and learnings, and receive AI-powered coaching from behavioral pattern analysis.
+
+> **Note**: For a comprehensive overview of the architecture, technology stack, design system, and deployment, please refer to the [PROJECT.md](file:///c:/Users/HP/OneDrive/Desktop/trade/journal/PROJECT.md) master document.
 
 ## Features
 
 - **Premium Interface:** A dark-mode, fluid, Framer Motion-powered trading workspace.
-- **AI Coach:** Advanced behavioral analysis using the Anthropic Claude API to identify patterns like revenge trading and FOMO.
+- **AI Coach:** Advanced behavioral analysis using AI to identify patterns like revenge trading and FOMO.
+- **Market & News Intelligence:** A comprehensive market hub for macro analysis before taking trades.
 - **Advanced Analytics:** Comprehensive dashboards tracking win rate, profit factor, strategy performance, and discipline metrics.
 - **Trade Journaling:** Dedicated pre-market and post-market journal forms to track daily biases, moods, and reflections.
-- **Broker Integrations:** Connects seamlessly to broker APIs for automatic trade synchronization.
 
-## Tech Stack
+## Quick Start
 
-- **Frontend:** React 18, Vite, TypeScript, Tailwind CSS, Framer Motion
-- **State Management:** Zustand
-- **Routing:** TanStack Router / React Router
-- **Charts:** Recharts
-- **Icons:** Lucide React
+### Prerequisites
 
-## Getting Started
+- Node.js (v18+)
+- npm
 
-1. **Install Dependencies**
+### Installation
+
+1. Clone the repository
+2. Install dependencies:
    ```bash
    npm install
    ```
 
-2. **Run Development Server**
-   ```bash
-   npm run dev
-   ```
+### Development
 
-3. **Build for Production**
-   ```bash
-   npm run build
-   ```
+To start the local development server:
+```bash
+npm run dev
+```
 
-4. **Linting**
-   ```bash
-   npm run lint
-   ```
+### Building for Production
+
+To create an optimized production build:
+```bash
+npm run build
+```
 
 ## Documentation
 
-For detailed technical specifications, architecture, and feature planning, refer to the documentation files in the root directory:
-- `01_PRD_TradeVault.md`
-- `02_Technical_Architecture.md`
-- `03_Feature_Tickets.md`
-- `04_Frontend_Specification.md`
-- `05_Workflow_Documents.md`
-- `06_Security_Access.md`
-- `07_AI_System_Technical.md`
+- [PROJECT.md](file:///c:/Users/HP/OneDrive/Desktop/trade/journal/PROJECT.md) - Complete architecture and product specification.
+- [ENVIRONMENT.md](file:///c:/Users/HP/OneDrive/Desktop/trade/journal/ENVIRONMENT.md) - Environment variables setup.
 
 ## License
-MIT
-
+MIT License

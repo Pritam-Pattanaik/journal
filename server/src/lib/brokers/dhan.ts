@@ -97,7 +97,7 @@ export async function syncDhanTrades(
   clientId: string,
   accessToken: string,
   userId: string,
-  existingOpenTrades: any[] = [],
+  _existingOpenTrades: any[] = [],
   lastSyncedAt: Date | null = null,
   personalRules?: PersonalRules | null
 ) {
@@ -223,7 +223,9 @@ export async function syncDhanTrades(
             if (errJson.errorMessage) {
               cleanError = `DhanHQ: ${errJson.errorMessage}`;
             }
-          } catch(e) {}
+          } catch(e) {
+            /* Ignore JSON parse error, fallback to raw text */
+          }
           throw new Error(cleanError);
         }
 

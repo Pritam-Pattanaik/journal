@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {

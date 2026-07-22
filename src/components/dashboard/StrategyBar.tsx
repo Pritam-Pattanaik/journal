@@ -1,138 +1,86 @@
 import React from 'react';
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
+import { motion } from 'framer-motion';
 import { formatCurrency, formatCompactCurrency } from '../../lib/analytics';
+import { cn } from '../../lib/cn';
 
 interface StrategyBarProps {
   data: { name: string; pnl: number }[];
 }
 
-export default function StrategyBar({ data }: StrategyBarProps) {
+const CustomTooltip = ({ active, payload }: any) => {
+  if (!active || !payload?.length) return null;
+  const dp = payload[0].payload;
+  const val: number = dp.pnl;
+  const isPos = val >= 0;
   return (
-    <div
-      style={{
-        background: 'rgb(var(--color-surface))',
-        border: '1px solid rgb(var(--color-border))',
-        borderRadius: 'var(--radius-lg)',
-        padding: 16,
-        display: 'flex',
-        flexDirection: 'column',
-        flex: 1,
-        minWidth: 280,
-      }}
+    <motion.div
+      initial={{ opacity: 0, x: -5 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.2 }}
+      className="glass-float px-3 py-2.5 min-w-[120px]"
     >
-      {/* Header */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: 16,
-        }}
-      >
-        <span
-          style={{
-            fontSize: 'var(--text-xs)',
-            fontWeight: 500,
-            color: 'rgb(var(--color-text-tertiary))',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-          }}
-        >
-          P&L by Strategy
-        </span>
-      </div>
+      <p className="text-[10px] font-bold uppercase tracking-widest text-secondary mb-1.5 truncate max-w-[120px]">{dp.name}</p>
+      <p className={cn('text-sm font-bold font-mono tabular-nums', isPos ? 'text-success' : 'text-danger')}>
+        {isPos ? '+' : ''}{formatCurrency(val)}
+      </p>
+    </motion.div>
+  );
+};
 
-      <div style={{ height: 150, width: '100%' }}>
-        {data.length === 0 ? (
-          <div
-            style={{
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 'var(--text-sm)',
-              color: 'rgb(var(--color-text-tertiary))',
-            }}
-          >
-            No strategies traded yet
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={data}
-              layout="vertical"
-              margin={{ top: 0, right: 10, left: -25, bottom: 0 }}
-            >
-              <XAxis
-                type="number"
-                tickFormatter={val => formatCompactCurrency(val)}
-                tick={{ fill: 'rgb(113,113,122)', fontSize: 9, fontFamily: 'JetBrains Mono' }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                type="category"
-                dataKey="name"
-                tick={{ fill: 'rgb(113,113,122)', fontSize: 11, fontFamily: 'Inter' }}
-                axisLine={false}
-                tickLine={false}
-                width={80}
-              />
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    const dataPoint = payload[0].payload;
-                    const val = dataPoint.pnl;
-                    return (
-                      <div
-                        style={{
-                          background: 'rgb(var(--color-surface-elevated))',
-                          border: '1px solid rgb(var(--color-border))',
-                          borderRadius: 'var(--radius-md)',
-                          padding: '8px 10px',
-                          fontFamily: 'var(--font-mono)',
-                          fontSize: 'var(--text-xs)',
-                          boxShadow: 'var(--shadow-md)',
-                          userSelect: 'none',
-                        }}
-                      >
-                        <p style={{ color: 'rgb(var(--color-text-secondary))', marginBottom: 4 }}>
-                          {dataPoint.name}
-                        </p>
-                        <p
-                          style={{
-                            fontWeight: 500,
-                            color: val >= 0 ? 'rgb(var(--color-success))' : 'rgb(var(--color-danger))',
-                          }}
-                        >
-                          {val >= 0 ? '+' : ''}{formatCurrency(val)}
-                        </p>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Bar dataKey="pnl" radius={[0, 4, 4, 0]} barSize={10}>
-                {data.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={entry.pnl >= 0 ? '#10B981' : '#EF4444'}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        )}
+export default function StrategyBar({ data }: StrategyBarProps) {
+  if (data.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 text-secondary">
+        <div className="w-12 h-12 rounded-2xl bg-surface-1 border border-border flex items-center justify-center">
+          <svg className="w-5 h-5 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+        </div>
+        <p className="text-sm font-medium">No strategies traded yet</p>
       </div>
+    );
+  }
+
+  return (
+    <div role="img" aria-label="Strategy performance bar chart" style={{ width: '100%', height: '100%' }}>
+      <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+        <defs>
+          <linearGradient id="barGradientPos" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="rgb(var(--color-iris))" stopOpacity={0.8} />
+            <stop offset="100%" stopColor="rgb(var(--color-accent))" stopOpacity={1} />
+          </linearGradient>
+          <linearGradient id="barGradientNeg" x1="1" y1="0" x2="0" y2="0">
+            <stop offset="0%" stopColor="rgb(var(--color-danger))" stopOpacity={0.6} />
+            <stop offset="100%" stopColor="rgb(var(--color-danger))" stopOpacity={1} />
+          </linearGradient>
+        </defs>
+        <XAxis
+          type="number"
+          tickFormatter={v => formatCompactCurrency(v)}
+          tick={{ fill: 'rgb(var(--color-text-secondary))', fontSize: 9, fontFamily: 'DM Mono, Geist Mono, monospace' }}
+          axisLine={false} tickLine={false}
+        />
+        <YAxis
+          type="category" dataKey="name"
+          tick={{ fill: 'rgb(var(--color-text-secondary))', fontSize: 11, fontFamily: 'Geist Sans, system-ui' }}
+          axisLine={false} tickLine={false} width={88}
+        />
+        <Tooltip 
+          content={<CustomTooltip />} 
+          cursor={{ fill: 'transparent' }} 
+          wrapperStyle={{ outline: 'none' }}
+        />
+        <Bar dataKey="pnl" radius={[0, 6, 6, 0]} barSize={16}>
+          {data.map((entry, i) => (
+            <Cell key={i} fill={entry.pnl >= 0 ? 'url(#barGradientPos)' : 'url(#barGradientNeg)'} />
+          ))}
+        </Bar>
+      </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 }

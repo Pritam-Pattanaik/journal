@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Brain, BarChart3, Clock, User, FileText, Zap } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { api } from '../../lib/api';
@@ -50,7 +50,7 @@ export default function AdminAIMonitor() {
   const [page, setPage] = useState(1);
   const limit = 15;
 
-  const fetchInsights = async () => {
+  const fetchInsights = useCallback(async () => {
     try {
       setLoading(true);
       const result = await api.get<AiData>(`/admin/ai-insights?page=${page}&limit=${limit}`);
@@ -61,9 +61,9 @@ export default function AdminAIMonitor() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, limit]);
 
-  useEffect(() => { fetchInsights(); }, [page]);
+  useEffect(() => { fetchInsights(); }, [fetchInsights]);
 
   const pieData = data ? Object.entries(data.stats.byType).map(([key, value]) => ({
     name: TYPE_LABELS[key] || key,

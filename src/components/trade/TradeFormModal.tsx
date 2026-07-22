@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Brain, Loader2 } from 'lucide-react';
 import { Trade } from '../../types';
 import Button from '../ui/Button';
 import { getLocalDateTimeString } from '../../lib/dateUtils';
+import { api } from '../../lib/api';
+import { notify } from '../../lib/notify';
 
 interface TradeFormModalProps {
   isOpen: boolean;
@@ -12,6 +14,7 @@ interface TradeFormModalProps {
 }
 
 export default function TradeFormModal({ isOpen, onClose, onSave, initialData }: TradeFormModalProps) {
+  const [isEvaluating, setIsEvaluating] = useState(false);
   const [formData, setFormData] = useState({
     symbol: '',
     market: 'NSE' as Trade['market'],
@@ -28,6 +31,9 @@ export default function TradeFormModal({ isOpen, onClose, onSave, initialData }:
     mindset: '',
     learnings: '',
     disciplineScore: '',
+    stopLoss: '',
+    mistakes: [] as string[],
+    checklist: {} as Record<string, boolean>,
   });
 
   useEffect(() => {
@@ -48,6 +54,9 @@ export default function TradeFormModal({ isOpen, onClose, onSave, initialData }:
         mindset: initialData.mindset || '',
         learnings: initialData.learnings || '',
         disciplineScore: initialData.disciplineScore ? initialData.disciplineScore.toString() : '',
+        stopLoss: initialData.stopLoss ? initialData.stopLoss.toString() : '',
+        mistakes: initialData.mistakes || [],
+        checklist: initialData.checklist || {},
       });
     } else {
       setFormData({
@@ -66,9 +75,54 @@ export default function TradeFormModal({ isOpen, onClose, onSave, initialData }:
         mindset: '',
         learnings: '',
         disciplineScore: '',
+        stopLoss: '',
+        mistakes: [],
+        checklist: {},
       });
     }
   }, [initialData, isOpen]);
+
+  const autoEvaluate = async () => {
+    if (!formData.setupDescription && !formData.mindset && !formData.notes) {
+      notify.error('Please enter some setup description, mindset, or notes for the AI to evaluate.');
+      return;
+    }
+    
+    setIsEvaluating(true);
+    try {
+      const entry = parseFloat(formData.entryPrice) || 0;
+      const exit = parseFloat(formData.exitPrice) || 0;
+      const qty = parseFloat(formData.quantity) || 0;
+      const isLong = formData.direction === 'LONG';
+      const rawPnl = isLong ? (exit - entry) * qty : (entry - exit) * qty;
+      const charges = parseFloat(formData.charges) || 0;
+      const netPnl = rawPnl - charges;
+
+      const response = await api.post<{ disciplineScore: number; label: string; reason: string; reasons: string[]; mistakes: string[]; strengths: string[] }>('/ai/evaluate-trade', {
+        symbol: formData.symbol,
+        date: formData.date,
+        direction: formData.direction,
+        entryPrice: formData.entryPrice,
+        exitPrice: formData.exitPrice,
+        netPnl: netPnl.toString(),
+        quantity: formData.quantity,
+        strategyName: formData.strategyName,
+        setupDescription: formData.setupDescription,
+        mindset: formData.mindset,
+        decisionNotes: formData.notes
+      });
+      
+      setFormData(prev => ({
+        ...prev,
+        disciplineScore: response.disciplineScore.toString()
+      }));
+      notify.success(`AI Evaluation: ${response.disciplineScore}/5 ${response.label} — ${response.reason}`);
+    } catch (error) {
+      notify.error('Failed to automatically evaluate trade');
+    } finally {
+      setIsEvaluating(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -110,6 +164,9 @@ export default function TradeFormModal({ isOpen, onClose, onSave, initialData }:
       mindset: formData.mindset,
       learnings: formData.learnings,
       disciplineScore: formData.disciplineScore ? parseInt(formData.disciplineScore) : undefined,
+      stopLoss: parseFloat(formData.stopLoss) || null,
+      mistakes: formData.mistakes,
+      checklist: formData.checklist,
     });
     onClose();
   };
@@ -246,6 +303,28 @@ export default function TradeFormModal({ isOpen, onClose, onSave, initialData }:
                   onChange={e => setFormData({ ...formData, charges: e.target.value })}
                 />
               </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] text-secondary font-medium uppercase tracking-wider">Stop Loss</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="input-base font-number"
+                  value={formData.stopLoss}
+                  onChange={e => setFormData({ ...formData, stopLoss: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[11px] text-secondary font-medium uppercase tracking-wider">Mistakes (comma-separated)</label>
+              <input
+                type="text"
+                placeholder="e.g. FOMO, early exit, oversized"
+                className="input-base"
+                value={formData.mistakes.join(', ')}
+                onChange={e => setFormData({ ...formData, mistakes: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -260,7 +339,18 @@ export default function TradeFormModal({ isOpen, onClose, onSave, initialData }:
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[11px] text-secondary font-medium uppercase tracking-wider">Discipline Score (1-5)</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] text-secondary font-medium uppercase tracking-wider">Discipline Score (1-5)</label>
+                  <button 
+                    type="button" 
+                    onClick={autoEvaluate} 
+                    disabled={isEvaluating}
+                    className="text-[10px] text-accent font-bold uppercase hover:text-accent-hover flex items-center gap-1 transition-colors"
+                  >
+                    {isEvaluating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Brain className="w-3 h-3" />}
+                    Auto-Evaluate
+                  </button>
+                </div>
                 <select
                   className="input-base"
                   value={formData.disciplineScore}

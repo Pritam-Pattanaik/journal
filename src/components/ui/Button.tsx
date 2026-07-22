@@ -1,78 +1,92 @@
 import React from 'react';
-import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/cn';
-import { motion, HTMLMotionProps } from 'framer-motion';
+import { Loader2 } from 'lucide-react';
 
-const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors focus-ring disabled:pointer-events-none disabled:opacity-50',
-  {
-    variants: {
-      variant: {
-        primary:
-          'bg-white text-black hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.15)] font-semibold',
-        secondary:
-          'bg-white/5 text-white hover:bg-white/10 border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]',
-        ghost: 'bg-transparent text-secondary hover:text-white hover:bg-white/5',
-        destructive:
-          'bg-danger text-white hover:bg-danger/90 shadow-[0_0_20px_rgba(239,68,68,0.15)] font-semibold',
-      },
-      size: {
-        sm: 'h-8 px-3 text-xs',
-        default: 'h-9 px-4 text-sm',
-        lg: 'h-10 px-8 text-base',
-        icon: 'h-9 w-9',
-      },
-    },
-    defaultVariants: {
-      variant: 'primary',
-      size: 'default',
-    },
-  }
-);
 
-export interface ButtonProps
-  extends Omit<HTMLMotionProps<'button'>, 'size'>,
-    VariantProps<typeof buttonVariants> {
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'iris' | 'gold';
+type Size = 'sm' | 'md' | 'lg' | 'icon-sm' | 'icon-md';
+
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: Variant;
+  size?: Size;
   isLoading?: boolean;
+  children?: React.ReactNode;
 }
 
-export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, isLoading, children, disabled, ...props }, ref) => {
-    return (
-      <motion.button
-        ref={ref}
-        className={cn(buttonVariants({ variant, size, className }))}
-        disabled={disabled || isLoading}
-        whileTap={disabled || isLoading ? {} : { scale: 0.98 }}
-        {...props}
-      >
-        {isLoading && (
-          <svg
-            className="animate-spin -ml-1 mr-2 h-4 w-4 text-current"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            ></circle>
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
-          </svg>
-        )}
-        <>{children}</>
-      </motion.button>
-    );
-  }
-);
-Button.displayName = 'Button';
+const variants: Record<Variant, string> = {
+  primary: [
+    'bg-gradient-to-r from-accent to-accent/90 text-white',
+    'hover:from-accent-hover hover:to-accent-hover/90',
+    'shadow-xs hover:shadow-card transition-all duration-200',
+    'active:scale-[0.97]',
+  ].join(' '),
 
+  secondary: [
+    'bg-surface-1 border border-border text-primary',
+    'hover:bg-surface-2 hover:border-border-hover hover:text-primary',
+    'shadow-xs hover:shadow-card transition-all duration-200',
+  ].join(' '),
+
+  ghost: [
+    'text-secondary hover:text-primary hover:bg-surface-1',
+    'transition-colors duration-150',
+  ].join(' '),
+
+  danger: [
+    'bg-danger/10 border border-danger/20 text-danger',
+    'hover:bg-danger/20 hover:border-danger/30',
+    'transition-all duration-150',
+  ].join(' '),
+
+  iris: [
+    'bg-gradient-to-r from-iris to-iris/80 text-white',
+    'hover:from-iris/90 hover:to-iris/70',
+    'shadow-iris hover:shadow-raised transition-all duration-200',
+    'active:scale-[0.97]',
+  ].join(' '),
+
+  gold: [
+    'bg-gradient-to-r from-gold to-gold/80 text-white',
+    'hover:from-gold/90 hover:to-gold/70',
+    'shadow-gold hover:shadow-raised transition-all duration-200',
+    'active:scale-[0.97]',
+  ].join(' '),
+};
+
+const sizes: Record<Size, string> = {
+  sm:       'h-11 sm:h-8 px-3.5 text-[12px] rounded-lg font-semibold',
+  md:       'h-12 sm:h-10 px-5 text-[13px] rounded-xl font-semibold',
+  lg:       'h-14 sm:h-12 px-7 text-[15px] rounded-xl font-bold',
+  'icon-sm':'h-11 w-11 sm:h-8 sm:w-8 rounded-lg flex items-center justify-center p-0',
+  'icon-md':'h-12 w-12 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center p-0',
+};
+
+export function Button({
+  variant = 'primary',
+  size = 'md',
+  isLoading,
+  className,
+  children,
+  disabled,
+  ...props
+}: ButtonProps) {
+  return (
+    <button
+      className={cn(
+        'inline-flex items-center justify-center gap-2 whitespace-nowrap select-none',
+        'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',
+        'outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none',
+        variants[variant],
+        sizes[size],
+        className,
+      )}
+      disabled={disabled || isLoading}
+      {...props}
+    >
+      {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : children}
+    </button>
+  );
+}
+
+// Default export alias for backward compatibility
 export default Button;

@@ -82,11 +82,7 @@ export default function TradeModal({ trade, isOpen, onClose, onEdit, onDelete }:
           <div>
             <span className="label-section block mb-0.5">Discipline Score</span>
             <div className="mt-1">
-              {trade.disciplineScore != null ? (
-                <DisciplineRater value={trade.disciplineScore} />
-              ) : (
-                <span className="text-muted text-xs">Not rated</span>
-              )}
+              <DisciplineRater value={trade.disciplineScore} />
             </div>
           </div>
         </div>

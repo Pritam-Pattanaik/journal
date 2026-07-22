@@ -1,379 +1,326 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import {  useNavigate } from 'react-router-dom';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import {
-  Shield,
-  Target,
-  BarChart2,
-  Brain,
-  BookOpen,
-  Activity,
-  ArrowRight,
-  ChevronRight,
-  TrendingUp,
+  Shield, Target, BarChart2, Brain, BookOpen, Activity,
+  ArrowRight, ChevronRight, TrendingUp, Zap, LayoutDashboard,
 } from 'lucide-react';
 import { MagneticButton } from '../../components/ui/MagneticButton';
+import { Reveal, StaggerContainer, StaggerItem } from '../../components/ui/Motion';
+import HowItWorksSection from '../../components/marketing/HowItWorksSection';
+import TestimonialsSection from '../../components/marketing/TestimonialsSection';
+import InlinePricingSection from '../../components/marketing/InlinePricingSection';
 
 const features = [
-  {
-    icon: Target,
-    title: 'Precision Analytics',
-    description: 'Track every metric. Find your edge with hyper-detailed performance reports and discipline heatmaps.',
-  },
-  {
-    icon: Brain,
-    title: 'AI Coach',
-    description: 'Get real-time insights and automated trade reviews to build unbreakable trading discipline.',
-  },
-  {
-    icon: Shield,
-    title: 'Risk Management',
-    description: 'Set daily limits and let TradeVault protect your capital from revenge trading spirals.',
-  },
-  {
-    icon: BarChart2,
-    title: 'Automated Sync',
-    description: 'Connect directly to your broker. We pull your trades automatically so you never miss a beat.',
-  },
-  {
-    icon: BookOpen,
-    title: 'Deep Journaling',
-    description: 'Tag setups, track emotions, and write detailed notes with screenshot attachments.',
-  },
-  {
-    icon: Activity,
-    title: 'Strategy Analytics',
-    description: 'Analyze performance per strategy. Know exactly which setups give you the most edge.',
-  },
-];
-
-const stats = [
-  { value: '$2B+', label: 'Volume Tracked' },
-  { value: '150k+', label: 'Trades Logged' },
-  { value: '99.9%', label: 'Uptime' },
-  { value: '4.9/5', label: 'User Rating' },
+  { icon: Brain,     title: 'AI Behavioral Coach',    description: 'It reads every trade you take and calls out the exact emotional pattern costing you money.' },
+  { icon: Target,    title: 'Precision analytics',    description: 'Every metric that matters, one keystroke away.' },
+  { icon: Shield,    title: 'Risk guardrails',        description: 'Daily loss caps that stop revenge trades before they start.' },
+  { icon: BarChart2, title: 'Automated sync',         description: 'Trades pulled directly from your broker. Zero copy-paste.' },
+  { icon: BookOpen,  title: 'Deep journaling',        description: 'Tag setups, log emotion, attach screenshots.' },
+  { icon: Activity,  title: 'Strategy edge',          description: 'Know which setups pay you and which quietly drain you.' },
 ];
 
 export default function Home() {
   const navigate = useNavigate();
   const { scrollYProgress } = useScroll();
-  
-  // Mouse Parallax
-  const [mousePosition, setMousePosition] = React.useState({ x: 0, y: 0 });
-  
+
+  const [mouse, setMouse] = React.useState({ x: 0, y: 0 });
+
   React.useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({
-        x: (e.clientX / window.innerWidth - 0.5) * 20,
-        y: (e.clientY / window.innerHeight - 0.5) * 20,
-      });
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
+    const h = (e: MouseEvent) => setMouse({
+      x: (e.clientX / window.innerWidth - 0.5) * 24,
+      y: (e.clientY / window.innerHeight - 0.5) * 24,
+    });
+    window.addEventListener('mousemove', h);
+    return () => window.removeEventListener('mousemove', h);
   }, []);
 
-  // Sophisticated 3D Scroll Transforms
-  const yHero = useTransform(scrollYProgress, [0, 1], [0, 300]);
-  const opacityHero = useTransform(scrollYProgress, [0, 0.15], [1, 0]);
-  
-  const rotateX = useTransform(scrollYProgress, [0, 0.2], [15, 0]);
-  const scale = useTransform(scrollYProgress, [0, 0.2], [0.9, 1]);
-  const yPreview = useTransform(scrollYProgress, [0, 0.2], [100, 0]);
+  const yHero    = useTransform(scrollYProgress, [0, 1], [0, 280]);
+  const opHero   = useTransform(scrollYProgress, [0, 0.18], [1, 0]);
+  const rotateX  = useTransform(scrollYProgress, [0, 0.2], [14, 0]);
+  const scaleP   = useTransform(scrollYProgress, [0, 0.2], [0.9, 1]);
+  const yPreview = useTransform(scrollYProgress, [0, 0.2], [80, 0]);
 
   return (
-    <main className="flex flex-col items-center w-full min-h-screen bg-canvas text-primary selection:bg-black/20 dark:selection:bg-white/20 perspective-1000 overflow-x-hidden">
-      
-      {/* Top Nav */}
-      <motion.nav 
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 backdrop-blur-xl bg-canvas/60 border-b border-black/5 dark:border-white/5 transition-all"
-      >
-        <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-black/5 dark:bg-white/[0.05] border border-black/10 dark:border-white/10 shrink-0 shadow-sm">
-            <TrendingUp className="w-4 h-4 text-primary" strokeWidth={2.5} />
-          </div>
-          <span className="font-bold tracking-tight text-lg text-primary">TradeVault</span>
-        </div>
-        <div className="flex items-center gap-6">
-          <Link to="/login" className="text-sm font-bold text-secondary hover:text-primary transition-colors">
-            Log in
-          </Link>
-          <MagneticButton onClick={() => navigate('/signup')} className="px-5 py-2.5 text-sm rounded-xl font-bold" magneticPull={0.2}>
-            Sign up
-          </MagneticButton>
-        </div>
-      </motion.nav>
+    <main className="flex flex-col items-center w-full min-h-screen bg-canvas text-primary overflow-x-hidden">
 
-      {/* Hero Section */}
-      <motion.section 
-        style={{ y: yHero, opacity: opacityHero }}
-        className="relative w-full pt-52 pb-32 flex flex-col items-center justify-center overflow-hidden"
+      {/* ── Hero ── */}
+      <motion.section
+        style={{ y: yHero, opacity: opHero }}
+        className="relative w-full pt-52 pb-36 flex flex-col items-center justify-center overflow-hidden"
       >
-        {/* Dynamic Mesh Gradients */}
-        <motion.div 
-          animate={{ x: mousePosition.x * -2, y: mousePosition.y * -2 }}
-          transition={{ type: "spring", stiffness: 50, damping: 20 }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-accent/20 rounded-full blur-[120px] pointer-events-none -z-10 mix-blend-screen dark:opacity-40 opacity-70" 
-        />
-        <motion.div 
-          animate={{ x: mousePosition.x * 3, y: mousePosition.y * 3 }}
-          transition={{ type: "spring", stiffness: 40, damping: 20 }}
-          className="absolute top-1/4 left-1/4 w-[600px] h-[400px] bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none -z-10 mix-blend-screen dark:opacity-40 opacity-60" 
-        />
-        
+        {/* Mesh gradient blobs */}
         <motion.div
-          initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
-          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-          transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-xs font-bold text-primary mb-8 backdrop-blur-md hover:scale-105 transition-transform cursor-pointer"
+          animate={{ x: mouse.x * -2, y: mouse.y * -2 }}
+          transition={{ type: 'spring', stiffness: 60, damping: 25 }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] max-w-[100vw] h-[500px] rounded-full blur-[140px] pointer-events-none -z-10"
+          style={{ background: 'radial-gradient(ellipse, rgba(var(--color-accent), 0.18) 0%, transparent 70%)' }}
+        />
+        <motion.div
+          animate={{ x: mouse.x * 3, y: mouse.y * 3 }}
+          transition={{ type: 'spring', stiffness: 50, damping: 25 }}
+          className="absolute top-1/3 right-1/4 w-[600px] max-w-[100vw] h-[400px] rounded-full blur-[120px] pointer-events-none -z-10"
+          style={{ background: 'radial-gradient(ellipse, rgba(var(--color-iris), 0.12) 0%, transparent 70%)' }}
+        />
+        <motion.div
+          animate={{ x: mouse.x * 2, y: mouse.y * -2 }}
+          transition={{ type: 'spring', stiffness: 40, damping: 20 }}
+          className="absolute bottom-1/4 left-1/4 w-[400px] max-w-[100vw] h-[300px] rounded-full blur-[100px] pointer-events-none -z-10"
+          style={{ background: 'radial-gradient(ellipse, rgba(var(--color-gold), 0.08) 0%, transparent 70%)' }}
+        />
+
+        {/* "V2" badge */}
+        <motion.div
+          initial={{ opacity: 0, y: 24, filter: 'blur(8px)' }}
+          animate={{ opacity: 1, y: 0, filter: 'blur(0)' }}
+          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-10 border border-border bg-surface/80 backdrop-blur-md text-xs font-bold text-primary hover:scale-105 transition-transform cursor-pointer shadow-xs"
         >
-          <span className="flex h-2 w-2 rounded-full bg-accent shadow-[0_0_12px_rgba(99,102,241,0.8)]" />
-          TradeVault V5 is now live <ChevronRight size={14} className="opacity-50" />
+          <span className="flex h-2 w-2 rounded-full bg-accent shadow-[0_0_10px_rgba(var(--color-accent),0.8)]" />
+          <Zap size={12} className="text-gold" />
+          TradeVault V2 — Now with AI Coaching
+          <ChevronRight size={12} className="text-tertiary" />
         </motion.div>
 
+        {/* Headline */}
         <motion.h1
-          initial={{ opacity: 0, y: 40, filter: 'blur(10px)' }}
-          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-          transition={{ duration: 1, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-          className="text-6xl md:text-8xl lg:text-[8rem] font-bold tracking-tighter text-primary leading-[0.9] mb-8 max-w-5xl mx-auto text-center"
+          initial={{ opacity: 0, y: 40, filter: 'blur(12px)' }}
+          animate={{ opacity: 1, y: 0, filter: 'blur(0)' }}
+          transition={{ duration: 1.0, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
+          className="font-display text-6xl md:text-8xl lg:text-[7.5rem] font-bold tracking-tighter text-primary leading-[1] mb-8 max-w-5xl mx-auto text-center"
         >
-          Master your <br />
-          <span className="text-gradient">psychology.</span>
+          Trade with an<br />
+          <span className="text-gradient font-serif italic font-normal tracking-normal pr-4">unfair edge.</span>
         </motion.h1>
 
+        {/* Subtext */}
         <motion.p
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.9, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
           className="text-lg md:text-xl text-secondary max-w-2xl mx-auto mb-12 text-center leading-relaxed font-medium"
         >
-          The workspace for serious traders. High-performance journaling, automated sync, and AI behavioral analysis.
+          The workspace for serious traders. Automated broker sync, hyper-detailed journaling, 
+          and an AI coach that finds the leaks in your discipline.
         </motion.p>
 
+        {/* CTAs */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="flex flex-col sm:flex-row items-center justify-center gap-4 z-10"
+          transition={{ duration: 0.9, delay: 0.28, ease: [0.16, 1, 0.3, 1] }}
+          className="flex flex-col sm:flex-row items-center justify-center gap-4"
         >
           <MagneticButton
             onClick={() => navigate('/signup')}
-            className="w-full sm:w-auto px-8 py-4 rounded-xl text-base font-bold shadow-[0_0_40px_-10px_rgba(99,102,241,0.4)] flex items-center justify-center gap-2"
+            className="w-full sm:w-auto px-8 py-4 rounded-2xl text-[15px] font-bold flex items-center justify-center gap-2"
           >
             Start Building Discipline <ArrowRight size={16} />
           </MagneticButton>
-          <button
-            onClick={() => navigate('/pricing')}
-            className="w-full sm:w-auto px-8 py-4 rounded-xl glass-panel text-primary font-bold text-base transition-colors focus-ring hover:bg-black/5 dark:hover:bg-white/5"
+          <a
+            href="#how-it-works"
+            className="w-full sm:w-auto px-8 py-4 rounded-2xl border border-border bg-surface/60 text-primary font-bold text-[15px] hover:bg-surface hover:border-border-hover transition-all backdrop-blur-md flex justify-center"
           >
-            View Documentation
-          </button>
+            See How it Works
+          </a>
         </motion.div>
       </motion.section>
 
-      {/* 3D Dashboard Preview */}
-      <motion.section 
-        initial={{ opacity: 0, y: 100, rotateX: 10, scale: 0.95 }}
+      {/* ── 3D Dashboard Preview ── */}
+      <motion.section
+        initial={{ opacity: 0, y: 100, rotateX: 12, scale: 0.92 }}
         animate={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }}
-        transition={{ duration: 1.2, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        style={{ rotateX, scale, y: yPreview }}
-        className="w-full max-w-[1200px] mx-auto px-6 relative z-20 mb-40 origin-bottom"
+        transition={{ duration: 1.4, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        style={{ rotateX, scale: scaleP, y: yPreview }}
+        className="w-full max-w-[1200px] mx-auto px-6 relative z-20 mb-20 origin-bottom"
       >
-        <motion.div 
-          animate={{ x: mousePosition.x * 1.5, y: mousePosition.y * 1.5 }}
-          transition={{ type: "spring", stiffness: 100, damping: 30 }}
-          className="w-full aspect-[16/10] md:aspect-[16/9] rounded-[2rem] glass-island overflow-hidden relative flex items-center justify-center p-2 transform-gpu shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]"
+        <motion.div
+          animate={{ 
+            x: mouse.x * 1.2, 
+            y: [mouse.y * 1.2 - 10, mouse.y * 1.2 + 10, mouse.y * 1.2 - 10]
+          }}
+          transition={{ 
+            x: { type: 'spring', stiffness: 90, damping: 30 },
+            y: { repeat: Infinity, duration: 6, ease: "easeInOut" }
+          }}
+          className="w-full aspect-[16/9] rounded-[2rem] glass-island overflow-hidden relative p-2 shadow-[0_32px_80px_-8px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.05)]"
         >
-           {/* Abstract Inner App */}
-           <div className="w-full h-full bg-surface-0 rounded-[1.5rem] overflow-hidden relative border border-black/5 dark:border-white/5 flex flex-col">
-              
-              {/* Fake App Header */}
-              <div className="h-14 border-b border-black/5 dark:border-white/5 flex items-center justify-between px-6 bg-surface-1 shrink-0 relative z-10">
-                 <div className="flex items-center gap-6">
-                   <div className="flex gap-2">
-                     <div className="w-3 h-3 rounded-full bg-danger shadow-[0_0_8px_rgba(239,68,68,0.6)]" />
-                     <div className="w-3 h-3 rounded-full bg-warning shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
-                     <div className="w-3 h-3 rounded-full bg-success shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
-                   </div>
-                   <div className="hidden md:flex gap-4">
-                     <div className="h-4 w-16 bg-black/5 dark:bg-white/5 rounded-full" />
-                     <div className="h-4 w-20 bg-black/5 dark:bg-white/5 rounded-full" />
-                     <div className="h-4 w-12 bg-black/10 dark:bg-white/10 rounded-full" />
-                   </div>
-                 </div>
-                 <div className="flex gap-3 items-center">
-                   <div className="h-6 w-32 bg-black/5 dark:bg-white/5 rounded-full hidden sm:block" />
-                   <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-accent to-indigo-400 p-[1px]">
-                     <div className="w-full h-full bg-surface-0 rounded-full" />
-                   </div>
-                 </div>
+          {/* Mock App Interior */}
+          <div className="w-full h-full bg-canvas rounded-[1.5rem] overflow-hidden flex flex-col border border-border/50">
+            {/* Mock Header */}
+            <div className="h-12 border-b border-border flex items-center justify-between px-6 bg-surface/60 backdrop-blur-sm shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-accent to-iris flex items-center justify-center">
+                  <TrendingUp size={10} className="text-white" strokeWidth={2.5} />
+                </div>
+                <div className="flex gap-3 ml-3">
+                  {['Dashboard','Trades','Journal'].map(n => (
+                    <div key={n} className="h-3 rounded-full bg-border shimmer" style={{ width: n.length * 7 }} />
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-6 w-28 rounded-lg bg-surface-1 border border-border shimmer" />
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-iris to-accent" />
+              </div>
+            </div>
+
+            {/* Mock Body */}
+            <div className="flex-1 flex overflow-hidden">
+              {/* Sidebar */}
+              <div className="w-14 border-r border-border bg-surface/40 flex flex-col items-center gap-2 pt-4 shrink-0">
+                {[LayoutDashboard,BarChart2,BookOpen,Brain,Target,Shield].map((Icon, i) => (
+                  <div key={i} className={`w-9 h-9 rounded-xl flex items-center justify-center ${i === 0 ? 'bg-iris/15 text-iris' : 'text-tertiary'}`}>
+                    <Icon size={15} strokeWidth={1.8} />
+                  </div>
+                ))}
               </div>
 
-              {/* Fake App Body */}
-              <div className="flex-1 flex bg-canvas relative overflow-hidden">
-                
-                {/* Background Ambient Glow inside the mock app */}
-                <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] bg-accent/10 rounded-full blur-[80px]" />
-                <div className="absolute bottom-[-20%] left-[-10%] w-[40%] h-[40%] bg-success/10 rounded-full blur-[80px]" />
-
-                {/* Sidebar */}
-                <div className="w-16 md:w-56 h-full border-r border-black/5 dark:border-white/5 bg-surface-0/50 backdrop-blur-md shrink-0 flex flex-col gap-2 p-3 z-10">
-                  <div className="h-8 w-full bg-black/5 dark:bg-white/5 rounded-lg mb-4 hidden md:block" />
-                  <div className="h-10 w-full bg-black/10 dark:bg-white/10 rounded-lg" />
-                  <div className="h-10 w-full bg-black/5 dark:bg-white/5 rounded-lg" />
-                  <div className="h-10 w-full bg-black/5 dark:bg-white/5 rounded-lg" />
-                  <div className="h-10 w-full bg-black/5 dark:bg-white/5 rounded-lg" />
+              {/* Content */}
+              <div className="flex-1 p-6 flex flex-col gap-4 overflow-hidden">
+                {/* Row 1: Stat row */}
+                <div className="grid grid-cols-4 gap-3 shrink-0">
+                  {[
+                    { label: 'Net P&L', val: '+₹84,250', color: 'text-success', stripe: 'from-success' },
+                    { label: 'Win Rate', val: '67.4%',    color: 'text-iris',    stripe: 'from-iris' },
+                    { label: 'Avg R:R',  val: '1:2.1',    color: 'text-gold',    stripe: 'from-gold' },
+                    { label: 'Discipline',val: '4.2/5',   color: 'text-success', stripe: 'from-success' },
+                  ].map((s, i) => (
+                    <div key={i} className="card-raised p-3 relative overflow-hidden">
+                      <div className={`absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r ${s.stripe} to-transparent`} />
+                      <p className="text-[8px] font-bold uppercase tracking-widest text-tertiary mb-1">{s.label}</p>
+                      <p className={`text-xs font-bold font-mono tabular-nums ${s.color}`}>{s.val}</p>
+                    </div>
+                  ))}
                 </div>
-                
-                {/* Main Content Area */}
-                <div className="flex-1 p-4 md:p-8 flex flex-col gap-4 md:gap-6 z-10 overflow-hidden">
+
+                {/* Row 2: Equity Curve */}
+                <div className="card p-4 flex flex-col shrink-0 h-32 relative overflow-hidden">
+                  <div className="flex justify-between items-center mb-2 z-10">
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-secondary">Equity Curve</p>
+                    <div className="h-4 w-16 bg-iris/10 border border-iris/20 rounded-md shimmer" />
+                  </div>
+                  <div className="absolute inset-0 pt-8">
+                    <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 200 80">
+                      <defs>
+                        <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="rgb(var(--color-accent))" stopOpacity="0.2" />
+                          <stop offset="100%" stopColor="rgb(var(--color-accent))" stopOpacity="0" />
+                        </linearGradient>
+                      </defs>
+                      <path d="M0,70 Q20,60 40,55 T80,35 T120,38 T160,18 T200,10 L200,80 L0,80 Z" fill="url(#chartGrad)" />
+                      <path d="M0,70 Q20,60 40,55 T80,35 T120,38 T160,18 T200,10" fill="none" stroke="rgb(var(--color-accent))" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Row 3: Strategy & Heatmap */}
+                <div className="flex-1 flex gap-4 min-h-0">
+                  {/* Strategy Bars */}
+                  <div className="w-1/3 card p-4 flex flex-col gap-3">
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-secondary">Strategy Performance</p>
+                    <div className="flex-1 flex flex-col justify-around">
+                      {[
+                        { w: '85%', color: 'bg-success' },
+                        { w: '60%', color: 'bg-iris' },
+                        { w: '40%', color: 'bg-gold' },
+                      ].map((bar, i) => (
+                        <div key={i} className="w-full h-2 bg-surface-2 rounded-full overflow-hidden">
+                          <div className={`h-full ${bar.color}`} style={{ width: bar.w }} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                   
-                  {/* Top Stats Row */}
-                  <div className="flex gap-4 md:gap-6 h-24 md:h-32 shrink-0">
-                    <div className="flex-1 bg-surface-0 border border-black/5 dark:border-white/5 rounded-2xl p-4 md:p-6 shadow-sm flex flex-col justify-between relative overflow-hidden group">
-                      <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                      <div className="h-3 w-16 bg-black/10 dark:bg-white/10 rounded-full" />
-                      <div>
-                        <div className="h-8 w-32 bg-primary rounded-md mb-2 opacity-80" />
-                        <div className="h-3 w-20 bg-success/40 rounded-full" />
-                      </div>
-                    </div>
-                    <div className="flex-1 bg-surface-0 border border-black/5 dark:border-white/5 rounded-2xl p-4 md:p-6 shadow-sm flex flex-col justify-between">
-                      <div className="h-3 w-20 bg-black/10 dark:bg-white/10 rounded-full" />
-                      <div>
-                        <div className="h-8 w-24 bg-primary rounded-md mb-2 opacity-80" />
-                        <div className="h-3 w-24 bg-danger/40 rounded-full" />
-                      </div>
-                    </div>
-                    <div className="hidden md:flex flex-1 bg-surface-0 border border-black/5 dark:border-white/5 rounded-2xl p-6 shadow-sm flex-col justify-between">
-                      <div className="h-3 w-24 bg-black/10 dark:bg-white/10 rounded-full" />
-                      <div>
-                        <div className="h-8 w-28 bg-primary rounded-md mb-2 opacity-80" />
-                        <div className="h-3 w-16 bg-warning/40 rounded-full" />
-                      </div>
+                  {/* Trading Heatmap */}
+                  <div className="flex-1 card p-4 flex flex-col">
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-secondary mb-3">Trading Heatmap · 90d</p>
+                    <div className="flex-1 grid grid-cols-12 grid-rows-4 gap-1">
+                      {Array.from({ length: 48 }).map((_, i) => {
+                        const isWin = Math.random() > 0.4;
+                        const opacity = Math.random() > 0.3 ? (Math.random() * 0.8 + 0.2) : 0.1;
+                        return (
+                          <div 
+                            key={i} 
+                            className={`rounded-[2px] ${isWin ? 'bg-success' : 'bg-danger'}`}
+                            style={{ opacity }}
+                          />
+                        );
+                      })}
                     </div>
                   </div>
-
-                  {/* Main Chart Area */}
-                  <div className="flex-1 bg-surface-0 border border-black/5 dark:border-white/5 rounded-2xl shadow-sm relative overflow-hidden p-6 flex flex-col">
-                    <div className="flex justify-between items-center mb-8 shrink-0">
-                      <div className="h-4 w-32 bg-black/10 dark:bg-white/10 rounded-full" />
-                      <div className="flex gap-2">
-                        <div className="h-6 w-16 bg-black/5 dark:bg-white/5 rounded-md" />
-                        <div className="h-6 w-16 bg-black/5 dark:bg-white/5 rounded-md" />
-                      </div>
-                    </div>
-                    {/* Mock Line Chart */}
-                    <div className="flex-1 w-full relative">
-                       {/* Grid lines */}
-                       <div className="absolute inset-0 flex flex-col justify-between opacity-5">
-                         <div className="w-full h-px bg-primary" />
-                         <div className="w-full h-px bg-primary" />
-                         <div className="w-full h-px bg-primary" />
-                         <div className="w-full h-px bg-primary" />
-                         <div className="w-full h-px bg-primary" />
-                       </div>
-                       {/* Wavy Chart Path SVG mock */}
-                       <svg className="absolute inset-0 w-full h-full text-accent drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]" preserveAspectRatio="none" viewBox="0 0 100 100">
-                         <path d="M0,80 Q10,70 20,75 T40,50 T60,60 T80,30 T100,20 L100,100 L0,100 Z" fill="url(#grad)" opacity="0.1" />
-                         <path d="M0,80 Q10,70 20,75 T40,50 T60,60 T80,30 T100,20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                         <defs>
-                           <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-                             <stop offset="0%" stopColor="currentColor" />
-                             <stop offset="100%" stopColor="transparent" />
-                           </linearGradient>
-                         </defs>
-                       </svg>
-                       {/* Cursor line & point mock */}
-                       <div className="absolute left-[60%] top-0 bottom-0 w-px bg-black/10 dark:bg-white/10 flex flex-col justify-center items-center">
-                         <div className="w-3 h-3 rounded-full bg-canvas border-2 border-accent shadow-[0_0_10px_rgba(99,102,241,1)] absolute -mt-[10%]" />
-                       </div>
-                    </div>
-                  </div>
-
                 </div>
               </div>
-           </div>
+            </div>
+          </div>
         </motion.div>
       </motion.section>
 
-      {/* Stats */}
-      <section className="w-full border-y border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.01]">
-        <div className="max-w-7xl mx-auto px-6 py-20">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 divide-x divide-black/5 dark:divide-white/5">
-            {stats.map((stat, i) => (
-              <motion.div 
-                key={i} 
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1, duration: 0.5 }}
-                className="text-center px-4"
-              >
-                <div className="text-4xl md:text-5xl font-bold text-primary tracking-tighter mb-2">{stat.value}</div>
-                <div className="text-xs font-bold text-tertiary uppercase tracking-widest">{stat.label}</div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* ── How It Works ── */}
+      <HowItWorksSection />
 
-      {/* Features Grid with 3D Hover */}
-      <section className="w-full max-w-7xl mx-auto px-6 py-40">
-        <div className="text-center mb-24 max-w-3xl mx-auto">
-          <motion.h2 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-5xl md:text-7xl font-bold tracking-tighter text-primary mb-6 leading-[1.1]"
-          >
-            Everything you need to <br className="hidden md:block" />
-            <span className="text-tertiary">scale your edge.</span>
-          </motion.h2>
-        </div>
+      {/* ── Features Grid ── */}
+      <section id="features" className="w-full max-w-7xl mx-auto px-6 py-32">
+        <Reveal className="text-center mb-20 max-w-3xl mx-auto">
+          <p className="text-xs font-bold uppercase tracking-widest text-iris mb-4">Built for the serious trader</p>
+          <h2 className="font-display text-4xl md:text-5xl font-bold tracking-tighter text-primary leading-[1.05] mb-5">
+            Stop trading in the dark.
+          </h2>
+          <p className="text-secondary text-lg leading-relaxed">
+            Build real, repeatable edge with a workspace designed around discipline — not dopamine.
+          </p>
+        </Reveal>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 perspective-1000">
+        <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" staggerChildren={0.07}>
           {features.map((feat, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1, duration: 0.5 }}
-              whileHover={{ scale: 1.02, rotateY: 5, rotateX: 5, z: 20 }}
-              className="group relative flex flex-col p-8 rounded-3xl glass-panel overflow-hidden transition-all duration-300 transform-gpu cursor-default"
-            >
-              <div className="w-12 h-12 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 flex items-center justify-center mb-8 relative z-10 transition-transform group-hover:scale-110">
-                <feat.icon size={20} className="text-primary" />
-              </div>
-              <h3 className="text-xl font-bold text-primary mb-3 tracking-tight relative z-10">{feat.title}</h3>
-              <p className="text-secondary font-medium leading-relaxed relative z-10">{feat.description}</p>
-            </motion.div>
+            <StaggerItem key={i}>
+              <motion.div
+                whileHover={{ y: -6, scale: 1.01 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                className="card-raised group relative flex flex-col p-8 cursor-default overflow-hidden h-full"
+              >
+                {/* Corner accent */}
+                <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-iris/5 to-transparent rounded-bl-3xl" />
+
+                <div className="w-11 h-11 rounded-2xl bg-iris/10 border border-iris/15 flex items-center justify-center mb-6 transition-transform duration-300 group-hover:scale-110 group-hover:bg-iris/15">
+                  <feat.icon size={20} className="text-iris" strokeWidth={1.8} />
+                </div>
+                <h3 className="font-display text-lg font-bold text-primary mb-3 tracking-tight">{feat.title}</h3>
+                <p className="text-secondary text-sm leading-relaxed font-medium">{feat.description}</p>
+              </motion.div>
+            </StaggerItem>
           ))}
-        </div>
+        </StaggerContainer>
       </section>
 
-      {/* Final CTA */}
-      <section className="w-full border-t border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.01] relative overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-accent/20 rounded-full blur-[150px] pointer-events-none mix-blend-screen opacity-50" />
-        
-        <div className="max-w-4xl mx-auto px-6 py-40 md:py-52 text-center relative z-10">
-          <motion.h2 
-            initial={{ opacity: 0, scale: 0.9 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            className="text-6xl md:text-[5rem] font-bold tracking-tighter text-primary mb-10 leading-[0.9]"
-          >
-            Ready to trade <br /> like a professional?
-          </motion.h2>
-          <MagneticButton
-            onClick={() => navigate('/signup')}
-            className="mx-auto px-10 py-5 rounded-2xl text-lg font-bold shadow-[0_0_40px_-10px_rgba(99,102,241,0.5)] flex items-center justify-center gap-2"
-          >
-            Create Your Workspace <ArrowRight size={18} />
-          </MagneticButton>
+      {/* ── Testimonials ── */}
+      <TestimonialsSection />
+
+      {/* ── Pricing ── */}
+      <InlinePricingSection />
+
+      {/* ── Final CTA ── */}
+      <section className="w-full relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none -z-10">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] max-w-[100vw] h-[350px] rounded-full blur-[180px]"
+            style={{ background: 'radial-gradient(ellipse, rgba(var(--color-iris), 0.15) 0%, transparent 70%)' }} />
+        </div>
+
+        <div className="max-w-4xl mx-auto px-6 py-44 text-center">
+          <Reveal>
+            <p className="text-xs font-bold uppercase tracking-widest text-gold mb-6">Free forever · Upgrade any time</p>
+            <h2 className="font-display text-6xl md:text-[5.5rem] font-bold tracking-tighter text-primary mb-12 leading-[0.95]">
+              Ready to trade<br />like a professional?
+            </h2>
+          </Reveal>
+          <Reveal delay={0.1}>
+            <MagneticButton
+              onClick={() => navigate('/signup')}
+              className="mx-auto px-12 py-5 rounded-2xl text-lg font-bold flex items-center justify-center gap-3"
+            >
+              Start Building Edge <ArrowRight size={18} />
+            </MagneticButton>
+          </Reveal>
         </div>
       </section>
     </main>

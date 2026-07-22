@@ -1,18 +1,23 @@
 import React from 'react';
 import { cn } from '../../lib/cn';
+import { motion } from 'framer-motion';
 
-interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {}
+import { HTMLMotionProps } from 'framer-motion';
+
+type SkeletonProps = HTMLMotionProps<"div">;
 
 export function SkeletonShimmer({ className, ...props }: SkeletonProps) {
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
       className={cn(
-        "animate-pulse rounded-md bg-surface-2/50 relative overflow-hidden",
+        "shimmer rounded-md bg-surface-2/40",
         className
       )}
       {...props}
-    >
-      <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/5 to-transparent" />
-    </div>
+    />
   );
 }

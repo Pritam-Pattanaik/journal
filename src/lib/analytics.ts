@@ -150,7 +150,7 @@ export function computeCurrentStreak(trades: Trade[]): { type: 'WIN' | 'LOSS' | 
   if (currentType === 'NONE') return { type: 'NONE', count: 0 };
 
   let count = 0;
-  for (const [_, pnl] of days) {
+  for (const [, pnl] of days) {
     if ((currentType === 'WIN' && pnl > 0) || (currentType === 'LOSS' && pnl < 0)) {
       count++;
     } else {

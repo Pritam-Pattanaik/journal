@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '../../lib/cn';
-import { motion, AnimatePresence } from 'framer-motion';
+
 import { useLocation } from 'react-router-dom';
 
 interface PageWrapperProps {

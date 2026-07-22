@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '../../lib/cn';
 
 interface ModalProps {
   isOpen: boolean;
@@ -17,18 +19,10 @@ const sizeMap: Record<string, number> = {
   lg: 800,
 };
 
-export default function Modal({
-  isOpen,
-  onClose,
-  title,
-  children,
-  size = 'md',
-  footer,
-}: ModalProps) {
+export default function Modal({ isOpen, onClose, title, children, size = 'md', footer }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
-  // Lock body scroll and handle escape key
   useEffect(() => {
     if (!isOpen) return;
     document.body.style.overflow = 'hidden';
@@ -36,8 +30,6 @@ export default function Modal({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
-
-      // Focus trap
       if (e.key === 'Tab' && modalRef.current) {
         const focusables = modalRef.current.querySelectorAll<HTMLElement>(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -53,8 +45,6 @@ export default function Modal({
     };
 
     document.addEventListener('keydown', handleKeyDown);
-
-    // Auto-focus first focusable
     setTimeout(() => {
       const focusables = modalRef.current?.querySelectorAll<HTMLElement>(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -69,137 +59,80 @@ export default function Modal({
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
-
   return createPortal(
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 'var(--z-modal-backdrop)' as any,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '16px',
-      }}
-    >
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          backdropFilter: 'blur(4px)',
-          WebkitBackdropFilter: 'blur(4px)',
-        }}
-        aria-hidden="true"
-      />
-
-      {/* Modal Box */}
-      <div
-        ref={modalRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={title ? 'modal-title' : undefined}
-        className="modal-enter"
-        style={{
-          position: 'relative',
-          zIndex: 'var(--z-modal)' as any,
-          background: 'rgb(var(--color-surface-elevated))',
-          border: '1px solid rgb(var(--color-border))',
-          borderRadius: 'var(--radius-xl)',
-          boxShadow: 'var(--shadow-lg)',
-          width: '100%',
-          maxWidth: sizeMap[size] || 640,
-          maxHeight: '85vh',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Modal Header */}
-        {title && (
-          <div
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4">
+          {/* Backdrop */}
+          <motion.div
+            key="modal-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3, ease: 'easeInOut' }}
+            onClick={onClose}
+            className="absolute inset-0 bg-surface-primary/60 backdrop-blur-md"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '20px 24px 16px',
-              borderBottom: '1px solid rgb(var(--color-divider))',
-              flexShrink: 0,
+              background: 'rgba(2, 11, 24, 0.60)',
             }}
-          >
-            <h2
-              id="modal-title"
-              style={{
-                fontSize: 'var(--text-lg)',
-                fontWeight: 600,
-                color: 'rgb(var(--color-text-primary))',
-                lineHeight: 1.3,
-              }}
-            >
-              {title}
-            </h2>
-            <button
-              onClick={onClose}
-              aria-label="Close modal"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 32,
-                height: 32,
-                borderRadius: 'var(--radius-md)',
-                background: 'transparent',
-                border: 'none',
-                color: 'rgb(var(--color-text-secondary))',
-                cursor: 'pointer',
-                flexShrink: 0,
-                transition: 'background-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out)',
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLButtonElement).style.background = 'rgb(var(--color-surface-hover))';
-                (e.currentTarget as HTMLButtonElement).style.color = 'rgb(var(--color-text-primary))';
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-                (e.currentTarget as HTMLButtonElement).style.color = 'rgb(var(--color-text-secondary))';
-              }}
-            >
-              <X size={20} strokeWidth={1.5} />
-            </button>
-          </div>
-        )}
+            aria-hidden="true"
+          />
 
-        {/* Modal Body */}
-        <div
-          style={{
-            flex: 1,
-            overflowY: 'auto',
-            padding: '24px',
-          }}
-        >
-          {children}
+          {/* Modal Box */}
+          <motion.div
+            key="modal-box"
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={title ? 'modal-title' : undefined}
+            initial={{ opacity: 0, y: '100%', scale: 1 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: '100%', scale: 1 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            style={{
+              maxWidth: sizeMap[size] || 640,
+            }}
+            className={cn(
+              "relative z-10 w-full max-h-[90vh] flex flex-col overflow-hidden",
+              "glass-float rounded-t-3xl sm:rounded-2xl rounded-b-none sm:rounded-b-2xl shadow-floating"
+            )}
+          >
+            {/* Drag Handle for Mobile */}
+            <div className="w-full flex justify-center pt-3 pb-1 sm:hidden">
+              <div className="w-12 h-1.5 rounded-full bg-border opacity-50" />
+            </div>
+
+            {/* Modal Header */}
+            {title && (
+              <div className="flex items-center justify-between px-6 pb-4 pt-2 sm:pt-5 border-b border-border/50 shrink-0">
+                <h2 id="modal-title" className="text-lg font-display font-semibold text-primary">
+                  {title}
+                </h2>
+                <button
+                  onClick={onClose}
+                  aria-label="Close modal"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-secondary hover:bg-surface-2 hover:text-primary transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+                >
+                  <X size={18} strokeWidth={2} />
+                </button>
+              </div>
+            )}
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+              {children}
+            </div>
+
+            {/* Modal Footer */}
+            {footer && (
+              <div className="flex justify-end gap-3 border-t border-border/50 px-6 py-4 shrink-0 bg-surface-0/50">
+                {footer}
+              </div>
+            )}
+          </motion.div>
         </div>
-
-        {/* Modal Footer */}
-        {footer && (
-          <div
-            style={{
-              borderTop: '1px solid rgb(var(--color-divider))',
-              padding: '16px 24px',
-              display: 'flex',
-              justifyContent: 'flex-end',
-              gap: '8px',
-              flexShrink: 0,
-            }}
-          >
-            {footer}
-          </div>
-        )}
-      </div>
-    </div>,
+      )}
+    </AnimatePresence>,
     document.body
   );
 }

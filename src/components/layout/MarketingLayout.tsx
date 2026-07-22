@@ -43,14 +43,14 @@ export default function MarketingLayout() {
   }, []);
 
   const navLinks = [
-    { name: 'Home',    path: '/' },
-    { name: 'About',   path: '/about' },
-    { name: 'Pricing', path: '/pricing' },
+    { name: 'Product', path: '#features' },
+    { name: 'How it works', path: '#how-it-works' },
+    { name: 'Pricing', path: '#pricing' },
   ];
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
   const isActive = (path: string) =>
-    path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
+    path === '/' ? location.pathname === '/' : location.hash === path;
 
   return (
     <div className="flex flex-col min-h-screen bg-canvas text-primary font-sans overflow-x-hidden selection:bg-accent/20">
@@ -58,32 +58,32 @@ export default function MarketingLayout() {
       {/* Header */}
       <header
         className={cn(
-          "fixed top-0 left-0 right-0 h-16 z-50 flex items-center justify-between px-6 md:px-12 transition-all duration-300 ease-out",
+          "fixed top-4 left-1/2 -translate-x-1/2 h-14 z-50 flex items-center justify-between px-4 sm:px-6 transition-all duration-300 ease-out rounded-full border shadow-lg w-[95%] max-w-5xl",
           scrolled 
-            ? "bg-canvas/80 backdrop-blur-md border-b border-border shadow-sm" 
-            : "bg-transparent border-b border-transparent"
+            ? "bg-surface/60 backdrop-blur-xl border-border/50 shadow-[0_4px_30px_rgba(0,0,0,0.5)]" 
+            : "bg-surface/20 backdrop-blur-md border-border/20"
         )}
       >
         <Link to="/" onClick={closeMobileMenu} className="flex items-center gap-2 group outline-none">
-          <div className="w-8 h-8 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
-            <TrendingUp size={18} strokeWidth={2} className="text-accent" />
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent to-iris flex items-center justify-center group-hover:shadow-iris transition-shadow duration-300">
+            <TrendingUp size={16} strokeWidth={2.5} className="text-white" />
           </div>
-          <span className="text-lg font-bold tracking-tight text-primary">TradeVault</span>
+          <span className="font-display text-lg font-bold tracking-tight text-gradient">TradeVault</span>
         </Link>
 
         {/* Desktop Nav */}
         <nav className="hidden md:flex items-center gap-8">
           {navLinks.map(link => (
-            <Link
+            <a
               key={link.name}
-              to={link.path}
+              href={link.path}
               className={cn(
-                "text-sm font-medium transition-colors hover:text-primary outline-none",
+                "text-sm font-semibold transition-colors hover:text-primary outline-none",
                 isActive(link.path) ? "text-primary" : "text-secondary"
               )}
             >
               {link.name}
-            </Link>
+            </a>
           ))}
         </nav>
 
@@ -128,9 +128,9 @@ export default function MarketingLayout() {
         <div className="md:hidden fixed inset-0 top-16 bg-canvas/95 backdrop-blur-xl z-40 flex flex-col p-6 border-t border-border animate-in fade-in slide-in-from-top-4">
           <nav className="flex flex-col gap-1">
             {navLinks.map(link => (
-              <Link
+              <a
                 key={link.name}
-                to={link.path}
+                href={link.path}
                 onClick={closeMobileMenu}
                 className={cn(
                   "text-lg font-semibold py-4 border-b border-border/50",
@@ -138,7 +138,7 @@ export default function MarketingLayout() {
                 )}
               >
                 {link.name}
-              </Link>
+              </a>
             ))}
           </nav>
           <div className="mt-8 flex flex-col gap-4">
@@ -181,8 +181,10 @@ export default function MarketingLayout() {
       <footer className="border-t border-border py-12 px-6 bg-surface-0">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2">
-            <TrendingUp size={20} strokeWidth={2} className="text-tertiary" />
-            <span className="text-sm font-bold text-tertiary tracking-tight">
+            <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-accent to-iris flex items-center justify-center">
+              <TrendingUp size={12} strokeWidth={2.5} className="text-white" />
+            </div>
+            <span className="text-sm font-display font-bold text-muted tracking-tight">
               TradeVault
             </span>
           </div>

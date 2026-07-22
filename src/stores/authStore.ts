@@ -26,21 +26,20 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   profile: null,
+  // Check localStorage for backward compat with any existing sessions
   session: localStorage.getItem('token') ? { token: localStorage.getItem('token')! } : null,
   token: localStorage.getItem('token'),
   loading: true,
 
   initialize: async () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      set({ loading: false });
-      return;
-    }
+    // Always try cookie-based session restoration via /auth/me
+    // The HttpOnly cookie is sent automatically with credentials: 'include'
     try {
       const data = await api.get<{ user: Profile }>('/auth/me');
-      set({ user: data.user, profile: data.user, loading: false });
+      set({ user: data.user, profile: data.user, session: { token: 'cookie' }, token: 'cookie', loading: false });
     } catch (err) {
-      console.error('Session restore failed:', err);
+      // No valid session (cookie expired or missing)
+      // Clean up any stale localStorage token
       localStorage.removeItem('token');
       set({ token: null, session: null, user: null, profile: null, loading: false });
     }
@@ -49,6 +48,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   signIn: async (email, password) => {
     try {
       const data = await api.post<{ token: string; user: Profile }>('/auth/login', { email, password });
+      // Store token in localStorage for backward compat with any code still reading it
       localStorage.setItem('token', data.token);
       set({ token: data.token, session: { token: data.token }, user: data.user, profile: data.user });
       return { error: null };
@@ -69,6 +69,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   signOut: () => {
+    // Call server to clear the HttpOnly cookie
+    api.post('/auth/logout', {}).catch(() => {});
     localStorage.removeItem('token');
     set({ token: null, session: null, user: null, profile: null });
   },

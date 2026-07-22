@@ -51,8 +51,8 @@ export async function syncAngelOneTrades(
   jwtToken: string,
   apiKey: string,
   userId: string,
-  existingOpenTrades: any[] = [],
-  lastSyncedAt: Date | null = null
+  _existingOpenTrades: any[] = [],
+  _lastSyncedAt: Date | null = null
 ) {
   // Angel One's tradebook API gets today's trades.
   // Endpoint: /rest/secure/angelbroking/order/v1/getTradeBook

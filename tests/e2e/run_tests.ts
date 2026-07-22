@@ -1,4 +1,4 @@
-import { app, seedData, users, trades, brokerConnections, aiInsights, coachMemories, auditLogs, systemSettings } from './mock_server';
+import { app, seedData, users, trades, brokerConnections, aiInsights } from './mock_server';
 import http from 'http';
 
 const PORT = 3001;
@@ -314,7 +314,7 @@ async function runTier1FeatureCoverage() {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${superAdminToken}` }
     });
-    const data: any = await res.json();
+    const _data: any = await res.json();
     // Suspended owner of connection 2 will block sync in mock, so unsupend owner first
     const ownerId = brokerConnections.find(bc => bc.broker === 'angelone')?.userId || '';
     await fetch(`${BASE_URL}/admin/users/${ownerId}/status`, {
@@ -667,7 +667,7 @@ async function runTier2BoundaryAndCorner() {
   // TC-T2-BR-03
   try {
     // Inject broker connection with missing key
-    const conn: BrokerConnection = {
+    const conn: any = {
       id: 'bc-corrupt',
       userId: users[1].id,
       userEmail: users[1].email,
@@ -696,7 +696,7 @@ async function runTier2BoundaryAndCorner() {
   // TC-T2-BR-04
   try {
     // Inject inactive broker connection
-    const conn: BrokerConnection = {
+    const conn: any = {
       id: 'bc-inactive',
       userId: users[1].id,
       userEmail: users[1].email,

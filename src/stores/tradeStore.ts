@@ -31,6 +31,9 @@ function normalize(raw: any): Trade {
     source: raw.source ?? 'manual',
     exitTime: raw.exitTime instanceof Date ? raw.exitTime.toISOString() : raw.exitTime,
     isCarryForward: !!raw.isCarryForward,
+    stopLoss: raw.stopLoss ? parseFloat(raw.stopLoss) : null,
+    mistakes: raw.mistakes || [],
+    checklist: raw.checklist || {},
   };
 }
 
@@ -46,7 +49,7 @@ interface TradeState {
   clearAll: () => void;
 }
 
-export const useTradeStore = create<TradeState>((set, get) => ({
+export const useTradeStore = create<TradeState>((set, ) => ({
   trades: [],
   loading: false,
   error: null,

@@ -1,104 +1,105 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { Moon, Sun, LogOut, Settings } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { motion, AnimatePresence } from 'framer-motion';
-import { User, Settings, LogOut, Moon, Sun, Monitor, ExternalLink } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
 import { cn } from '../../lib/cn';
+import { motion } from 'framer-motion';
 
-export default function UserProfileDropdown() {
+export default function UserProfileDropdown({ collapsed }: { collapsed?: boolean }) {
+  const navigate = useNavigate();
   const { profile, signOut } = useAuthStore();
   const { theme, toggleTheme } = useUIStore();
-  const [open, setOpen] = useState(false);
 
   const initials = profile?.fullName
-    ? profile.fullName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
-    : 'U';
+    ? profile.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+    : profile?.email?.[0]?.toUpperCase() ?? '?';
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/login');
+  };
 
   return (
-    <DropdownMenu.Root open={open} onOpenChange={setOpen}>
+    <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
         <button
-          className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl bg-primary text-[13px] font-bold text-canvas shadow-md outline-none focus-visible:ring-2 focus-visible:ring-accent transition-transform hover:scale-105"
+          className={cn(
+            'flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl select-none',
+            'bg-gradient-to-br from-iris to-accent text-[12px] font-bold text-white',
+            'shadow-iris hover:shadow-raised transition-all duration-200',
+            'outline-none focus-ring hover:scale-105 active:scale-95'
+          )}
           aria-label="User profile"
         >
           {initials}
         </button>
       </DropdownMenu.Trigger>
 
-      <AnimatePresence>
-        {open && (
-          <DropdownMenu.Portal forceMount>
-            <DropdownMenu.Content
-              align="end"
-              sideOffset={8}
-              asChild
-              className="z-50 w-64 rounded-2xl border border-black/[0.08] dark:border-white/[0.08] bg-white/70 dark:bg-black/70 backdrop-blur-xl shadow-2xl p-2 outline-none"
-            >
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          align="end"
+          sideOffset={10}
+          className="z-[100] w-[220px] glass-float p-1.5 animate-scale-in origin-top-right"
+        >
+          {/* Profile header */}
+          <div className="px-3 py-3 mb-1 border-b border-border">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-gradient-to-br from-iris to-accent text-[12px] font-bold text-white shadow-xs shrink-0">
+                {initials}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-primary truncate">{profile?.fullName || 'Trader'}</p>
+                <p className="text-[11px] text-tertiary truncate">{profile?.email}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Theme toggle */}
+          <DropdownMenu.Item
+            onSelect={(e) => { e.preventDefault(); toggleTheme(); }}
+            className="flex items-center justify-between px-3 py-2.5 rounded-lg text-[13px] font-medium text-secondary hover:text-primary hover:bg-surface-1 transition-colors cursor-pointer outline-none select-none"
+          >
+            <div className="flex items-center gap-2.5">
+              {theme === 'dark'
+                ? <Moon className="w-4 h-4 text-iris" />
+                : <Sun className="w-4 h-4 text-gold" />}
+              <span>{theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</span>
+            </div>
+            {/* Mini toggle indicator */}
+            <div className={cn(
+              'w-7 h-4 rounded-full border transition-colors duration-200 flex items-center px-0.5',
+              theme === 'dark' ? 'bg-accent border-accent/50' : 'bg-surface-2 border-border'
+            )}>
               <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: -5 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -5 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              >
-                {/* Profile Header */}
-                <div className="flex items-center gap-3 px-2 py-3 mb-1 border-b border-black/5 dark:border-white/5">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-primary font-bold">
-                    {initials}
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-sm font-semibold text-primary truncate">
-                      {profile?.fullName || 'User'}
-                    </span>
-                    <span className="text-[11px] text-tertiary truncate">
-                      {profile?.email || 'user@example.com'}
-                    </span>
-                  </div>
-                </div>
+                layout
+                className="w-3 h-3 rounded-full bg-white shadow-xs"
+                animate={{ x: theme === 'dark' ? 12 : 0 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              />
+            </div>
+          </DropdownMenu.Item>
 
-                <DropdownMenu.Group>
-                  <DropdownMenu.Item className="group relative flex cursor-default select-none items-center rounded-xl px-2 py-2.5 text-sm text-secondary outline-none transition-colors data-[highlighted]:bg-black/5 data-[highlighted]:text-primary dark:data-[highlighted]:bg-white/10">
-                    <User className="mr-3 h-4 w-4" />
-                    My Profile
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item className="group relative flex cursor-default select-none items-center rounded-xl px-2 py-2.5 text-sm text-secondary outline-none transition-colors data-[highlighted]:bg-black/5 data-[highlighted]:text-primary dark:data-[highlighted]:bg-white/10">
-                    <Settings className="mr-3 h-4 w-4" />
-                    Settings
-                  </DropdownMenu.Item>
-                </DropdownMenu.Group>
+          <DropdownMenu.Item
+            onSelect={() => navigate('/app/settings')}
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-medium text-secondary hover:text-primary hover:bg-surface-1 transition-colors cursor-pointer outline-none select-none"
+          >
+            <Settings className="w-4 h-4" />
+            Settings
+          </DropdownMenu.Item>
 
-                <DropdownMenu.Separator className="my-1 h-px bg-black/5 dark:bg-white/5" />
+          <DropdownMenu.Separator className="h-px bg-border my-1 mx-1" />
 
-                <DropdownMenu.Group>
-                  <DropdownMenu.Item
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      toggleTheme();
-                    }}
-                    className="group relative flex cursor-default select-none items-center justify-between rounded-xl px-2 py-2.5 text-sm text-secondary outline-none transition-colors data-[highlighted]:bg-black/5 data-[highlighted]:text-primary dark:data-[highlighted]:bg-white/10"
-                  >
-                    <div className="flex items-center">
-                      {theme === 'dark' ? <Moon className="mr-3 h-4 w-4" /> : <Sun className="mr-3 h-4 w-4" />}
-                      Appearance
-                    </div>
-                    <span className="text-[11px] capitalize text-tertiary">{theme}</span>
-                  </DropdownMenu.Item>
-                </DropdownMenu.Group>
-
-                <DropdownMenu.Separator className="my-1 h-px bg-black/5 dark:bg-white/5" />
-
-                <DropdownMenu.Item
-                  onSelect={() => signOut()}
-                  className="group relative flex cursor-default select-none items-center rounded-xl px-2 py-2.5 text-sm text-danger outline-none transition-colors data-[highlighted]:bg-danger/10"
-                >
-                  <LogOut className="mr-3 h-4 w-4" />
-                  Sign out
-                </DropdownMenu.Item>
-              </motion.div>
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
-        )}
-      </AnimatePresence>
+          <DropdownMenu.Item
+            onSelect={handleSignOut}
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-medium text-danger hover:bg-danger/8 transition-colors cursor-pointer outline-none select-none"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign Out
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
     </DropdownMenu.Root>
   );
 }

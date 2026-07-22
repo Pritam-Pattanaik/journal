@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { ScrollText, Search, Calendar, Shield, UserMinus, Settings, RefreshCw, Filter } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { ScrollText,  Calendar, Shield, UserMinus, Settings, RefreshCw, Filter } from 'lucide-react';
 import { api } from '../../lib/api';
 import { SkeletonTable } from '../../components/admin/SkeletonLoader';
 
@@ -38,7 +38,7 @@ export default function AdminAuditLogs() {
   const [endDate, setEndDate] = useState('');
   const limit = 20;
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({ page: String(page), limit: String(limit) });
@@ -53,9 +53,9 @@ export default function AdminAuditLogs() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, limit, actionFilter, startDate, endDate]);
 
-  useEffect(() => { fetchLogs(); }, [page, actionFilter, startDate, endDate]);
+  useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
   const parseDetails = (details: string | null): Record<string, any> => {
     if (!details) return {};
@@ -85,8 +85,8 @@ export default function AdminAuditLogs() {
           <ScrollText className="w-5 h-5 text-orange-500" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Audit Logs</h1>
-          <p className="text-text-secondary text-sm">Track all administrative actions on the platform</p>
+          <h1 className="text-2xl font-bold text-primary">Audit Logs</h1>
+          <p className="text-secondary text-sm">Track all administrative actions on the platform</p>
         </div>
       </div>
 
@@ -95,16 +95,16 @@ export default function AdminAuditLogs() {
       )}
 
       {/* Filters */}
-      <div className="bg-surface rounded-xl border border-border-color p-4">
+      <div className="bg-surface rounded-xl border border-border p-4">
         <div className="flex flex-wrap gap-4 items-end">
           <div className="flex-1 min-w-[180px]">
-            <label className="block text-text-secondary text-xs mb-1.5 font-medium">Action Type</label>
+            <label className="block text-secondary text-xs mb-1.5 font-medium">Action Type</label>
             <div className="relative">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary" />
               <select
                 value={actionFilter}
                 onChange={(e) => { setActionFilter(e.target.value); setPage(1); }}
-                className="w-full bg-background border border-border-color text-text-primary rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:border-brand-500 appearance-none"
+                className="w-full bg-canvas border border-border text-primary rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:border-accent appearance-none"
               >
                 <option value="">All Actions</option>
                 <option value="CHANGE_ROLE">Role Changes</option>
@@ -115,33 +115,33 @@ export default function AdminAuditLogs() {
             </div>
           </div>
           <div className="min-w-[160px]">
-            <label className="block text-text-secondary text-xs mb-1.5 font-medium">Start Date</label>
+            <label className="block text-secondary text-xs mb-1.5 font-medium">Start Date</label>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary" />
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
-                className="w-full bg-background border border-border-color text-text-primary rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:border-brand-500"
+                className="w-full bg-canvas border border-border text-primary rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:border-accent"
               />
             </div>
           </div>
           <div className="min-w-[160px]">
-            <label className="block text-text-secondary text-xs mb-1.5 font-medium">End Date</label>
+            <label className="block text-secondary text-xs mb-1.5 font-medium">End Date</label>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary" />
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
-                className="w-full bg-background border border-border-color text-text-primary rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:border-brand-500"
+                className="w-full bg-canvas border border-border text-primary rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:border-accent"
               />
             </div>
           </div>
           {(actionFilter || startDate || endDate) && (
             <button
               onClick={() => { setActionFilter(''); setStartDate(''); setEndDate(''); setPage(1); }}
-              className="px-3 py-2 text-xs text-text-secondary hover:text-text-primary transition-colors"
+              className="px-3 py-2 text-xs text-secondary hover:text-primary transition-colors"
             >
               Clear Filters
             </button>
@@ -153,10 +153,10 @@ export default function AdminAuditLogs() {
       {loading && !data ? (
         <SkeletonTable rows={10} cols={5} />
       ) : data && (
-        <div className="bg-surface rounded-xl border border-border-color overflow-hidden">
+        <div className="bg-surface rounded-xl border border-border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-surface-hover/50 text-text-secondary border-b border-border-color">
+              <thead className="bg-surface-1/50 text-secondary border-b border-border">
                 <tr>
                   <th className="px-6 py-3 font-medium">Timestamp</th>
                   <th className="px-6 py-3 font-medium">Admin</th>
@@ -171,12 +171,12 @@ export default function AdminAuditLogs() {
                   const ActionIcon = config.icon;
                   const details = parseDetails(log.details);
                   return (
-                    <tr key={log.id} className="hover:bg-surface-hover transition-colors">
-                      <td className="px-6 py-3 text-text-secondary text-xs whitespace-nowrap">
+                    <tr key={log.id} className="hover:bg-surface-1 transition-colors">
+                      <td className="px-6 py-3 text-secondary text-xs whitespace-nowrap">
                         {new Date(log.timestamp).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
                       </td>
                       <td className="px-6 py-3">
-                        <span className="text-text-primary text-xs">{log.admin?.fullName || log.admin?.email || 'System'}</span>
+                        <span className="text-primary text-xs">{log.admin?.fullName || log.admin?.email || 'System'}</span>
                       </td>
                       <td className="px-6 py-3">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${config.bgColor} ${config.color}`}>
@@ -185,10 +185,10 @@ export default function AdminAuditLogs() {
                         </span>
                       </td>
                       <td className="px-6 py-3">
-                        <span className="text-text-secondary text-xs capitalize">{log.targetType}</span>
-                        {log.targetId && <span className="text-text-secondary text-xs ml-1 font-mono opacity-60">({log.targetId.substring(0, 8)}...)</span>}
+                        <span className="text-secondary text-xs capitalize">{log.targetType}</span>
+                        {log.targetId && <span className="text-secondary text-xs ml-1 font-mono opacity-60">({log.targetId.substring(0, 8)}...)</span>}
                       </td>
-                      <td className="px-6 py-3 text-text-secondary text-xs max-w-xs truncate">
+                      <td className="px-6 py-3 text-secondary text-xs max-w-xs truncate">
                         {formatDetailString(log.action, details)}
                       </td>
                     </tr>
@@ -196,7 +196,7 @@ export default function AdminAuditLogs() {
                 })}
                 {data.logs.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-text-secondary">
+                    <td colSpan={5} className="px-6 py-12 text-center text-secondary">
                       {actionFilter || startDate || endDate ? 'No logs match the current filters.' : 'No audit logs recorded yet.'}
                     </td>
                   </tr>
@@ -206,13 +206,13 @@ export default function AdminAuditLogs() {
           </div>
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="px-6 py-4 border-t border-border-color flex items-center justify-between">
-              <span className="text-text-secondary text-xs">
+            <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+              <span className="text-secondary text-xs">
                 Showing {(page - 1) * limit + 1}–{Math.min(page * limit, data.total)} of {data.total}
               </span>
               <div className="flex gap-2">
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="px-3 py-1.5 text-xs rounded-lg bg-surface-hover text-text-secondary hover:text-text-primary disabled:opacity-50 transition-colors">Prev</button>
-                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 text-xs rounded-lg bg-surface-hover text-text-secondary hover:text-text-primary disabled:opacity-50 transition-colors">Next</button>
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="px-3 py-1.5 text-xs rounded-lg bg-surface-1 text-secondary hover:text-primary disabled:opacity-50 transition-colors">Prev</button>
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 text-xs rounded-lg bg-surface-1 text-secondary hover:text-primary disabled:opacity-50 transition-colors">Next</button>
               </div>
             </div>
           )}

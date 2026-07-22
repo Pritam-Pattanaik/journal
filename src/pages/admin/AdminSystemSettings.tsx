@@ -81,8 +81,8 @@ export default function AdminSystemSettings() {
           <Settings className="w-5 h-5 text-gray-400" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">System Settings</h1>
-          <p className="text-text-secondary text-sm">Configure platform-wide features and announcements</p>
+          <h1 className="text-2xl font-bold text-primary">System Settings</h1>
+          <p className="text-secondary text-sm">Configure platform-wide features and announcements</p>
         </div>
       </div>
 
@@ -94,20 +94,20 @@ export default function AdminSystemSettings() {
 
       {/* Feature Flags */}
       <div className="space-y-4">
-        <h2 className="text-sm font-medium text-text-secondary uppercase tracking-wider">Feature Flags</h2>
+        <h2 className="text-sm font-medium text-secondary uppercase tracking-wider">Feature Flags</h2>
         {TOGGLE_SETTINGS.map((setting) => {
           const isEnabled = getSettingValue(setting.key) === 'true';
           const isSaving = saving === setting.key;
           const isSaved = saved === setting.key;
           return (
             <div key={setting.key} className={`bg-surface rounded-xl border p-6 transition-all ${
-              setting.danger && isEnabled ? 'border-danger/50' : 'border-border-color'
+              setting.danger && isEnabled ? 'border-danger/50' : 'border-border'
             }`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <span className="text-2xl">{setting.icon}</span>
                   <div>
-                    <h3 className="text-text-primary font-medium flex items-center gap-2">
+                    <h3 className="text-primary font-medium flex items-center gap-2">
                       {setting.label}
                       {isSaved && (
                         <span className="flex items-center gap-1 text-success text-xs animate-fade-in">
@@ -120,7 +120,7 @@ export default function AdminSystemSettings() {
                         </span>
                       )}
                     </h3>
-                    <p className="text-text-secondary text-sm mt-0.5">{setting.description}</p>
+                    <p className="text-secondary text-sm mt-0.5">{setting.description}</p>
                   </div>
                 </div>
                 <button
@@ -130,7 +130,7 @@ export default function AdminSystemSettings() {
                   aria-label={`Toggle ${setting.label}`}
                 >
                   {isSaving ? (
-                    <Loader2 className="w-10 h-10 text-brand-500 animate-spin" />
+                    <Loader2 className="w-10 h-10 text-accent animate-spin" />
                   ) : isEnabled ? (
                     <ToggleRight className={`w-10 h-10 ${setting.danger ? 'text-danger' : 'text-success'}`} />
                   ) : (
@@ -145,28 +145,28 @@ export default function AdminSystemSettings() {
 
       {/* System Announcement */}
       <div className="space-y-4">
-        <h2 className="text-sm font-medium text-text-secondary uppercase tracking-wider">Platform Announcement</h2>
-        <div className="bg-surface rounded-xl border border-border-color p-6">
+        <h2 className="text-sm font-medium text-secondary uppercase tracking-wider">Platform Announcement</h2>
+        <div className="bg-surface rounded-xl border border-border p-6">
           <div className="flex items-start gap-4">
             <div className="w-10 h-10 rounded-xl bg-info/10 flex items-center justify-center shrink-0 mt-1">
               <Megaphone className="w-5 h-5 text-info" />
             </div>
             <div className="flex-1">
-              <h3 className="text-text-primary font-medium mb-1">System Announcement</h3>
-              <p className="text-text-secondary text-sm mb-4">This message will be shown as a banner to all users on the platform.</p>
+              <h3 className="text-primary font-medium mb-1">System Announcement</h3>
+              <p className="text-secondary text-sm mb-4">This message will be shown as a banner to all users on the platform.</p>
               <textarea
                 value={announcement}
                 onChange={(e) => setAnnouncement(e.target.value)}
                 rows={3}
-                className="w-full bg-background border border-border-color text-text-primary rounded-lg px-4 py-3 text-sm outline-none focus:border-brand-500 resize-none placeholder:text-text-secondary/50"
+                className="w-full bg-canvas border border-border text-primary rounded-lg px-4 py-3 text-sm outline-none focus:border-accent resize-none placeholder:text-secondary/50"
                 placeholder="Enter an announcement message (leave empty to hide the banner)..."
               />
               <div className="flex items-center justify-between mt-3">
-                <span className="text-text-secondary text-xs">{announcement.length} characters</span>
+                <span className="text-secondary text-xs">{announcement.length} characters</span>
                 <button
                   onClick={() => updateSetting('system_announcement', announcement)}
                   disabled={saving === 'system_announcement'}
-                  className="flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition-colors text-sm font-medium disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-brand-600 transition-colors text-sm font-medium disabled:opacity-50"
                 >
                   {saving === 'system_announcement' ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -185,10 +185,10 @@ export default function AdminSystemSettings() {
 
       {/* All Settings Raw View */}
       <div className="space-y-4">
-        <h2 className="text-sm font-medium text-text-secondary uppercase tracking-wider">All Settings</h2>
-        <div className="bg-surface rounded-xl border border-border-color overflow-hidden">
+        <h2 className="text-sm font-medium text-secondary uppercase tracking-wider">All Settings</h2>
+        <div className="bg-surface rounded-xl border border-border overflow-hidden">
           <table className="w-full text-left text-sm">
-            <thead className="bg-surface-hover/50 text-text-secondary border-b border-border-color">
+            <thead className="bg-surface-1/50 text-secondary border-b border-border">
               <tr>
                 <th className="px-6 py-3 font-medium">Key</th>
                 <th className="px-6 py-3 font-medium">Value</th>
@@ -197,10 +197,10 @@ export default function AdminSystemSettings() {
             </thead>
             <tbody className="divide-y divide-border-color">
               {settings.map((s) => (
-                <tr key={s.id} className="hover:bg-surface-hover transition-colors">
-                  <td className="px-6 py-3 font-mono text-xs text-text-primary">{s.key}</td>
-                  <td className="px-6 py-3 text-text-secondary text-xs max-w-xs truncate">{s.value}</td>
-                  <td className="px-6 py-3 text-text-secondary text-xs">
+                <tr key={s.id} className="hover:bg-surface-1 transition-colors">
+                  <td className="px-6 py-3 font-mono text-xs text-primary">{s.key}</td>
+                  <td className="px-6 py-3 text-secondary text-xs max-w-xs truncate">{s.value}</td>
+                  <td className="px-6 py-3 text-secondary text-xs">
                     {s.updatedAt ? new Date(s.updatedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
                   </td>
                 </tr>

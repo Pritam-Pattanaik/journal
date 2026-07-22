@@ -392,7 +392,7 @@ app.post('/api/auth/signup', async (req: Request, res: Response): Promise<void> 
       token,
       user: { id: newUser.id, email: newUser.email, fullName: newUser.fullName, role: newUser.role }
     });
-  } catch (err) {
+  } catch (_err) {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -424,7 +424,7 @@ app.post('/api/auth/login', async (req: Request, res: Response): Promise<void> =
       token,
       user: { id: user.id, email: user.email, fullName: user.fullName, role: user.role }
     });
-  } catch (err) {
+  } catch (_err) {
     res.status(500).json({ error: 'Internal server error' });
   }
 });

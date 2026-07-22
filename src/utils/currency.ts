@@ -10,7 +10,7 @@ const inrFormatter = new Intl.NumberFormat('en-IN', {
   maximumFractionDigits: 2,
 });
 
-const inrCompactFormatter = new Intl.NumberFormat('en-IN', {
+const _inrCompactFormatter = new Intl.NumberFormat('en-IN', {
   style: 'currency',
   currency: 'INR',
   notation: 'compact',

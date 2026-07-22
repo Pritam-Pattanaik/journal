@@ -8,24 +8,30 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email     String   @unique
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email     String    @unique
   password  String
-  fullName  String?  @map("full_name")
-  avatarUrl String?  @map("avatar_url")
-  timezone  String?  @default("Asia/Kolkata")
-  role      String   @default("USER")
+  fullName  String?   @map("full_name")
+  avatarUrl String?   @map("avatar_url")
+  timezone  String?   @default("Asia/Kolkata")
+  role      String    @default("USER")
   createdAt DateTime? @default(now()) @map("created_at")
   updatedAt DateTime? @default(now()) @map("updated_at")
 
-  trades            Trade[]
-  strategies        Strategy[]
-  journalEntries    JournalEntry[]
-  aiInsights        AiInsight[]
-  coachMemories     CoachMemory[]
-  brokerConnections BrokerConnection[]
-  tradingRules      TradingRule?
-  auditLogs         AuditLog[]
+  trades             Trade[]
+  strategies         Strategy[]
+  journalEntries     JournalEntry[]
+  aiInsights         AiInsight[]
+  aiConversations    AiConversation[]
+  coachMemories      CoachMemory[]
+  brokerConnections  BrokerConnection[]
+  tradingRules       TradingRule?
+  auditLogs          AuditLog[]
+  notes              Note[]
+  weeklyReviews      WeeklyReview[]
+  monthlyReflections MonthlyReflection[]
+  goals              Goal[]
+  newsBookmarks      NewsBookmark[]
 
   @@map("users")
 }
@@ -94,14 +100,22 @@ model Trade {
   disciplineScore  Int?      @map("discipline_score")
   tags             String[]
   source           String?
+  stopLoss         Decimal?  @map("stop_loss")
+  mistakes         String[]
+  checklist        Json?
   createdAt        DateTime? @default(now()) @map("created_at")
   updatedAt        DateTime? @default(now()) @map("updated_at")
 
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  strategy Strategy? @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategy    Strategy?       @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  aiInsights  AiInsight[]
+  screenshots Screenshot[]
+  newsLinks   TradeNewsLink[]
 
-  aiInsights AiInsight[]
-
+  @@index([userId, date])
+  @@index([userId, broker])
+  @@index([userId, status])
+  @@index([userId, market])
   @@map("trades")
 }
 
@@ -114,8 +128,8 @@ model JournalEntry {
   watchlist         String?
   newsNotes         String?   @map("news_notes")
   reflection        String?
-  whatWentWell       String?   @map("what_went_well")
-  whatToImprove      String?   @map("what_to_improve")
+  whatWentWell      String?   @map("what_went_well")
+  whatToImprove     String?   @map("what_to_improve")
   mood              String?
   overallDiscipline Int?      @map("overall_discipline")
   createdAt         DateTime? @default(now()) @map("created_at")
@@ -141,6 +155,33 @@ model AiInsight {
   trade Trade? @relation(fields: [tradeId], references: [id], onDelete: Cascade)
 
   @@map("ai_insights")
+}
+
+model AiConversation {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  title      String
+  isPinned   Boolean   @default(false) @map("is_pinned")
+  isArchived Boolean   @default(false) @map("is_archived")
+  createdAt  DateTime? @default(now()) @map("created_at")
+  updatedAt  DateTime? @default(now()) @map("updated_at")
+
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages AiMessage[]
+
+  @@map("ai_conversations")
+}
+
+model AiMessage {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String    @map("conversation_id") @db.Uuid
+  role           String // "user" | "assistant"
+  content        String
+  createdAt      DateTime? @default(now()) @map("created_at")
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("ai_messages")
 }
 
 model CoachMemory {
@@ -188,7 +229,7 @@ model AuditLog {
   details    String?
   timestamp  DateTime @default(now())
 
-  admin      User?    @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  admin User? @relation(fields: [adminId], references: [id], onDelete: SetNull)
 
   @@map("audit_logs")
 }
@@ -201,4 +242,147 @@ model SystemSetting {
   updatedAt DateTime? @default(now()) @map("updated_at")
 
   @@map("system_settings")
+}
+
+model WeeklyReview {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  weekOf    DateTime @db.Date
+  content   Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("weekly_reviews")
+}
+
+model MonthlyReflection {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  month     String
+  answers   Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("monthly_reflections")
+}
+
+model Goal {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  description String
+  type        String
+  target      Int?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  completions GoalCompletion[]
+
+  @@map("goals")
+}
+
+model GoalCompletion {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  goalId    String   @map("goal_id") @db.Uuid
+  date      DateTime @db.Date
+  completed Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@map("goal_completions")
+}
+
+model Screenshot {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tradeId   String   @map("trade_id") @db.Uuid
+  url       String
+  label     String
+  order     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  trade Trade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+
+  @@map("screenshots")
+}
+
+model Note {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  title       String?
+  content     String
+  category    String   @default("Personal Notes")
+  tags        String[]
+  isFavorite  Boolean  @default(false)
+  isPinned    Boolean  @default(false)
+  isArchived  Boolean  @default(false)
+  attachments Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notes")
+}
+
+model EnrichedNews {
+  id               String   @id // Using Finnhub ID or hash
+  headline         String
+  url              String
+  publishedAt      Int
+  source           String
+  image            String?
+  originalSummary  String?
+  aiSummary        String?
+  tldr             String?
+  whyItMatters     String?
+  categories       String[] 
+  sectors          String[] 
+  companies        String[] 
+  financialTerms   Json?    
+  historicalContext String?
+  shortTermImpact  String?
+  longTermImpact   String?
+  whatToWatchNext  String?
+  riskFactors      String?
+  probability      Int?
+  confidence       Int?
+  marketImpact     Json?
+  relatedArticles  Json?    
+  
+  bookmarks        NewsBookmark[]
+  tradeLinks       TradeNewsLink[]
+
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@map("enriched_news")
+}
+
+model NewsBookmark {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String @map("user_id") @db.Uuid
+  newsId     String @map("news_id")
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  news       EnrichedNews @relation(fields: [newsId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, newsId])
+  @@map("news_bookmarks")
+}
+
+model TradeNewsLink {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tradeId    String @map("trade_id") @db.Uuid
+  newsId     String @map("news_id")
+  reason     String?
+  
+  trade      Trade  @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  news       EnrichedNews @relation(fields: [newsId], references: [id], onDelete: Cascade)
+
+  @@unique([tradeId, newsId])
+  @@map("trade_news_links")
 }

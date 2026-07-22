@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, CalendarDays, Command, ChevronDown } from 'lucide-react';
+import { Search, CalendarDays, ChevronDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '../../lib/cn';
 
@@ -36,31 +36,33 @@ function SegmentedControl({
   layoutIdPrefix: string;
 }) {
   return (
-    <div className="flex items-center p-1 bg-black/5 dark:bg-white/5 rounded-xl border border-black/10 dark:border-white/10 shadow-inner">
+    <div className="flex items-center gap-1">
       {options.map((opt) => {
         const isActive = activeValue === opt;
         
-        let activeColorClass = "bg-primary text-canvas shadow-sm";
-        if (isActive && opt === 'WIN') activeColorClass = "bg-success text-canvas shadow-sm";
-        if (isActive && opt === 'LOSS') activeColorClass = "bg-danger text-canvas shadow-sm";
+        let activeColorClass = "bg-surface-2 shadow-sm border border-border-subtle";
+        if (isActive && opt === 'WIN') activeColorClass = "bg-success/15 border border-success/30";
+        if (isActive && opt === 'LOSS') activeColorClass = "bg-danger/15 border border-danger/30";
         
         return (
           <button
             key={opt}
             onClick={() => onChange(opt)}
             className={cn(
-              "relative px-4 py-1.5 text-xs font-bold rounded-lg transition-colors outline-none whitespace-nowrap",
-              isActive ? "text-canvas" : "text-secondary hover:text-primary"
+              "relative px-3 py-1.5 text-xs font-bold rounded-full transition-colors outline-none whitespace-nowrap",
+              isActive 
+                ? (opt === 'WIN' ? "text-success" : opt === 'LOSS' ? "text-danger" : "text-primary")
+                : "text-tertiary hover:text-secondary hover:bg-surface-1"
             )}
           >
             {isActive && (
               <motion.div
                 layoutId={`segment-${layoutIdPrefix}`}
-                className={cn("absolute inset-0 rounded-lg", activeColorClass)}
+                className={cn("absolute inset-0 rounded-full", activeColorClass)}
                 transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
               />
             )}
-            <span className="relative z-10">{opt === 'All' && layoutIdPrefix === 'status' ? 'All Outcomes' : opt}</span>
+            <span className="relative z-10">{opt === 'All' && layoutIdPrefix === 'status' ? 'All' : opt}</span>
           </button>
         );
       })}
@@ -81,7 +83,7 @@ export default function FilterBar({
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   return (
-    <div className="flex flex-col xl:flex-row gap-4 w-full glass-panel p-4 rounded-2xl items-start xl:items-center justify-between">
+    <div className="flex flex-col xl:flex-row gap-6 w-full items-start xl:items-center justify-between pb-2">
       
       {/* Left: Search Bar (Raycast style) */}
       <div 
@@ -89,7 +91,7 @@ export default function FilterBar({
           "relative flex items-center w-full xl:max-w-md h-12 bg-surface-1 border rounded-xl overflow-hidden transition-all duration-300",
           isSearchFocused 
             ? "border-accent ring-4 ring-accent/10 shadow-md" 
-            : "border-black/10 dark:border-white/10 shadow-sm hover:border-black/20 dark:hover:border-white/20"
+            : "border-border-subtle shadow-sm hover:border-primary/20"
         )}
       >
         <Search className="absolute left-4 w-4 h-4 text-tertiary" />
@@ -99,17 +101,9 @@ export default function FilterBar({
           onChange={e => onSearchChange(e.target.value)}
           onFocus={() => setIsSearchFocused(true)}
           onBlur={() => setIsSearchFocused(false)}
-          placeholder="Search by symbol, tag, or notes..."
-          className="w-full h-full bg-transparent pl-11 pr-14 text-sm font-medium text-primary placeholder:text-tertiary outline-none"
+          placeholder="Filter executions by symbol, tag..."
+          className="w-full h-full bg-transparent pl-11 pr-4 text-sm font-medium text-primary placeholder:text-tertiary outline-none"
         />
-        <div className="absolute right-3 flex items-center gap-1 opacity-50 pointer-events-none hidden sm:flex">
-          <kbd className="h-5 px-1.5 rounded bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 text-[10px] font-mono flex items-center justify-center">
-            <Command className="w-3 h-3" />
-          </kbd>
-          <kbd className="h-5 px-1.5 rounded bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 text-[10px] font-mono flex items-center justify-center">
-            K
-          </kbd>
-        </div>
       </div>
 
       {/* Right: Filters */}
@@ -123,7 +117,7 @@ export default function FilterBar({
           <select
             value={dateFilter}
             onChange={e => onDateChange(e.target.value)}
-            className="h-10 pl-9 pr-8 bg-surface-1 border border-black/10 dark:border-white/10 rounded-xl text-xs font-bold text-secondary appearance-none cursor-pointer outline-none hover:border-black/20 dark:hover:border-white/20 transition-colors focus:ring-2 focus:ring-accent/20 focus:border-accent shadow-sm"
+            className="h-10 pl-9 pr-8 bg-surface-1 border border-border-subtle rounded-xl text-xs font-bold text-secondary appearance-none cursor-pointer outline-none hover:border-primary/20 transition-colors focus:ring-2 focus:ring-accent/20 focus:border-accent shadow-sm"
           >
             {dateRanges.map(range => (
               <option key={range.value} value={range.value}>{range.label}</option>
@@ -134,23 +128,29 @@ export default function FilterBar({
           </div>
         </div>
 
-        <div className="w-px h-6 bg-black/10 dark:bg-white/10 hidden sm:block" />
+        <div className="w-px h-6 bg-border-subtle hidden sm:block" />
 
-        <SegmentedControl 
-          options={markets} 
-          activeValue={marketFilter} 
-          onChange={onMarketChange}
-          layoutIdPrefix="market"
-        />
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-tertiary hidden sm:block">Market</span>
+          <SegmentedControl 
+            options={markets} 
+            activeValue={marketFilter} 
+            onChange={onMarketChange}
+            layoutIdPrefix="market"
+          />
+        </div>
 
-        <div className="w-px h-6 bg-black/10 dark:bg-white/10 hidden sm:block" />
+        <div className="w-px h-6 bg-border-subtle hidden sm:block" />
 
-        <SegmentedControl 
-          options={statuses} 
-          activeValue={statusFilter} 
-          onChange={onStatusChange}
-          layoutIdPrefix="status"
-        />
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-tertiary hidden sm:block">Outcome</span>
+          <SegmentedControl 
+            options={statuses} 
+            activeValue={statusFilter} 
+            onChange={onStatusChange}
+            layoutIdPrefix="status"
+          />
+        </div>
 
       </div>
     </div>

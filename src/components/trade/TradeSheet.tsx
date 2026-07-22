@@ -25,7 +25,7 @@ export default function TradeSheet({ trade, isOpen, onClose, onEdit, onDelete }:
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 bg-canvas/60 backdrop-blur-sm"
             onClick={onClose}
           />
           <motion.div
@@ -45,7 +45,7 @@ export default function TradeSheet({ trade, isOpen, onClose, onEdit, onDelete }:
                   </Badge>
                 </div>
               </div>
-              <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full h-8 w-8">
+              <Button variant="ghost" size="icon-sm" onClick={onClose} className="rounded-full h-8 w-8">
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -133,7 +133,7 @@ export default function TradeSheet({ trade, isOpen, onClose, onEdit, onDelete }:
                 </Button>
               )}
               {onDelete && (
-                <Button variant="destructive" className="flex-1" onClick={() => {
+                <Button variant="danger" className="flex-1" onClick={() => {
                   if (window.confirm('Are you sure you want to delete this trade?')) {
                     onDelete(trade.id);
                   }

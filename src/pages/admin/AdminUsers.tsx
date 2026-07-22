@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, ChevronLeft, ChevronRight, Eye, Trash2, Users, ShieldCheck, Shield, User, AlertTriangle, X } from 'lucide-react';
-import Badge from '../../components/ui/Badge';
+
 import { api } from '../../lib/api';
 import { useAuthStore } from '../../stores/authStore';
 import { notify } from '../../lib/notify';
 import { SkeletonTable } from '../../components/admin/SkeletonLoader';
+import { EmptyState } from '../../components/ui/EmptyState';
 
 interface SystemUser {
   id: string;
@@ -129,11 +130,11 @@ export default function AdminUsers() {
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-text-primary flex items-center gap-3">
-          <Users className="w-7 h-7 text-brand-500" />
+        <h1 className="text-2xl font-bold text-primary flex items-center gap-3">
+          <Users className="w-7 h-7 text-accent" />
           User Management
         </h1>
-        <p className="text-text-secondary text-sm mt-1">Manage all platform users, roles, and access</p>
+        <p className="text-secondary text-sm mt-1">Manage all platform users, roles, and access</p>
       </div>
 
       {error && (
@@ -141,24 +142,24 @@ export default function AdminUsers() {
       )}
 
       {/* Filters */}
-      <div className="bg-surface rounded-xl border border-border-color p-4">
+      <div className="bg-surface rounded-xl border border-border p-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[240px]">
-            <Search className="w-4 h-4 text-text-secondary absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-secondary absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search users by name or email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-base border border-border-color rounded-lg text-text-primary text-sm outline-none focus:border-brand-500 transition-colors placeholder:text-text-secondary"
+              className="w-full pl-10 pr-4 py-2 bg-canvas border border-border rounded-lg text-primary text-sm outline-none focus:border-accent transition-colors placeholder:text-secondary"
             />
           </div>
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-text-secondary" />
+            <Filter className="w-4 h-4 text-secondary" />
             <select
               value={roleFilter}
               onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
-              className="bg-base border border-border-color text-text-primary rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-500"
+              className="bg-canvas border border-border text-primary rounded-lg px-3 py-2 text-sm outline-none focus:border-accent"
             >
               {ROLES.map((r) => (
                 <option key={r} value={r}>{r === 'ALL' ? 'All Roles' : r.replace('_', ' ')}</option>
@@ -168,7 +169,7 @@ export default function AdminUsers() {
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value)}
-            className="bg-base border border-border-color text-text-primary rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-500"
+            className="bg-canvas border border-border text-primary rounded-lg px-3 py-2 text-sm outline-none focus:border-accent"
           >
             {SORT_OPTIONS.map((s) => (
               <option key={s.value} value={s.value}>{s.label}</option>
@@ -176,7 +177,7 @@ export default function AdminUsers() {
           </select>
           <button
             onClick={() => setOrder(order === 'asc' ? 'desc' : 'asc')}
-            className="px-3 py-2 bg-base border border-border-color rounded-lg text-text-secondary text-sm hover:text-text-primary hover:bg-surface-hover transition-colors"
+            className="px-3 py-2 bg-canvas border border-border rounded-lg text-secondary text-sm hover:text-primary hover:bg-surface-1 transition-colors"
           >
             {order === 'asc' ? '↑ Asc' : '↓ Desc'}
           </button>
@@ -187,10 +188,10 @@ export default function AdminUsers() {
       {loading ? (
         <SkeletonTable rows={10} cols={7} />
       ) : (
-        <div className="bg-surface rounded-xl border border-border-color overflow-hidden">
+        <div className="bg-surface rounded-xl border border-border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-surface-hover/50 text-text-secondary border-b border-border-color">
+              <thead className="bg-surface-1/50 text-secondary border-b border-border">
                 <tr>
                   <th className="px-6 py-4 font-medium">User</th>
                   <th className="px-6 py-4 font-medium">Email</th>
@@ -203,28 +204,28 @@ export default function AdminUsers() {
               </thead>
               <tbody className="divide-y divide-border-color">
                 {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-surface-hover transition-colors">
+                  <tr key={u.id} className="hover:bg-surface-1 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-brand-500/10 flex items-center justify-center text-brand-500 flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center text-accent flex-shrink-0">
                           {u.role === 'SUPER_ADMIN' ? <ShieldCheck className="w-4 h-4" /> :
                            u.role === 'ADMIN' || u.role === 'SUB_ADMIN' ? <Shield className="w-4 h-4" /> :
                            <User className="w-4 h-4" />}
                         </div>
-                        <span className="font-medium text-text-primary whitespace-nowrap">{u.fullName || 'Anonymous'}</span>
+                        <span className="font-medium text-primary whitespace-nowrap">{u.fullName || 'Anonymous'}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-text-secondary">{u.email}</td>
+                    <td className="px-6 py-4 text-secondary">{u.email}</td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 rounded text-xs font-medium ${roleBadge(u.role)}`}>
                         {u.role}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-text-secondary whitespace-nowrap">{new Date(u.createdAt).toLocaleDateString()}</td>
-                    <td className="px-6 py-4 text-text-secondary">{u.totalTrades || 0}</td>
+                    <td className="px-6 py-4 text-secondary whitespace-nowrap">{new Date(u.createdAt).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 text-secondary">{u.totalTrades || 0}</td>
                     <td className="px-6 py-4 text-right">
                       <span className={`font-medium ${
-                        (u.netPnl || 0) > 0 ? 'text-success' : (u.netPnl || 0) < 0 ? 'text-danger' : 'text-text-secondary'
+                        (u.netPnl || 0) > 0 ? 'text-success' : (u.netPnl || 0) < 0 ? 'text-danger' : 'text-secondary'
                       }`}>
                         {(u.netPnl || 0) > 0 ? '+' : ''}₹{Number(u.netPnl || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
@@ -234,7 +235,7 @@ export default function AdminUsers() {
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => navigate(`/app/admin/users/${u.id}`)}
-                            className="p-1.5 rounded-lg hover:bg-surface-hover text-text-secondary hover:text-brand-500 transition-colors"
+                            className="p-1.5 rounded-lg hover:bg-surface-1 text-secondary hover:text-accent transition-colors"
                             title="View Details"
                           >
                             <Eye className="w-4 h-4" />
@@ -243,7 +244,7 @@ export default function AdminUsers() {
                             value={u.role}
                             onChange={(e) => handleRoleChange(u.id, e.target.value)}
                             disabled={u.id === currentUser?.id}
-                            className="bg-base border border-border-color text-text-primary rounded-lg px-2 py-1 text-xs outline-none focus:border-brand-500 disabled:opacity-50"
+                            className="bg-canvas border border-border text-primary rounded-lg px-2 py-1 text-xs outline-none focus:border-accent disabled:opacity-50"
                           >
                             <option value="USER">User</option>
                             <option value="SUB_ADMIN">Sub Admin</option>
@@ -253,7 +254,7 @@ export default function AdminUsers() {
                           <button
                             onClick={() => setDeleteModal(u)}
                             disabled={u.id === currentUser?.id}
-                            className="p-1.5 rounded-lg hover:bg-danger/10 text-text-secondary hover:text-danger transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            className="p-1.5 rounded-lg hover:bg-danger/10 text-secondary hover:text-danger transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                             title="Delete User"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -266,21 +267,27 @@ export default function AdminUsers() {
               </tbody>
             </table>
             {users.length === 0 && (
-              <div className="p-8 text-center text-text-secondary">No users found matching your criteria.</div>
+              <div className="p-8">
+                <EmptyState 
+                  icon={Users} 
+                  title="No users found" 
+                  description="There are currently no users matching your criteria." 
+                />
+              </div>
             )}
           </div>
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-border-color">
-              <span className="text-text-secondary text-sm">
+            <div className="flex items-center justify-between px-6 py-4 border-t border-border">
+              <span className="text-secondary text-sm">
                 Showing {(page - 1) * limit + 1}-{Math.min(page * limit, total)} of {total} users
               </span>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setPage(Math.max(1, page - 1))}
                   disabled={page === 1}
-                  className="p-2 rounded-lg bg-base border border-border-color text-text-secondary hover:text-text-primary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="p-2 rounded-lg bg-canvas border border-border text-secondary hover:text-primary hover:bg-surface-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -296,8 +303,8 @@ export default function AdminUsers() {
                       onClick={() => setPage(pageNum)}
                       className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
                         page === pageNum
-                          ? 'bg-brand-500 text-white'
-                          : 'bg-base border border-border-color text-text-secondary hover:text-text-primary hover:bg-surface-hover'
+                          ? 'bg-accent text-white'
+                          : 'bg-canvas border border-border text-secondary hover:text-primary hover:bg-surface-1'
                       }`}
                     >
                       {pageNum}
@@ -307,7 +314,7 @@ export default function AdminUsers() {
                 <button
                   onClick={() => setPage(Math.min(totalPages, page + 1))}
                   disabled={page === totalPages}
-                  className="p-2 rounded-lg bg-base border border-border-color text-text-secondary hover:text-text-primary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="p-2 rounded-lg bg-canvas border border-border text-secondary hover:text-primary hover:bg-surface-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -320,27 +327,27 @@ export default function AdminUsers() {
       {/* Delete Confirmation Modal */}
       {deleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-surface rounded-xl border border-border-color p-6 max-w-md w-full mx-4 shadow-2xl">
+          <div className="bg-surface rounded-xl border border-border p-6 max-w-md w-full mx-4 shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-danger/10 flex items-center justify-center">
                 <AlertTriangle className="w-5 h-5 text-danger" />
               </div>
-              <h3 className="text-lg font-semibold text-text-primary">Delete User</h3>
+              <h3 className="text-lg font-semibold text-primary">Delete User</h3>
               <button
                 onClick={() => setDeleteModal(null)}
-                className="ml-auto p-1 rounded-lg hover:bg-surface-hover text-text-secondary transition-colors"
+                className="ml-auto p-1 rounded-lg hover:bg-surface-1 text-secondary transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <p className="text-text-secondary text-sm mb-6">
-              Are you sure you want to delete <span className="font-medium text-text-primary">{deleteModal.fullName || deleteModal.email}</span>?
+            <p className="text-secondary text-sm mb-6">
+              Are you sure you want to delete <span className="font-medium text-primary">{deleteModal.fullName || deleteModal.email}</span>?
               This action cannot be undone and will remove all their data.
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setDeleteModal(null)}
-                className="px-4 py-2 rounded-lg border border-border-color text-text-secondary hover:text-text-primary hover:bg-surface-hover text-sm transition-colors"
+                className="px-4 py-2 rounded-lg border border-border text-secondary hover:text-primary hover:bg-surface-1 text-sm transition-colors"
               >
                 Cancel
               </button>

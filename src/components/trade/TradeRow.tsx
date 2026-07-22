@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { ChevronRight, ChevronDown, Activity, Edit2, AlertCircle } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { ChevronRight, Activity, Edit2, AlertCircle, BrainCircuit } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trade } from '../../types';
-import { formatCurrency, formatDate } from '../../lib/analytics';
+import { formatCurrency } from '../../lib/analytics';
 import DisciplineRater from '../ui/DisciplineRater';
 import { TableRow, TableCell } from '../ui/Table';
 import { cn } from '../../lib/cn';
@@ -11,11 +12,49 @@ import { Button } from '../ui/Button';
 interface TradeRowProps {
   trade: Trade;
   onEdit?: (trade: Trade) => void;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
+  onUpdateTrade?: (id: string, updates: Partial<Trade>) => Promise<void>;
 }
 
-export default function TradeRow({ trade, onEdit }: TradeRowProps) {
+export default function TradeRow({ trade, onEdit, isSelected, onToggleSelect, onUpdateTrade }: TradeRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  
+  const [isEditingStrategy, setIsEditingStrategy] = useState(false);
+  const [strategyInput, setStrategyInput] = useState(trade.strategyName || '');
+  
+  const [isSuccess, setIsSuccess] = useState(false);
+  const strategyInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
+
   const isProfit = trade.netPnl >= 0;
+
+  useEffect(() => {
+    if (isEditingStrategy && strategyInputRef.current) {
+      strategyInputRef.current.focus();
+      strategyInputRef.current.select();
+    }
+  }, [isEditingStrategy]);
+
+  const handleStrategySave = async () => {
+    const trimmed = strategyInput.trim();
+    if (trimmed !== trade.strategyName && onUpdateTrade) {
+      await onUpdateTrade(trade.id, { strategyName: trimmed });
+      setIsSuccess(true);
+      setTimeout(() => setIsSuccess(false), 1500);
+    }
+    setIsEditingStrategy(false);
+  };
+
+  const handleStrategyKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleStrategySave();
+    } else if (e.key === 'Escape') {
+      setIsEditingStrategy(false);
+      setStrategyInput(trade.strategyName || '');
+    }
+  };
+
 
   return (
     <>
@@ -26,11 +65,18 @@ export default function TradeRow({ trade, onEdit }: TradeRowProps) {
           isExpanded ? "bg-surface-2 border-b-transparent" : "hover:bg-surface-2"
         )}
       >
-        <TableCell className="text-tertiary">
-          {formatDate(trade.date)}
+        <TableCell onClick={e => e.stopPropagation()} className="align-middle">
+          <div className="flex items-center h-full">
+            <input 
+              type="checkbox" 
+              checked={isSelected}
+              onChange={onToggleSelect}
+              className="rounded border-border text-accent focus:ring-accent w-4 h-4 cursor-pointer"
+            />
+          </div>
         </TableCell>
         
-        <TableCell>
+        <TableCell className="whitespace-nowrap">
           <div className="flex items-center gap-2">
             <span className="font-bold text-primary tracking-tight">
               {trade.symbol}
@@ -45,20 +91,42 @@ export default function TradeRow({ trade, onEdit }: TradeRowProps) {
 
         <TableCell>
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-secondary">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-widest bg-surface-2/80 border border-border-subtle text-primary shadow-sm">
               {trade.market}
             </span>
             <span className={cn(
-              "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest border",
-              trade.direction === 'LONG' ? "bg-success/10 text-success border-success/20" : "bg-danger/10 text-danger border-danger/20"
+              "inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-widest border shadow-sm",
+              trade.direction === 'LONG' ? "bg-success/15 text-success border-success/30" : "bg-danger/15 text-danger border-danger/30"
             )}>
               {trade.direction}
             </span>
           </div>
         </TableCell>
 
-        <TableCell className="text-secondary text-sm font-medium max-w-[120px] truncate">
-          {trade.strategyName || '-'}
+        <TableCell 
+          className="text-secondary text-sm font-medium max-w-[120px] truncate cursor-pointer group/strategy"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsEditingStrategy(true);
+          }}
+        >
+          {isEditingStrategy ? (
+            <input
+              ref={strategyInputRef}
+              type="text"
+              value={strategyInput}
+              onChange={e => setStrategyInput(e.target.value)}
+              onBlur={handleStrategySave}
+              onKeyDown={handleStrategyKeyDown}
+              className="w-full h-6 px-1 py-0 text-sm bg-surface text-primary border border-accent rounded outline-none focus:ring-2 focus:ring-accent/50"
+            />
+          ) : trade.strategyName ? (
+            <span className="text-secondary group-hover/strategy:text-primary transition-colors">{trade.strategyName}</span>
+          ) : (
+            <span className="inline-flex items-center px-2 py-0.5 rounded border border-dashed border-border-subtle/40 text-[10px] font-bold uppercase tracking-widest text-secondary/30 group-hover:text-secondary group-hover:border-border-subtle transition-colors">
+              + Add Strategy
+            </span>
+          )}
         </TableCell>
 
         <TableCell className="text-secondary font-mono text-sm">
@@ -69,17 +137,17 @@ export default function TradeRow({ trade, onEdit }: TradeRowProps) {
           {trade.exitPrice.toFixed(2)}
         </TableCell>
 
-        <TableCell className={cn("font-mono text-sm font-bold", isProfit ? 'text-success' : 'text-danger')}>
+        <TableCell className={cn("font-mono text-sm font-bold tabular-nums text-right pr-6", isProfit ? 'text-success' : 'text-danger')}>
           {isProfit ? '+' : ''}
           {formatCurrency(trade.netPnl)}
         </TableCell>
 
-        <TableCell>
-          {trade.disciplineScore != null ? (
+        <TableCell 
+          className="relative group/rating"
+        >
+          <div className="inline-block p-1 rounded">
             <DisciplineRater value={trade.disciplineScore} />
-          ) : (
-            <span className="text-tertiary text-xs uppercase tracking-widest font-bold">Unrated</span>
-          )}
+          </div>
         </TableCell>
 
         <TableCell className="text-right">
@@ -96,8 +164,8 @@ export default function TradeRow({ trade, onEdit }: TradeRowProps) {
 
       <AnimatePresence initial={false}>
         {isExpanded && (
-          <TableRow className="bg-surface-2/50 border-b border-black/5 dark:border-white/5 hover:bg-surface-2/50">
-            <TableCell colSpan={9} className="p-0">
+          <TableRow className="bg-surface-2/50 border-b border-border-subtle hover:bg-surface-2/50">
+            <TableCell colSpan={10} className="p-0">
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
@@ -110,21 +178,21 @@ export default function TradeRow({ trade, onEdit }: TradeRowProps) {
                   {/* Left Column: Metrics & Timeline */}
                   <div className="flex-1 space-y-8">
                     {/* Compact Execution Strip */}
-                    <div className="flex flex-wrap gap-4 md:gap-8 items-center p-4 rounded-xl bg-surface-1 border border-black/10 dark:border-white/10 shadow-sm">
+                    <div className="flex flex-wrap gap-4 md:gap-8 items-center p-4 rounded-xl bg-surface-1 border border-border-subtle shadow-sm">
                       <div>
                         <p className="text-[10px] text-tertiary uppercase tracking-widest font-bold mb-1">Gross P&L</p>
                         <p className={cn("text-lg font-mono font-bold tracking-tight", trade.pnl >= 0 ? "text-success" : "text-danger")}>
                           {trade.pnl >= 0 ? '+' : ''}{formatCurrency(trade.pnl)}
                         </p>
                       </div>
-                      <div className="w-px h-8 bg-black/10 dark:bg-white/10 hidden md:block" />
+                      <div className="w-px h-8 bg-border-subtle hidden md:block" />
                       <div>
                         <p className="text-[10px] text-tertiary uppercase tracking-widest font-bold mb-1">Charges</p>
                         <p className="text-lg font-mono font-bold text-danger tracking-tight">
                           -{formatCurrency(trade.charges)}
                         </p>
                       </div>
-                      <div className="w-px h-8 bg-black/10 dark:bg-white/10 hidden md:block" />
+                      <div className="w-px h-8 bg-border-subtle hidden md:block" />
                       <div>
                         <p className="text-[10px] text-tertiary uppercase tracking-widest font-bold mb-1">Quantity</p>
                         <p className="text-lg font-mono font-bold text-primary tracking-tight">
@@ -166,19 +234,46 @@ export default function TradeRow({ trade, onEdit }: TradeRowProps) {
                   
                   {/* Right Column: AI / Details */}
                   <div className="xl:w-[350px] shrink-0 space-y-6">
-                    <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 space-y-4">
+                    <div className="p-5 rounded-2xl bg-surface-2 border border-border-subtle space-y-4">
                       <div>
                         <p className="text-[10px] text-tertiary font-bold uppercase tracking-widest mb-1.5">Mental State</p>
                         {trade.mindset ? (
-                          <div className="inline-block px-3 py-1 bg-surface-1 rounded-md text-sm text-primary font-medium border border-black/10 dark:border-white/10 shadow-sm">
+                          <div className="inline-block px-3 py-1 bg-surface-1 rounded-md text-sm text-primary font-medium border border-border-subtle shadow-sm">
                             {trade.mindset}
                           </div>
                         ) : (
-                          <p className="text-xs text-tertiary italic">Not recorded</p>
+                          <span className="text-sm text-tertiary">Not logged</span>
                         )}
                       </div>
                       
-                      <hr className="border-black/5 dark:border-white/5" />
+                      <div className="pt-2">
+                        <Button 
+                          variant="primary" 
+                          className="w-full h-10 gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 border-none shadow-md shadow-indigo-500/20"
+                          onClick={() => {
+                            navigate('/app/ai-coach', { 
+                              state: { 
+                                autoPrompt: `[MODE:performance] Please provide a comprehensive Trade Replay for my trade on ${trade.symbol} (Date: ${new Date(trade.date).toLocaleDateString()}, Net P&L: ${trade.netPnl}). Analyze my entry, exit, risk management, and psychology.` 
+                              } 
+                            });
+                          }}
+                        >
+                          <BrainCircuit className="w-4 h-4 text-white" />
+                          <span className="text-white font-bold tracking-wide">AI Trade Replay</span>
+                        </Button>
+                        
+                        <Button
+                          variant="secondary"
+                          className="w-full h-10 gap-2 border border-border mt-3"
+                          onClick={() => navigate(`/app/markets?date=${trade.date}`)}
+                        >
+                          <Activity className="w-4 h-4" />
+                          View Market Context
+                        </Button>
+                      </div>
+                    </div>
+                      
+                      <hr className="border-border-subtle" />
                       
                       <div>
                         <p className="text-[10px] text-tertiary font-bold uppercase tracking-widest mb-1.5">Decision Logic</p>
@@ -188,10 +283,8 @@ export default function TradeRow({ trade, onEdit }: TradeRowProps) {
                       </div>
                     </div>
                   </div>
-
-                </div>
-              </motion.div>
-            </TableCell>
+                </motion.div>
+              </TableCell>
           </TableRow>
         )}
       </AnimatePresence>
