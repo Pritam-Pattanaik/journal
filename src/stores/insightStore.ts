@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api } from '../lib/api';
+import { api, BASE_URL } from '../lib/api';
 import { AiConversation, AiMessage } from '../types';
 
 export interface CoachMemory {
@@ -168,9 +168,8 @@ export const useInsightStore = create<InsightState>((set, get) => ({
     try {
       // We cannot use standard API wrapper for SSE, use native fetch
       const token = localStorage.getItem('token');
-      const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3000/api');
       
-      const response = await fetch(`${apiUrl}/ai/chat`, {
+      const response = await fetch(`${BASE_URL}/ai/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

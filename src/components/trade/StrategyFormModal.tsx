@@ -3,6 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { X, Target, Loader2 } from 'lucide-react';
 import { useStrategyStore } from '../../stores/strategyStore';
 import { Button } from '../ui/Button';
+import { api } from '../../lib/api';
 
 export function StrategyFormModal({ open, onOpenChange }: { open: boolean, onOpenChange: (o: boolean) => void }) {
   const { fetchStrategies } = useStrategyStore();
@@ -17,19 +18,10 @@ export function StrategyFormModal({ open, onOpenChange }: { open: boolean, onOpe
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch('/api/strategies', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('tv_token')}`
-        },
-        body: JSON.stringify(formData)
-      });
-      if (res.ok) {
-        await fetchStrategies();
-        onOpenChange(false);
-        setFormData({ name: '', description: '', timeframe: '5m' });
-      }
+      await api.post('/strategies', formData);
+      await fetchStrategies();
+      onOpenChange(false);
+      setFormData({ name: '', description: '', timeframe: '5m' });
     } catch (e) {
       console.error(e);
     } finally {
