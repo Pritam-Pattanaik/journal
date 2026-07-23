@@ -88,7 +88,7 @@ export function useNotificationSound() {
         osc.stop(now + 0.4);
         break;
 
-      case 'Critical':
+      case 'Critical': {
         // Subtle chime / resonant alert
         osc.type = 'sine';
         
@@ -109,6 +109,7 @@ export function useNotificationSound() {
         osc.stop(now + 0.8);
         osc2.stop(now + 0.8);
         break;
+      }
     }
   };
 
