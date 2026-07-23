@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trade } from '../../types';
-import { ChevronDown, TrendingUp, TrendingDown, Target, Scale, Shield, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { formatCurrency, computeStats } from '../../lib/analytics';
 import { cn } from '../../lib/cn';
+import { Trade } from '../../types';
+import { ChevronDown, ChevronRight, TrendingUp, TrendingDown, Target, Scale, Shield, ArrowUpRight, ArrowDownRight, Activity, Clock, AlertTriangle, CheckCircle } from 'lucide-react';
+import { formatCurrency, computeStats } from '../../lib/analytics';
+import DisciplineRater from '../ui/DisciplineRater';
 import { Table, TableHeader, TableBody, TableRow as UITableRow, TableHead, ResizableTableHead } from '../ui/Table';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import DailySummaryBlock from './DailySummaryBlock';
 
 interface DailyTradeAccordionProps {
   dateKey: string;
+  summary?: any;
   trades: Trade[];
   isInitiallyExpanded: boolean;
   children: React.ReactNode;
@@ -22,6 +25,7 @@ interface DailyTradeAccordionProps {
 
 export default function DailyTradeAccordion({
   dateKey,
+  summary,
   trades,
   isInitiallyExpanded,
   children,
@@ -34,6 +38,12 @@ export default function DailyTradeAccordion({
     const saved = localStorage.getItem(`tv-accordion-${dateKey}`);
     return saved !== null ? saved === 'true' : isInitiallyExpanded;
   });
+  const [isDisciplineExpanded, setIsDisciplineExpanded] = useState(false);
+
+  const validScores = trades.filter(t => t.disciplineRawScore != null || t.disciplineScore != null);
+  const avgScore = validScores.length > 0 
+    ? validScores.reduce((sum, t) => sum + (t.disciplineRawScore ?? t.disciplineScore ?? 0), 0) / validScores.length 
+    : 0;
 
   const toggleExpanded = () => {
     const next = !isExpanded;
@@ -51,9 +61,6 @@ export default function DailyTradeAccordion({
   
   const wins = trades.filter(t => t.status === 'WIN').length;
   const losses = trades.filter(t => t.status === 'LOSS').length;
-
-  const bestTrade = trades.reduce((best, t) => (!best || t.netPnl > best.netPnl ? t : best), trades[0]);
-  const worstTrade = trades.reduce((worst, t) => (!worst || t.netPnl < worst.netPnl ? t : worst), trades[0]);
 
   // Format Date (e.g. "21 Jul 2026")
   const [y, m, d] = dateKey.split('-').map(Number);
@@ -100,51 +107,68 @@ export default function DailyTradeAccordion({
           </div>
         </div>
 
-        {/* Middle: Micro Stats */}
-        <div className="hidden lg:flex items-center gap-8 flex-1 justify-center">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-surface-2 flex items-center justify-center text-iris">
-              <Target size={14} />
+        {/* Middle: Core Stats (Discipline -> Win Rate -> R:R) */}
+        <div className="hidden lg:flex items-center gap-10 flex-1 justify-center px-4">
+          
+          {/* 1. Discipline (Hero Element) */}
+          <div className="flex flex-col gap-1.5 cursor-pointer group/disc p-3 -m-3 rounded-xl hover:bg-surface-2 transition-colors relative"
+               onClick={(e) => {
+                 e.stopPropagation();
+                 setIsDisciplineExpanded(!isDisciplineExpanded);
+               }}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-tertiary uppercase tracking-widest font-bold">Discipline</span>
+              {validScores.length > 0 && (
+                <span className="text-[9px] text-tertiary font-mono bg-surface-2/50 border border-border-subtle px-2 py-0.5 rounded-full">
+                  {Math.round(
+                    trades
+                      .filter(t => t.confidence != null)
+                      .reduce((sum, t) => sum + (t.confidence || 0), 0) / validScores.length
+                  )}% CONF
+                </span>
+              )}
+            </div>
+            
+            {validScores.length > 0 ? (
+               <DisciplineRater value={Math.round(avgScore)} rawScore={parseFloat(avgScore.toFixed(1))} />
+            ) : (
+              <span className="text-sm font-bold text-tertiary mt-1">Unrated</span>
+            )}
+            
+            {/* Click indicator */}
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/disc:opacity-100 transition-opacity">
+               <ChevronRight className={cn("w-4 h-4 text-tertiary transition-transform", isDisciplineExpanded && "rotate-90")} />
+            </div>
+          </div>
+
+          <div className="w-px h-8 bg-surface-2 hidden xl:block" />
+
+          {/* 2. Win Rate */}
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-surface-2 flex items-center justify-center text-iris shadow-sm">
+              <Target size={16} />
             </div>
             <div className="flex flex-col">
-              <span className="text-xs font-bold text-primary">{winRate.toFixed(1)}%</span>
+              <span className="text-sm font-bold text-primary tracking-tight">{winRate.toFixed(1)}%</span>
               <span className="text-[9px] uppercase tracking-widest text-tertiary">{wins}W - {losses}L</span>
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-surface-2 flex items-center justify-center text-gold">
-              <Scale size={14} />
+          {/* 3. Risk Reward */}
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-surface-2 flex items-center justify-center text-gold shadow-sm">
+              <Scale size={16} />
             </div>
             <div className="flex flex-col">
-              <span className="text-xs font-bold text-primary">1:{avgRR.toFixed(1)}</span>
+              <span className="text-sm font-bold text-primary tracking-tight">1:{avgRR.toFixed(1)}</span>
               <span className="text-[9px] uppercase tracking-widest text-tertiary">Avg R:R</span>
             </div>
           </div>
-          
-          {avgDiscipline > 0 && (
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-surface-2 flex items-center justify-center text-success">
-                <Shield size={14} />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs font-bold text-primary">{avgDiscipline.toFixed(1)}/5</span>
-                <span className="text-[9px] uppercase tracking-widest text-tertiary">Discipline</span>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Right: Chevron */}
-        <div className="flex items-center justify-end gap-4 w-full sm:w-[320px] shrink-0">
-          <div className="hidden xl:flex items-center justify-end gap-3 text-xs w-[260px]">
-            {bestTrade && bestTrade.netPnl > 0 && (
-              <span className="text-success font-medium flex items-center gap-1"><TrendingUp size={12}/> Best: {formatCurrency(bestTrade.netPnl)}</span>
-            )}
-            {worstTrade && worstTrade.netPnl < 0 && (
-              <span className="text-danger font-medium flex items-center gap-1"><TrendingDown size={12}/> Worst: {formatCurrency(worstTrade.netPnl)}</span>
-            )}
-          </div>
+        <div className="flex items-center justify-end">
           <div className={cn("w-8 h-8 rounded-full flex items-center justify-center transition-transform duration-300", isExpanded ? "bg-surface-2 rotate-180" : "bg-transparent")}>
             <ChevronDown size={16} className="text-secondary" />
           </div>
@@ -161,6 +185,70 @@ export default function DailyTradeAccordion({
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className="border-t border-border overflow-hidden bg-canvas/30"
           >
+            <div className="p-5 md:p-6 bg-surface-1 border-t border-border-subtle/50">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                
+                {/* Style Card */}
+                <div className="bg-surface p-3.5 rounded-xl border border-border-subtle flex items-center gap-3.5 shadow-sm">
+                  <div className="w-10 h-10 bg-surface-2 rounded-lg text-iris flex items-center justify-center shrink-0">
+                    <Activity size={18} />
+                  </div>
+                  <div className="flex flex-col overflow-hidden">
+                    <span className="text-[10px] text-tertiary uppercase font-bold tracking-widest truncate">Style</span>
+                    <span className="text-sm font-bold text-primary truncate">
+                      {trades.find(t => t.tradingStyle)?.tradingStyle || 'Detecting...'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Hold Time Card */}
+                <div className="bg-surface p-3.5 rounded-xl border border-border-subtle flex items-center gap-3.5 shadow-sm">
+                  <div className="w-10 h-10 bg-surface-2 rounded-lg text-gold flex items-center justify-center shrink-0">
+                    <Clock size={18} />
+                  </div>
+                  <div className="flex flex-col overflow-hidden">
+                    <span className="text-[10px] text-tertiary uppercase font-bold tracking-widest truncate">Hold Time</span>
+                    <span className="text-sm font-bold text-primary font-mono truncate">
+                      {Math.round(
+                        trades.reduce((sum, t) => sum + (t.behaviourProfile?.holdDurationMins || 0), 0) / (trades.length || 1)
+                      )} mins
+                    </span>
+                  </div>
+                </div>
+
+                {/* Size Card */}
+                <div className="bg-surface p-3.5 rounded-xl border border-border-subtle flex items-center gap-3.5 shadow-sm">
+                  <div className="w-10 h-10 bg-surface-2 rounded-lg text-emerald-500 flex items-center justify-center shrink-0">
+                    <Target size={18} />
+                  </div>
+                  <div className="flex flex-col overflow-hidden">
+                    <span className="text-[10px] text-tertiary uppercase font-bold tracking-widest truncate">Avg Size</span>
+                    <span className="text-sm font-bold text-primary font-mono truncate">
+                      {Math.round(trades.reduce((sum, t) => sum + t.quantity, 0) / (trades.length || 1))}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Revenge Card */}
+                {(() => {
+                  const revengeTrades = trades.filter(t => (t.behaviourProfile?.consecutiveLossesBefore || 0) > 0 && (t.behaviourProfile?.timeSinceLastTradeMins || 0) < 10).length;
+                  return (
+                    <div className="bg-surface p-3.5 rounded-xl border border-border-subtle flex items-center gap-3.5 shadow-sm">
+                      <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-colors", revengeTrades > 0 ? "bg-danger/10 text-danger" : "bg-surface-2 text-success")}>
+                        {revengeTrades > 0 ? <AlertTriangle size={18} /> : <CheckCircle size={18} />}
+                      </div>
+                      <div className="flex flex-col overflow-hidden">
+                        <span className="text-[10px] text-tertiary uppercase font-bold tracking-widest truncate">Revenge</span>
+                        <span className={cn("text-sm font-bold font-mono truncate", revengeTrades > 0 ? "text-danger" : "text-primary")}>
+                          {revengeTrades}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+                
+              </div>
+            </div>
             <div className="w-full overflow-x-auto">
               <Table>
                 <TableHeader>

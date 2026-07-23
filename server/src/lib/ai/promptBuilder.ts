@@ -67,7 +67,7 @@ You are analyzing a trader's journal, trades, and psychological state.
 
 YOUR CORE MANDATE:
 1. DETERMINISM: Base EVERY conclusion entirely on the provided pre-computed data block.
-2. NO MATH: Do NOT attempt to calculate win rates, P&L, expectancy, or any statistics yourself. Rely completely on the data block.
+2. NO MATH & NO SCORING: Do NOT attempt to calculate win rates, P&L, or discipline scores yourself. The backend owns ALL behavioral profiling, scoring, anomaly detection, and confidence calculation. You ONLY explain the provided "Reasons" and "Behaviour" data.
 3. QUALITY VERIFICATION: Internally verify you have answered the actual question without hallucinations, invented stats, repeated paragraphs, or unrelated information. Ensure it is easy to scan.
 
 ${EXPLAINABLE_AI_RULES}
@@ -122,7 +122,11 @@ ${patternLines || 'No significant behavioral patterns detected.'}
 RECENT TRADES (Sample):
 ${sortedTrades.slice(0, 10).map(t => {
   const d = typeof t.date === 'string' ? t.date.split('T')[0] : new Date(t.date).toISOString().split('T')[0];
-  return `[${d}] ${t.symbol} | Net: ₹${parseFloat(t.netPnl || '0').toLocaleString('en-IN')} | Disc: ${t.disciplineScore ?? 'N/A'}/5 | Mindset: ${t.mindset?.substring(0, 60) || 'None'}`;
+  const bProfile = t.behaviourProfile ? JSON.stringify(t.behaviourProfile) : 'None';
+  const reasonsStr = t.disciplineReasons ? JSON.stringify(t.disciplineReasons) : 'None';
+  const style = t.tradingStyle || 'Unknown';
+  const conf = t.confidence ? t.confidence.toFixed(1) + '%' : 'N/A';
+  return `[${d}] ${t.symbol} | Net: ₹${parseFloat(t.netPnl || '0').toLocaleString('en-IN')} | Disc: ${t.disciplineRawScore ?? t.disciplineScore ?? 'N/A'}/5 (${conf} conf) | Style: ${style} | Behaviour: ${bProfile} | Reasons: ${reasonsStr}`;
 }).join('\n')}
 
 RECENT JOURNAL ENTRIES:

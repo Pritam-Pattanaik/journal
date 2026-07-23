@@ -1,4 +1,5 @@
-import { assignDisciplineScores, PersonalRules } from '../ai/disciplineScorer';
+import { assignDisciplineScores } from '../discipline/disciplineEngine';
+
 
 /**
  * Maps Dhan exchangeSegment values to TradeVault market categories.
@@ -99,7 +100,7 @@ export async function syncDhanTrades(
   userId: string,
   _existingOpenTrades: any[] = [],
   lastSyncedAt: Date | null = null,
-  personalRules?: PersonalRules | null
+  personalRules?: any | null
 ) {
   const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
@@ -437,7 +438,7 @@ export async function syncDhanTrades(
             const remainingQty = tradeQty - closeQty;
 
             if (pos.currentQty === 0) {
-              // Position fully closed
+              // Position is fully closed
               const net = pos.realizedPnl - pos.charges;
               pos.status = net > 0 ? 'WIN' : net < 0 ? 'LOSS' : 'BREAKEVEN';
               tradesToInsert.push(pos);
@@ -503,7 +504,7 @@ export async function syncDhanTrades(
     // ── Discipline Scoring Pass ────────────────────────────────────────────
     // Layer 1: Universal behavioral signals (always)
     // Layer 2: Personal rule compliance (if user has configured rules)
-    assignDisciplineScores(tradesToInsert, personalRules ?? null);
+    assignDisciplineScores(tradesToInsert);
 
     console.log(
       `[Dhan Sync] Discipline scores assigned. Sample:`,
@@ -515,6 +516,7 @@ export async function syncDhanTrades(
     );
 
     const mapToSchema = (p: any) => {
+      console.log('DEBUG MAP TO SCHEMA P:', JSON.stringify(p));
       // Detect carry-forward: position entry date ≠ exit date (overnight/multi-day hold).
       // IST trades run 09:15–15:30 → UTC 03:45–10:00, so the UTC calendar date is
       // always identical to the IST calendar date — safe to compare using ISO strings.
@@ -545,6 +547,17 @@ export async function syncDhanTrades(
         netPnl: (p.realizedPnl - p.charges).toFixed(4),
         status: p.status,
         disciplineScore: p.disciplineScore ?? null,
+        disciplineRawScore: p.disciplineRawScore ?? null,
+        confidence: p.confidence ?? null,
+        tradingStyle: p.tradingStyle ?? null,
+        behaviourProfile: p.behaviourProfile ?? null,
+        disciplineBreakdown: p.disciplineBreakdown ?? null,
+        disciplineSignals: p.disciplineSignals ?? null,
+        disciplineReasons: p.disciplineReasons ?? null,
+        disciplineVersion: p.disciplineVersion ?? 1,
+        isManualOverride: p.isManualOverride ?? false,
+        manualScore: p.manualScore ?? null,
+        computedAt: p.computedAt ?? null,
         source: 'broker_sync',
         ...(p.dbId ? { dbId: p.dbId } : {}),
       };

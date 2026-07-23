@@ -82,47 +82,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave, initialData }:
     }
   }, [initialData, isOpen]);
 
-  const autoEvaluate = async () => {
-    if (!formData.setupDescription && !formData.mindset && !formData.notes) {
-      notify.error('Please enter some setup description, mindset, or notes for the AI to evaluate.');
-      return;
-    }
-    
-    setIsEvaluating(true);
-    try {
-      const entry = parseFloat(formData.entryPrice) || 0;
-      const exit = parseFloat(formData.exitPrice) || 0;
-      const qty = parseFloat(formData.quantity) || 0;
-      const isLong = formData.direction === 'LONG';
-      const rawPnl = isLong ? (exit - entry) * qty : (entry - exit) * qty;
-      const charges = parseFloat(formData.charges) || 0;
-      const netPnl = rawPnl - charges;
-
-      const response = await api.post<{ disciplineScore: number; label: string; reason: string; reasons: string[]; mistakes: string[]; strengths: string[] }>('/ai/evaluate-trade', {
-        symbol: formData.symbol,
-        date: formData.date,
-        direction: formData.direction,
-        entryPrice: formData.entryPrice,
-        exitPrice: formData.exitPrice,
-        netPnl: netPnl.toString(),
-        quantity: formData.quantity,
-        strategyName: formData.strategyName,
-        setupDescription: formData.setupDescription,
-        mindset: formData.mindset,
-        decisionNotes: formData.notes
-      });
-      
-      setFormData(prev => ({
-        ...prev,
-        disciplineScore: response.disciplineScore.toString()
-      }));
-      notify.success(`AI Evaluation: ${response.disciplineScore}/5 ${response.label} — ${response.reason}`);
-    } catch (error) {
-      notify.error('Failed to automatically evaluate trade');
-    } finally {
-      setIsEvaluating(false);
-    }
-  };
+  // AI evaluation for score has been removed. The backend deterministic engine computes this now.
 
   if (!isOpen) return null;
 
@@ -163,6 +123,8 @@ export default function TradeFormModal({ isOpen, onClose, onSave, initialData }:
       setupDescription: formData.setupDescription,
       mindset: formData.mindset,
       learnings: formData.learnings,
+      isManualOverride: !!formData.disciplineScore,
+      manualScore: formData.disciplineScore ? parseInt(formData.disciplineScore) : undefined,
       disciplineScore: formData.disciplineScore ? parseInt(formData.disciplineScore) : undefined,
       stopLoss: parseFloat(formData.stopLoss) || null,
       mistakes: formData.mistakes,
@@ -340,16 +302,7 @@ export default function TradeFormModal({ isOpen, onClose, onSave, initialData }:
               </div>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-[11px] text-secondary font-medium uppercase tracking-wider">Discipline Score (1-5)</label>
-                  <button 
-                    type="button" 
-                    onClick={autoEvaluate} 
-                    disabled={isEvaluating}
-                    className="text-[10px] text-accent font-bold uppercase hover:text-accent-hover flex items-center gap-1 transition-colors"
-                  >
-                    {isEvaluating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Brain className="w-3 h-3" />}
-                    Auto-Evaluate
-                  </button>
+                  <label className="text-[11px] text-secondary font-medium uppercase tracking-wider">Manual Score Override (1-5)</label>
                 </div>
                 <select
                   className="input-base"

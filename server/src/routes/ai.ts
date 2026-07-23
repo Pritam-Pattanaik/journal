@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/auth';
 import { buildConversationContext } from '../lib/ai/promptBuilder';
 import { streamGroqChat, generateGroqJSON } from '../lib/ai/provider';
 import { validateDisciplineEvaluation } from '../lib/ai/disciplineSchema';
+import { createNotification } from '../services/notificationService';
 
 const router = Router();
 
@@ -299,7 +300,6 @@ SCALE:
 
 Return JSON matching this schema exactly:
 {
-  "score": 4,
   "confidence": 0.92,
   "reasons": ["Entry followed plan", "Risk respected"],
   "mistakes": ["Exited before target"],
@@ -317,13 +317,29 @@ Return JSON matching this schema exactly:
     const validated = validateDisciplineEvaluation(aiData);
 
     if (!validated) {
+      await createNotification({
+        userId: req.userId,
+        title: 'AI Analysis Failed',
+        description: 'The AI returned an invalid response for trade evaluation.',
+        category: 'AI',
+        priority: 'Warning',
+      });
       return res.status(422).json({ error: 'AI returned invalid discipline evaluation' });
     }
 
+    // Since this is a user-initiated synchronous request, creating a notification for success 
+    // every time might be too noisy. But the user explicitly requested it in Phase 2: "AI analysis completed".
+    await createNotification({
+      userId: req.userId,
+      title: 'AI Analysis Completed',
+      description: `Discipline score computed for trade ${symbol}`,
+      category: 'AI',
+      priority: 'Success',
+      actionLabel: 'View Details',
+      actionUrl: '/app/journal'
+    });
+
     res.json({
-      disciplineScore: validated.score,
-      label: validated.label,
-      color: validated.color,
       confidence: validated.confidence,
       reason: validated.reasons.join('. '),
       reasons: validated.reasons,

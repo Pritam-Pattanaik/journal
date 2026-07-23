@@ -1,8 +1,32 @@
 import { Router, Response } from 'express';
 import { prisma } from '../db';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { computeDailyDisciplineSummaries } from '../lib/discipline/disciplineSummary';
+import { createNotification } from '../services/notificationService';
 
 const router = Router();
+
+// GET /api/trades/summary/daily
+router.get('/summary/daily', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const trades = await prisma.trade.findMany({
+      where: { userId: req.userId! },
+      select: {
+        date: true,
+        exitTime: true,
+        disciplineScore: true,
+        disciplineSignals: true,
+        disciplineReasons: true,
+      },
+      orderBy: { date: 'asc' }
+    });
+    const summaries = computeDailyDisciplineSummaries(trades);
+    res.json(summaries);
+  } catch (err: any) {
+    console.error('Get daily summaries error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 // GET /api/trades
 router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
@@ -45,6 +69,12 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
         decisionNotes: body.decisionNotes || null,
         learnings: body.learnings || null,
         disciplineScore: body.disciplineScore || null,
+        disciplineReasons: body.disciplineReasons || null,
+        disciplineSignals: body.disciplineSignals || null,
+        disciplineVersion: body.disciplineVersion || 1,
+        isManualOverride: body.isManualOverride || false,
+        manualScore: body.manualScore || null,
+        computedAt: body.computedAt ? new Date(body.computedAt) : null,
         tags: body.tags || [],
         stopLoss: body.stopLoss?.toString() || null,
         mistakes: body.mistakes || [],
@@ -52,6 +82,17 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
         source: body.source || 'manual',
       },
     });
+
+    await createNotification({
+      userId: req.userId!,
+      title: 'New Trade Logged',
+      description: `Logged a ${body.direction || 'new'} trade for ${body.symbol}`,
+      category: 'Trading',
+      priority: 'Information',
+      actionLabel: 'View Trade',
+      actionUrl: '/app/journal'
+    });
+
     res.status(201).json(trade);
   } catch (err: any) {
     console.error('Create trade error:', err);
@@ -84,6 +125,12 @@ router.patch('/:id', authenticate, async (req: AuthRequest, res: Response): Prom
     if (body.decisionNotes !== undefined) updates.decisionNotes = body.decisionNotes;
     if (body.learnings !== undefined) updates.learnings = body.learnings;
     if (body.disciplineScore !== undefined) updates.disciplineScore = body.disciplineScore;
+    if (body.disciplineReasons !== undefined) updates.disciplineReasons = body.disciplineReasons;
+    if (body.disciplineSignals !== undefined) updates.disciplineSignals = body.disciplineSignals;
+    if (body.disciplineVersion !== undefined) updates.disciplineVersion = body.disciplineVersion;
+    if (body.isManualOverride !== undefined) updates.isManualOverride = body.isManualOverride;
+    if (body.manualScore !== undefined) updates.manualScore = body.manualScore;
+    if (body.computedAt !== undefined) updates.computedAt = body.computedAt ? new Date(body.computedAt) : null;
     if (body.tags !== undefined) updates.tags = body.tags;
     if (body.stopLoss !== undefined) updates.stopLoss = body.stopLoss?.toString();
     if (body.mistakes !== undefined) updates.mistakes = body.mistakes;
@@ -103,6 +150,38 @@ router.patch('/:id', authenticate, async (req: AuthRequest, res: Response): Prom
       data: updates,
     });
 
+    // Check specific changes for notifications
+    if (body.strategyId && existing.strategyId !== body.strategyId) {
+      await createNotification({
+        userId: req.userId!,
+        title: 'Strategy Assigned',
+        description: `Strategy applied to trade ${existing.symbol}`,
+        category: 'Trading',
+        priority: 'Information',
+      });
+    }
+
+    if (body.isManualOverride && !existing.isManualOverride) {
+      await createNotification({
+        userId: req.userId!,
+        title: 'Manual Discipline Override',
+        description: `Discipline score manually overridden for ${existing.symbol}`,
+        category: 'Risk',
+        priority: 'Warning',
+      });
+    }
+
+    // Generic edit notification
+    if (Object.keys(updates).length > 1 && !body.strategyId && !body.isManualOverride) {
+      await createNotification({
+        userId: req.userId!,
+        title: 'Trade Edited',
+        description: `Updated details for trade ${existing.symbol}`,
+        category: 'Trading',
+        priority: 'Information',
+      });
+    }
+
     res.json(updated);
   } catch (err: any) {
     console.error('Update trade error:', err);
@@ -114,9 +193,24 @@ router.patch('/:id', authenticate, async (req: AuthRequest, res: Response): Prom
 router.delete('/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
+    const existing = await prisma.trade.findFirst({
+      where: { id, userId: req.userId! },
+    });
+    
     await prisma.trade.deleteMany({
       where: { id, userId: req.userId! },
     });
+
+    if (existing) {
+      await createNotification({
+        userId: req.userId!,
+        title: 'Trade Deleted',
+        description: `Deleted trade ${existing.symbol}`,
+        category: 'Trading',
+        priority: 'Warning',
+      });
+    }
+
     res.json({ success: true });
   } catch (err: any) {
     console.error('Delete trade error:', err);

@@ -19,10 +19,6 @@ export interface DisciplineBreakdown {
 }
 
 export interface DisciplineEvaluation {
-  score: number;
-  maxScore: 5;
-  label: string;
-  color: string;
   confidence: number;
   reasons: string[];
   mistakes: string[];
@@ -37,11 +33,11 @@ interface DisciplineLevel {
 }
 
 const DISCIPLINE_SCALE: DisciplineLevel[] = [
-  { score: 5, label: 'Elite',     color: '#00c48c' },
-  { score: 4, label: 'Excellent', color: '#10d990' },
-  { score: 3, label: 'Good',      color: '#6366f1' },
-  { score: 2, label: 'Poor',      color: '#f59e0b' },
-  { score: 1, label: 'Critical',  color: '#ff4b6e' },
+  { score: 5, label: 'Flawless', color: '#10b981' }, // Green
+  { score: 4, label: 'Good',     color: '#34d399' }, // Light Green
+  { score: 3, label: 'Average',  color: '#f59e0b' }, // Amber
+  { score: 2, label: 'Poor',     color: '#f97316' }, // Orange
+  { score: 1, label: 'Reckless', color: '#ef4444' }, // Red
 ];
 
 /**
@@ -79,14 +75,8 @@ export function parseDisciplineFromAIResponse(text: string): DisciplineEvaluatio
 
   try {
     const data = JSON.parse(jsonStr);
-    const info = getDisciplineInfo(data.score);
-    if (!info) return null;
 
     return {
-      score: info.score,
-      maxScore: 5,
-      label: info.label,
-      color: info.color,
       confidence: typeof data.confidence === 'number' ? data.confidence : 0.8,
       reasons: Array.isArray(data.reasons) ? data.reasons : [],
       mistakes: Array.isArray(data.mistakes) ? data.mistakes : [],

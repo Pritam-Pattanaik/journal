@@ -18,7 +18,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/cn';
 
 export default function Trades() {
-  const { trades, loading, fetchTrades, addTrade, updateTrade, deleteTrade } = useTradeStore();
+  const { trades, dailySummaries, loading, fetchTrades, addTrade, updateTrade, deleteTrade } = useTradeStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [marketFilter, setMarketFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -355,6 +355,7 @@ export default function Trades() {
                 <DailyTradeAccordion
                   key={dateKey}
                   dateKey={dateKey}
+                  summary={dailySummaries[dateKey]}
                   trades={dayTrades}
                   isInitiallyExpanded={isFirst}
                   sortConfig={sortConfig}

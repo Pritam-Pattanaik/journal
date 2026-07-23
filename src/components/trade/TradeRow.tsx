@@ -146,7 +146,15 @@ export default function TradeRow({ trade, onEdit, isSelected, onToggleSelect, on
           className="relative group/rating"
         >
           <div className="inline-block p-1 rounded">
-            <DisciplineRater value={trade.disciplineScore} />
+            <DisciplineRater 
+              value={trade.disciplineScore} 
+              rawScore={trade.disciplineRawScore}
+              confidence={trade.confidence}
+              tradingStyle={trade.tradingStyle}
+              breakdown={trade.disciplineBreakdown}
+              signals={trade.disciplineSignals}
+              reasons={trade.disciplineReasons}
+            />
           </div>
         </TableCell>
 

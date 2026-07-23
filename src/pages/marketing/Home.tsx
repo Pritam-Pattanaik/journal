@@ -42,12 +42,12 @@ export default function Home() {
   const yPreview = useTransform(scrollYProgress, [0, 0.2], [80, 0]);
 
   return (
-    <main className="flex flex-col items-center w-full min-h-screen bg-canvas text-primary overflow-x-hidden">
+    <main className="flex flex-col items-center w-full bg-canvas text-primary overflow-x-hidden">
 
       {/* ── Hero ── */}
       <motion.section
         style={{ y: yHero, opacity: opHero }}
-        className="relative w-full pt-52 pb-36 flex flex-col items-center justify-center overflow-hidden"
+        className="relative w-full pt-16 md:pt-24 pb-20 flex flex-col items-center justify-center overflow-hidden"
       >
         {/* Mesh gradient blobs */}
         <motion.div
@@ -74,7 +74,7 @@ export default function Home() {
           initial={{ opacity: 0, y: 24, filter: 'blur(8px)' }}
           animate={{ opacity: 1, y: 0, filter: 'blur(0)' }}
           transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-10 border border-border bg-surface/80 backdrop-blur-md text-xs font-bold text-primary hover:scale-105 transition-transform cursor-pointer shadow-xs"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-8 border border-border bg-surface/80 backdrop-blur-md text-xs font-bold text-primary hover:scale-105 transition-transform cursor-pointer shadow-xs"
         >
           <span className="flex h-2 w-2 rounded-full bg-accent shadow-[0_0_10px_rgba(var(--color-accent),0.8)]" />
           <Zap size={12} className="text-gold" />
@@ -87,7 +87,7 @@ export default function Home() {
           initial={{ opacity: 0, y: 40, filter: 'blur(12px)' }}
           animate={{ opacity: 1, y: 0, filter: 'blur(0)' }}
           transition={{ duration: 1.0, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-          className="font-display text-6xl md:text-8xl lg:text-[7.5rem] font-bold tracking-tighter text-primary leading-[1] mb-8 max-w-5xl mx-auto text-center"
+          className="font-display text-6xl md:text-8xl lg:text-[7.5rem] font-bold tracking-tighter text-primary leading-[1] mb-6 max-w-5xl mx-auto text-center"
         >
           Trade with an<br />
           <span className="text-gradient font-serif italic font-normal tracking-normal pr-4">unfair edge.</span>
@@ -98,7 +98,7 @@ export default function Home() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
-          className="text-lg md:text-xl text-secondary max-w-2xl mx-auto mb-12 text-center leading-relaxed font-medium"
+          className="text-lg md:text-xl text-secondary max-w-2xl mx-auto mb-10 text-center leading-relaxed font-medium"
         >
           The workspace for serious traders. Automated broker sync, hyper-detailed journaling, 
           and an AI coach that finds the leaks in your discipline.

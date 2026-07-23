@@ -79,7 +79,16 @@ export default function TradeCard({ trade, onEdit, onDelete }: TradeCardProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <DisciplineRater value={trade.disciplineScore} compact />
+            <DisciplineRater 
+              value={trade.disciplineScore} 
+              rawScore={trade.disciplineRawScore}
+              confidence={trade.confidence}
+              tradingStyle={trade.tradingStyle}
+              breakdown={trade.disciplineBreakdown}
+              signals={trade.disciplineSignals}
+              reasons={trade.disciplineReasons}
+              compact 
+            />
             <motion.div
               animate={{ rotate: isExpanded ? 180 : 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 20 }}

@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
+import { useNotificationStore } from '../../stores/notificationStore';
+import { NotificationPanel } from '../notifications';
 import { cn } from '../../lib/cn';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import UserProfileDropdown from './UserProfileDropdown';
@@ -28,6 +30,8 @@ export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile } = useAuthStore();
+  const { notifications, setPanelOpen, fetchNotifications, initializeSSE } = useNotificationStore();
+  const unreadCount = notifications.filter(n => !n.isRead).length;
   const { sidebarOpen, setSidebarOpen, desktopSidebarExpanded, toggleDesktopSidebar } = useUIStore();
 
   const navGroups: NavGroup[] = React.useMemo(() => {
@@ -111,6 +115,14 @@ export default function Sidebar() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Initialize Notifications
+  useEffect(() => {
+    if (profile) {
+      fetchNotifications();
+      initializeSSE();
+    }
+  }, [profile, fetchNotifications, initializeSSE]);
+
   const SidebarContent = () => (
     <div className="flex flex-col h-full overflow-hidden bg-surface-0 border-r border-border">
       
@@ -182,24 +194,41 @@ export default function Sidebar() {
         )}
 
         {desktopSidebarExpanded ? (
-          <button className="w-full flex items-center gap-3 px-3 py-2 hover:bg-surface-1 rounded-lg text-secondary transition-colors text-sm text-left group">
+          <button 
+            onClick={() => setPanelOpen(true)}
+            className="w-full flex items-center gap-3 px-3 py-2 hover:bg-surface-1 rounded-lg text-secondary transition-colors text-sm text-left group"
+          >
             <div className="relative">
               <Bell className="w-4 h-4 shrink-0 group-hover:text-primary transition-colors text-tertiary" />
-              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-accent rounded-full border border-surface-0"></span>
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-accent rounded-full border border-surface-0"></span>
+              )}
             </div>
-            <span className="flex-1 font-medium">Notifications</span>
+            <span className="flex-1 font-medium flex justify-between items-center">
+              Notifications
+              {unreadCount > 0 && (
+                <span className="px-1.5 py-0.5 bg-accent text-inverse rounded-md text-[10px] font-bold leading-none">
+                  {unreadCount}
+                </span>
+              )}
+            </span>
           </button>
         ) : (
           <Tooltip.Root>
             <Tooltip.Trigger asChild>
-              <button className="w-full flex items-center justify-center h-10 hover:bg-surface-1 rounded-lg text-secondary transition-colors group relative">
+              <button 
+                onClick={() => setPanelOpen(true)}
+                className="w-full flex items-center justify-center h-10 hover:bg-surface-1 rounded-lg text-secondary transition-colors group relative"
+              >
                 <Bell className="w-4 h-4 text-tertiary group-hover:text-primary transition-colors" />
-                <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-accent rounded-full border border-surface-0"></span>
+                {unreadCount > 0 && (
+                  <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-accent rounded-full border border-surface-0"></span>
+                )}
               </button>
             </Tooltip.Trigger>
             <Tooltip.Portal>
               <Tooltip.Content side="right" sideOffset={10} className="bg-surface-elevated border border-border px-3 py-1.5 rounded-md shadow-floating text-xs font-medium text-primary z-50 animate-in fade-in zoom-in-95">
-                Notifications
+                Notifications {unreadCount > 0 && `(${unreadCount})`}
               </Tooltip.Content>
             </Tooltip.Portal>
           </Tooltip.Root>
@@ -307,6 +336,7 @@ export default function Sidebar() {
   );
 
   return (
+    <>
     <Tooltip.Provider delayDuration={200}>
       {/* Desktop Sidebar (Absolute position) */}
       <div 
@@ -343,5 +373,7 @@ export default function Sidebar() {
         )}
       </AnimatePresence>
     </Tooltip.Provider>
+    <NotificationPanel />
+    </>
   );
 }

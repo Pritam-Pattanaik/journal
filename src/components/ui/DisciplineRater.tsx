@@ -1,34 +1,54 @@
 import React, { useState } from 'react';
 import { getDisciplineInfo, DisciplineBreakdown } from '../../lib/disciplineUtils';
 import { cn } from '../../lib/cn';
+import * as Tooltip from '@radix-ui/react-tooltip';
+import { CheckCircle2, AlertTriangle, Info } from 'lucide-react';
 
 interface DisciplineRaterProps {
   value?: number | null; // 1 to 5
+  rawScore?: number | null;
+  confidence?: number | null;
+  tradingStyle?: string | null;
   onChange?: (val: number) => void;
   interactive?: boolean;
-  /** Optional breakdown for the tooltip */
-  breakdown?: DisciplineBreakdown;
-  /** Compact mode for tight table cells */
+  breakdown?: any;
+  signals?: any;
+  reasons?: string[];
   compact?: boolean;
 }
 
-const BREAKDOWN_LABELS: { key: keyof DisciplineBreakdown; label: string }[] = [
-  { key: 'entryPlan',       label: 'Entry Plan' },
-  { key: 'riskManagement',  label: 'Risk Management' },
-  { key: 'exitExecution',   label: 'Exit Execution' },
-  { key: 'emotionControl',  label: 'Emotion Control' },
-  { key: 'ruleCompliance',  label: 'Rule Compliance' },
+const BREAKDOWN_LABELS: { key: string; label: string }[] = [
+  { key: 'entryTiming',       label: 'Entry Timing' },
+  { key: 'holdTime',          label: 'Hold Time' },
+  { key: 'sizing',            label: 'Position Size' },
+  { key: 'revenge',           label: 'Revenge Avoidance' },
+  { key: 'consistency',       label: 'Risk Consistency' },
+  { key: 'personalRules',     label: 'Rule Compliance' },
 ];
+
+export interface DisciplineSignals {
+  entryTiming?: number;
+  holdTime?: number;
+  sizing?: number;
+  revenge?: number;
+  stopLoss?: number;
+  consistency?: number;
+  personalRules?: number;
+}
 
 export default function DisciplineRater({
   value,
+  rawScore,
+  confidence,
+  tradingStyle,
   onChange,
   interactive = false,
   breakdown,
+  signals,
+  reasons,
   compact = false,
 }: DisciplineRaterProps) {
   const [hoveredScore, setHoveredScore] = useState<number | null>(null);
-  const [showTooltip, setShowTooltip] = useState(false);
 
   const info = getDisciplineInfo(interactive ? (hoveredScore ?? value) : value);
   const displayInfo = getDisciplineInfo(value);
@@ -88,110 +108,159 @@ export default function DisciplineRater({
 
   // ─── Display Mode (Trade Table, Cards, Modals) ────────────────────────────
   return (
-    <div
-      className="relative inline-flex items-center gap-2 select-none group/disc"
-      onMouseEnter={() => setShowTooltip(true)}
-      onMouseLeave={() => setShowTooltip(false)}
-    >
-      {/* Filled + Empty Circles */}
-      <div className="flex items-center gap-0.5">
-        {Array.from({ length: 5 }, (_, i) => {
-          const isFilled = i < displayInfo.filledCount;
-          return (
-            <div
-              key={i}
-              className={cn(
-                "rounded-full transition-all duration-200",
-                compact ? "w-2.5 h-2.5" : "w-3 h-3"
+    <Tooltip.Provider delayDuration={150}>
+      <Tooltip.Root>
+        <Tooltip.Trigger asChild>
+          <div className="relative inline-flex items-center gap-4 select-none group/disc cursor-help hover:bg-white/5 transition-colors duration-200 rounded-lg p-1.5 -m-1.5 whitespace-nowrap flex-nowrap shrink-0">
+            {/* Filled + Empty Circles */}
+            <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
+              {Array.from({ length: 5 }, (_, i) => {
+                const isFilled = i < displayInfo.filledCount;
+                return (
+                  <svg
+                    key={i}
+                    className={cn("transition-all duration-300 shrink-0", compact ? "w-4 h-4" : "w-5 h-5")}
+                    viewBox="0 0 24 24"
+                    fill={isFilled ? displayInfo.color : 'transparent'}
+                    stroke={isFilled ? displayInfo.color : 'rgba(255, 255, 255, 0.15)'}
+                    strokeWidth="2"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                  </svg>
+                );
+              })}
+            </div>
+
+            {/* Flat Horizontal Labels */}
+            <div className="flex items-center gap-4 shrink-0 whitespace-nowrap">
+              {/* Score Group */}
+              <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
+                <span className="text-xs font-mono font-bold text-primary shrink-0">
+                  {rawScore ?? displayInfo.score} / {displayInfo.maxScore}
+                </span>
+                <span
+                  className="text-[10px] font-bold tracking-widest uppercase shrink-0"
+                  style={{ color: displayInfo.color }}
+                >
+                  {displayInfo.label}
+                </span>
+              </div>
+              
+              {/* Confidence Badge */}
+              {confidence != null && (
+                <span className="inline-flex items-center justify-center h-[20px] px-2 rounded-full bg-white/5 backdrop-blur-md border border-white/10 text-[10px] uppercase tracking-widest font-bold text-tertiary/90 shadow-sm shrink-0 whitespace-nowrap">
+                  {Math.round(confidence)}% CONF
+                </span>
               )}
-              style={{
-                backgroundColor: isFilled ? displayInfo.color : 'transparent',
-                border: `1.5px solid ${isFilled ? displayInfo.color : 'rgba(255, 255, 255, 0.15)'}`,
-              }}
-            />
-          );
-        })}
-      </div>
-
-      {/* Score + Label */}
-      {!compact && (
-        <span
-          className="text-[10px] font-bold uppercase tracking-widest whitespace-nowrap"
-          style={{ color: displayInfo.color }}
-        >
-          {displayInfo.label}
-        </span>
-      )}
-
-      {/* Hover Tooltip */}
-      {showTooltip && (
-        <div className="absolute z-[100] left-1/2 -translate-x-1/2 bottom-full mb-3 w-64 p-4 bg-surface-elevated border border-border rounded-xl shadow-floating animate-in fade-in zoom-in-95 duration-150 pointer-events-none">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-3 pb-2 border-b border-border">
-            <span className="text-xs font-bold text-primary uppercase tracking-widest">
-              Discipline Breakdown
-            </span>
-            <span
-              className="text-sm font-mono font-bold"
-              style={{ color: displayInfo.color }}
-            >
-              {displayInfo.score}/{displayInfo.maxScore}
-            </span>
-          </div>
-
-          {/* Breakdown rows */}
-          {breakdown ? (
-            <div className="space-y-2">
-              {BREAKDOWN_LABELS.map(({ key, label }) => {
-                const passed = breakdown[key];
-                return (
-                  <div key={key} className="flex items-center justify-between text-xs">
-                    <span className="text-secondary font-medium">{label}</span>
-                    <span className={cn(
-                      "font-bold",
-                      passed ? "text-success" : "text-warning"
-                    )}>
-                      {passed ? '✓' : '△'}
-                    </span>
-                  </div>
-                );
-              })}
             </div>
-          ) : (
-            <div className="space-y-2">
-              {BREAKDOWN_LABELS.map(({ key, label }) => {
-                // Infer from score when no breakdown data available
-                const passed = displayInfo.score >= (key === 'exitExecution' ? 4 : key === 'emotionControl' ? 3 : 2);
-                return (
-                  <div key={key} className="flex items-center justify-between text-xs">
-                    <span className="text-secondary font-medium">{label}</span>
-                    <span className={cn(
-                      "font-bold",
-                      passed ? "text-success" : "text-warning"
-                    )}>
-                      {passed ? '✓' : '△'}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Footer Label */}
-          <div className="mt-3 pt-2 border-t border-border flex items-center justify-between">
-            <span className="text-[10px] text-tertiary font-bold uppercase tracking-widest">Overall</span>
-            <span
-              className="text-xs font-bold uppercase tracking-widest"
-              style={{ color: displayInfo.color }}
-            >
-              {displayInfo.label}
-            </span>
           </div>
+        </Tooltip.Trigger>
 
-          {/* Arrow */}
-          <div className="absolute left-1/2 -translate-x-1/2 top-full w-2.5 h-2.5 bg-surface-elevated border-r border-b border-border rotate-45 -mt-1.5" />
-        </div>
-      )}
-    </div>
+        <Tooltip.Portal>
+          <Tooltip.Content
+            side="top"
+            sideOffset={8}
+            className="z-[100] w-[260px] p-3 bg-surface-elevated/95 backdrop-blur-xl border border-white/10 shadow-2xl rounded-xl animate-in fade-in zoom-in-95 duration-150"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between mb-2 pb-2 border-b border-white/10">
+              <span className="text-[10px] font-bold text-tertiary uppercase tracking-widest">
+                Discipline Breakdown
+              </span>
+              <span
+                className="text-xs font-mono font-bold"
+                style={{ color: displayInfo.color }}
+              >
+                {displayInfo.score}/{displayInfo.maxScore}
+              </span>
+            </div>
+
+            {/* Breakdown rows */}
+            {tradingStyle && (
+              <div className="flex items-center justify-between text-xs mb-1.5 pb-1.5 border-b border-white/5">
+                 <span className="text-secondary font-medium">Style</span>
+                 <span className="font-bold text-primary">{tradingStyle}</span>
+              </div>
+            )}
+            {breakdown && Object.keys(breakdown).length > 0 ? (
+              <div className="space-y-1.5">
+                {Object.entries(breakdown).map(([key, val]) => {
+                  const passed = (val as number) >= 0;
+                  return (
+                    <div key={key} className="flex items-center justify-between text-[11px]">
+                      <span className="text-secondary capitalize">{key}</span>
+                      <span className={cn(
+                        "flex items-center font-bold",
+                        passed ? "text-success" : "text-warning"
+                      )}>
+                        {passed ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                      </span>
+                    </div>
+                  );
+                })}
+                {reasons && reasons.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-white/10">
+                     <ul className="text-[10px] list-none space-y-1.5">
+                      {reasons.map((r, idx) => {
+                        const isGood = r.startsWith('✓');
+                        const isBad = r.startsWith('⚠');
+                        return (
+                          <li key={idx} className={cn("flex items-start gap-1.5 leading-snug", isGood ? "text-success/90" : isBad ? "text-warning/90" : "text-tertiary")}>
+                             <span className="shrink-0 mt-0.5">
+                               {isGood ? <CheckCircle2 className="w-3 h-3" /> : isBad ? <AlertTriangle className="w-3 h-3" /> : <Info className="w-3 h-3" />}
+                             </span>
+                             <span className="text-secondary">{isGood || isBad ? r.slice(1).trim() : r}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ) : signals ? (
+              <div className="space-y-1.5">
+                {[
+                  { key: 'entryPlan',       label: 'Entry Plan' },
+                  { key: 'riskManagement',  label: 'Risk Management' },
+                  { key: 'exitExecution',   label: 'Exit Execution' },
+                  { key: 'emotionControl',  label: 'Emotion Control' },
+                  { key: 'ruleCompliance',  label: 'Rule Compliance' },
+                ].map(({ key, label }) => {
+                  const passed = (breakdown as any)[key];
+                  return (
+                    <div key={key} className="flex items-center justify-between text-[11px]">
+                      <span className="text-secondary">{label}</span>
+                      <span className={cn(
+                        "flex items-center font-bold",
+                        passed ? "text-success" : "text-warning"
+                      )}>
+                        {passed ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-[11px] text-tertiary text-center italic py-1">
+                No breakdown available
+              </div>
+            )}
+
+            {/* Footer Label */}
+            <div className="mt-2 pt-1.5 border-t border-white/10 flex items-center justify-between">
+              <span className="text-[9px] text-tertiary font-bold uppercase tracking-widest">Overall</span>
+              <span
+                className="text-[10px] font-bold uppercase tracking-widest"
+                style={{ color: displayInfo.color }}
+              >
+                {displayInfo.label}
+              </span>
+            </div>
+
+            <Tooltip.Arrow className="fill-surface-elevated/95" />
+          </Tooltip.Content>
+        </Tooltip.Portal>
+      </Tooltip.Root>
+    </Tooltip.Provider>
   );
 }

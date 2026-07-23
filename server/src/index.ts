@@ -27,6 +27,8 @@ import reflectionsRoutes from './routes/reflections';
 import goalsRoutes from './routes/goals';
 import searchRoutes from './routes/search';
 import notesRoutes from './routes/notes';
+import marketRoutes from './routes/market';
+import notificationRoutes from './routes/notifications';
 
 const app = express();
 
@@ -50,29 +52,11 @@ if (process.env.SENTRY_DSN) {
   }
 }
 
-// Dynamic CORS configuration loaded from environment variables
-const allowedOrigins: string[] = (
-  process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',')
-    : [
-        'http://localhost:5173',
-        'http://localhost:5174',
-        'http://localhost:5175',
-        'http://127.0.0.1:5173',
-        'http://127.0.0.1:5174',
-        'http://localhost:3000',
-        'https://journal-puce-seven.vercel.app'
-      ]
-).map(o => o.trim());
-
+// Dynamic CORS configuration
+// In our strict same-origin architecture (Vite Proxy in Dev, Vercel Rewrites in Prod),
+// cross-origin requests are not needed. We only allow them if explicitly configured.
 app.use(cors({
-  origin: (incomingOrigin, callback) => {
-    if (!incomingOrigin) return callback(null, true);
-    if (allowedOrigins.includes(incomingOrigin) || incomingOrigin.startsWith('http://localhost:') || incomingOrigin.endsWith('.vercel.app')) {
-      return callback(null, true);
-    }
-    callback(new Error(`CORS policy: origin '${incomingOrigin}' not allowed`));
-  },
+  origin: process.env.EXTERNAL_FRONTEND_URL || false,
   credentials: true,
 }));
 
@@ -116,11 +100,13 @@ app.use('/api/auth', authRoutes);
 app.use('/api/trades', tradeRoutes);
 app.use('/api/brokers', brokerRoutes);
 app.use('/api/trading-rules', tradingRulesRoutes);
+app.use('/api/market', marketRoutes);
 app.use('/api/strategies', strategyRoutes);
 app.use('/api/journal', journalRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/news', newsRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/reflections', reflectionsRoutes);
 app.use('/api/goals', goalsRoutes);

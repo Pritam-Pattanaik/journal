@@ -10,10 +10,6 @@ export interface DisciplineBreakdown {
 }
 
 export interface DisciplineEvaluation {
-  score: number;        // 1-5
-  maxScore: 5;
-  label: string;
-  color: string;
   confidence: number;   // 0-1
   reasons: string[];
   mistakes: string[];
@@ -55,16 +51,7 @@ export function getDisciplineColor(score: number): string {
 export function validateDisciplineEvaluation(data: any): DisciplineEvaluation | null {
   if (!data || typeof data !== 'object') return null;
 
-  const score = typeof data.score === 'number' ? Math.max(1, Math.min(5, Math.round(data.score))) : null;
-  if (score === null) return null;
-
-  const level = getDisciplineLevel(score);
-
   return {
-    score,
-    maxScore: 5,
-    label: level.label,
-    color: level.color,
     confidence: typeof data.confidence === 'number' ? Math.max(0, Math.min(1, data.confidence)) : 0.8,
     reasons: Array.isArray(data.reasons) ? data.reasons.filter((r: any) => typeof r === 'string') : [],
     mistakes: Array.isArray(data.mistakes) ? data.mistakes.filter((r: any) => typeof r === 'string') : [],
@@ -94,7 +81,6 @@ SCALE:
 When you evaluate discipline, output this JSON block wrapped in HTML comments:
 <!--DISCIPLINE_JSON-->
 {
-  "score": 4,
   "confidence": 0.92,
   "reasons": ["Entry followed plan", "Risk respected", "Exit slightly early"],
   "mistakes": ["Exited before target"],
@@ -110,7 +96,8 @@ When you evaluate discipline, output this JSON block wrapped in HTML comments:
 <!--/DISCIPLINE_JSON-->
 
 RULES:
-- Always base the score on the PRE-COMPUTED DATA, never guess.
+- DO NOT generate a score. You are explaining the discipline behavior, not calculating it.
+- Always base your insights on the PRE-COMPUTED DATA, never guess.
 - Include this block whenever discussing a specific trade or trade session.
 - The breakdown booleans indicate pass/fail for each discipline dimension.
 `;

@@ -21,6 +21,15 @@ export interface Trade {
   decisionNotes?: string;
   learnings?: string;
   disciplineScore?: number;
+  disciplineRawScore?: number | null;
+  confidence?: number | null;
+  tradingStyle?: string | null;
+  behaviourProfile?: any | null;
+  disciplineSignals?: Record<string, number>;
+  disciplineBreakdown?: Record<string, number>;
+  disciplineReasons?: string[];
+  isManualOverride?: boolean;
+  manualScore?: number | null;
   tags?: string[];
   stopLoss?: number | null;
   mistakes?: string[];
@@ -109,10 +118,17 @@ export interface AiConversation {
   isArchived?: boolean;
   createdAt?: string;
   updatedAt?: string;
-  _count?: {
-    messages: number;
-  };
+  _count?: Record<string, number>;
 }
+
+export const BREAKDOWN_LABELS: { key: string; label: string }[] = [
+  { key: 'entryTiming',       label: 'Entry Timing' },
+  { key: 'holdTime',          label: 'Hold Time' },
+  { key: 'sizing',            label: 'Position Size' },
+  { key: 'revenge',           label: 'Revenge Avoidance' },
+  { key: 'consistency',       label: 'Risk Consistency' },
+  { key: 'personalRules',     label: 'Rule Compliance' },
+];
 
 export interface BrokerConnection {
   id: string;

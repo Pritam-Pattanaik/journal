@@ -3,29 +3,16 @@
  * Automatically attaches JWT token from localStorage.
  */
 
-// Determine the API base URL with a bulletproof production guard.
+// Determine the API base URL.
 // 1. If VITE_API_URL env var is explicitly set, always use it.
-// 2. In production builds (import.meta.env.PROD === true), use relative '/api'.
-// 3. As a runtime safety net: if the page is NOT served from localhost/127.0.0.1,
-//    force '/api' regardless of build flags — this prevents localhost from EVER
-//    leaking into a deployed environment even if the build is misconfigured.
-// 4. Only in local development (localhost), use the local backend server.
+// 2. Otherwise, use relative '/api' which works perfectly for both:
+//    - Local Development: Routes through the Vite proxy.
+//    - Production (Vercel): Routes through vercel.json rewrites.
 function resolveBaseUrl(): string {
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
   }
-  if (import.meta.env.PROD) {
-    return '/api';
-  }
-  // Runtime guard: if we're somehow NOT in PROD mode but also NOT on localhost,
-  // we're in a deployed environment with a bad build — use relative /api.
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    if (host !== 'localhost' && host !== '127.0.0.1') {
-      return '/api';
-    }
-  }
-  return 'http://localhost:3000/api';
+  return '/api';
 }
 
 export const BASE_URL = resolveBaseUrl();

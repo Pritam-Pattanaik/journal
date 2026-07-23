@@ -27,6 +27,15 @@ function normalize(raw: any): Trade {
     decisionNotes: raw.decisionNotes ?? undefined,
     learnings: raw.learnings ?? undefined,
     disciplineScore: raw.disciplineScore ?? undefined,
+    disciplineRawScore: raw.disciplineRawScore ?? undefined,
+    confidence: raw.confidence ?? undefined,
+    tradingStyle: raw.tradingStyle ?? undefined,
+    behaviourProfile: raw.behaviourProfile ?? undefined,
+    disciplineSignals: raw.disciplineSignals ?? undefined,
+    disciplineBreakdown: raw.disciplineBreakdown ?? undefined,
+    disciplineReasons: raw.disciplineReasons ?? undefined,
+    isManualOverride: raw.isManualOverride ?? undefined,
+    manualScore: raw.manualScore ?? undefined,
     tags: raw.tags ?? undefined,
     source: raw.source ?? 'manual',
     exitTime: raw.exitTime instanceof Date ? raw.exitTime.toISOString() : raw.exitTime,
@@ -41,6 +50,7 @@ interface TradeState {
   trades: Trade[];
   loading: boolean;
   error: string | null;
+  dailySummaries: Record<string, any>;
   // Actions
   fetchTrades: () => Promise<void>;
   addTrade: (trade: Omit<Trade, 'id'>) => Promise<void>;
@@ -53,12 +63,16 @@ export const useTradeStore = create<TradeState>((set, ) => ({
   trades: [],
   loading: false,
   error: null,
+  dailySummaries: {},
 
   fetchTrades: async () => {
     set({ loading: true, error: null });
     try {
-      const raw = await api.get<any[]>('/trades');
-      set({ trades: raw.map(normalize), loading: false });
+      const [raw, summaries] = await Promise.all([
+        api.get<any[]>('/trades'),
+        api.get<Record<string, any>>('/trades/summary/daily').catch(() => ({}))
+      ]);
+      set({ trades: raw.map(normalize), dailySummaries: summaries, loading: false });
     } catch (err: any) {
       console.error('fetchTrades error:', err);
       set({ error: err.message, loading: false });

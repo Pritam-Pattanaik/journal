@@ -32,6 +32,7 @@ model User {
   monthlyReflections MonthlyReflection[]
   goals              Goal[]
   newsBookmarks      NewsBookmark[]
+  notifications      Notification[]
 
   @@map("users")
 }
@@ -97,7 +98,18 @@ model Trade {
   mindset          String?
   decisionNotes    String?   @map("decision_notes")
   learnings        String?
-  disciplineScore  Int?      @map("discipline_score")
+  disciplineScore   Int?      @map("discipline_score")
+  disciplineRawScore Float?   @map("discipline_raw_score")
+  disciplineReasons Json?     @map("discipline_reasons")
+  disciplineSignals Json?     @map("discipline_signals")
+  disciplineBreakdown Json?   @map("discipline_breakdown")
+  behaviourProfile Json?      @map("behaviour_profile")
+  confidence      Float?      @map("confidence")
+  tradingStyle    String?     @map("trading_style")
+  disciplineVersion Int?      @default(1) @map("discipline_version")
+  isManualOverride  Boolean?  @default(false) @map("is_manual_override")
+  manualScore       Int?      @map("manual_score")
+  computedAt        DateTime? @map("computed_at")
   tags             String[]
   source           String?
   stopLoss         Decimal?  @map("stop_loss")
@@ -385,4 +397,23 @@ model TradeNewsLink {
 
   @@unique([tradeId, newsId])
   @@map("trade_news_links")
+}
+
+model Notification {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  title       String
+  description String
+  category    String   // 'Trading' | 'Risk' | 'Market' | 'AI' | 'Reports'
+  priority    String   // 'Critical' | 'Warning' | 'Success' | 'Information'
+  isRead      Boolean  @default(false) @map("is_read")
+  actionLabel String?  @map("action_label")
+  actionUrl   String?  @map("action_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, category])
+  @@map("notifications")
 }

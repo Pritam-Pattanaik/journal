@@ -3,6 +3,7 @@ import { prisma } from '../db';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { syncDhanTrades } from '../lib/brokers/dhan';
 import { lockService } from '../services/lockService';
+import { createNotification } from '../services/notificationService';
 
 const router = Router();
 
@@ -116,6 +117,15 @@ router.post('/sync/:broker', authenticate, async (req: AuthRequest, res: Respons
     return res.json({ success: true, count: 0, alreadySyncing: true });
   }
 
+  // Create "Sync Started" Notification
+  await createNotification({
+    userId: req.userId!,
+    title: 'Trade Sync Started',
+    description: `Synchronizing trades from ${broker.toUpperCase()}`,
+    category: 'Trading',
+    priority: 'Information',
+  });
+
   try {
     const forceFullSync = req.query.full === 'true';
 
@@ -197,6 +207,15 @@ router.post('/sync/:broker', authenticate, async (req: AuthRequest, res: Respons
       } catch (err: any) {
         if (err.message === 'TOKEN_EXPIRED') {
           if (!metadata.password || !metadata.totpSecret) {
+            await createNotification({
+              userId: req.userId!,
+              title: 'Broker Token Expired',
+              description: `Angel One requires re-authentication. Update your broker settings.`,
+              category: 'Trading',
+              priority: 'Warning',
+              actionLabel: 'Reconnect',
+              actionUrl: '/app/settings'
+            });
             return res.status(400).json({ error: 'Angel One requires Password and TOTP Secret for auto-login. Please update your broker settings.' });
           }
           const { loginAngelOne } = await import('../lib/brokers/angelone');
@@ -230,6 +249,23 @@ router.post('/sync/:broker', authenticate, async (req: AuthRequest, res: Respons
           };
         }),
       });
+
+      // Generate Risk Notifications for any violations
+      for (const t of tradesToInsert) {
+        if (t._ruleViolations && t._ruleViolations.length > 0) {
+          for (const violation of t._ruleViolations) {
+            await createNotification({
+              userId: req.userId!,
+              title: 'Risk Limit Exceeded',
+              description: `${t.symbol}: ${violation}`,
+              category: 'Risk',
+              priority: 'Critical',
+              actionLabel: 'Review Rules',
+              actionUrl: '/app/settings'
+            });
+          }
+        }
+      }
     }
 
     if (tradesToUpdate.length > 0) {
@@ -256,9 +292,28 @@ router.post('/sync/:broker', authenticate, async (req: AuthRequest, res: Respons
       data: { lastSyncedAt: new Date() },
     });
 
-    res.json({ success: true, count: tradesToInsert.length + tradesToUpdate.length });
+    const totalSynced = tradesToInsert.length + tradesToUpdate.length;
+    await createNotification({
+      userId: req.userId!,
+      title: 'Trade Sync Completed',
+      description: `Successfully synced ${totalSynced} trades from ${broker.toUpperCase()}.`,
+      category: 'Trading',
+      priority: 'Success',
+      actionLabel: 'View Trades',
+      actionUrl: '/app/journal'
+    });
+
+    res.json({ success: true, count: totalSynced });
   } catch (err: any) {
     console.error('Sync Error:', err);
+    await createNotification({
+      userId: req.userId!,
+      title: 'Trade Sync Failed',
+      description: `Failed to sync trades from ${broker.toUpperCase()}: ${err.message}`,
+      category: 'Trading',
+      priority: 'Critical',
+      actionLabel: 'Retry Sync'
+    });
     res.status(500).json({ error: err.message || 'Failed to sync trades' });
   } finally {
     await lockService.releaseSyncLock(lockKey);
