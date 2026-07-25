@@ -34,12 +34,25 @@ router.get('/quotes', authenticate, async (req: AuthRequest, res: Response): Pro
         const meta = data?.chart?.result?.[0]?.meta;
         if (!meta) throw new Error('Invalid data format');
 
-        // Check if market is currently open (roughly 9:15 AM to 3:30 PM IST)
-        // Yahoo provides regularMarketTime, we can deduce status from it roughly, 
-        // but for safety, if it's currently trading hours in IST we say OPEN, else CLOSED
-        // A simple heuristic for now:
-        const currentISTHour = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"})).getHours();
-        const status = (currentISTHour >= 9 && currentISTHour < 16) ? 'OPEN' : 'CLOSED';
+        const now = new Date();
+        const options = { timeZone: 'Asia/Kolkata', hour12: false, hour: 'numeric', minute: 'numeric', weekday: 'short' } as const;
+        const parts = new Intl.DateTimeFormat('en-US', options).formatToParts(now);
+        let hour = 0, minute = 0, weekday = '';
+        for (const part of parts) {
+          if (part.type === 'hour') hour = parseInt(part.value, 10);
+          if (part.type === 'minute') minute = parseInt(part.value, 10);
+          if (part.type === 'weekday') weekday = part.value;
+        }
+        
+        let status = 'CLOSED';
+        if (weekday !== 'Sat' && weekday !== 'Sun') {
+          const timeInMinutes = (hour === 24 ? 0 : hour) * 60 + minute;
+          const marketOpen = 9 * 60 + 15; // 09:15 AM
+          const marketClose = 15 * 60 + 30; // 03:30 PM
+          if (timeInMinutes >= marketOpen && timeInMinutes <= marketClose) {
+            status = 'OPEN';
+          }
+        }
 
         const prevClose = meta.chartPreviousClose || meta.regularMarketPreviousClose;
         const current = meta.regularMarketPrice;

@@ -3,7 +3,6 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
-
   plugins: [react()],
   server: {
     proxy: {
@@ -14,6 +13,19 @@ export default defineConfig({
     }
   },
   build: {
-    sourcemap: false
-  }
+    sourcemap: false,
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'motion-vendor': ['framer-motion'],
+          'recharts-vendor': ['recharts'],
+          'lightweight-vendor': ['lightweight-charts'],
+          'query-vendor': ['@tanstack/react-query', 'zustand'],
+          'ui-vendor': ['lucide-react', 'sonner', 'clsx', 'tailwind-merge'],
+        },
+      },
+    },
+  },
 })

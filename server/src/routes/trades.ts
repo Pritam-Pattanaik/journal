@@ -83,16 +83,6 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
       },
     });
 
-    await createNotification({
-      userId: req.userId!,
-      title: 'New Trade Logged',
-      description: `Logged a ${body.direction || 'new'} trade for ${body.symbol}`,
-      category: 'Trading',
-      priority: 'Information',
-      actionLabel: 'View Trade',
-      actionUrl: '/app/journal'
-    });
-
     res.status(201).json(trade);
   } catch (err: any) {
     console.error('Create trade error:', err);
@@ -171,17 +161,6 @@ router.patch('/:id', authenticate, async (req: AuthRequest, res: Response): Prom
       });
     }
 
-    // Generic edit notification
-    if (Object.keys(updates).length > 1 && !body.strategyId && !body.isManualOverride) {
-      await createNotification({
-        userId: req.userId!,
-        title: 'Trade Edited',
-        description: `Updated details for trade ${existing.symbol}`,
-        category: 'Trading',
-        priority: 'Information',
-      });
-    }
-
     res.json(updated);
   } catch (err: any) {
     console.error('Update trade error:', err);
@@ -200,16 +179,6 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response): Pro
     await prisma.trade.deleteMany({
       where: { id, userId: req.userId! },
     });
-
-    if (existing) {
-      await createNotification({
-        userId: req.userId!,
-        title: 'Trade Deleted',
-        description: `Deleted trade ${existing.symbol}`,
-        category: 'Trading',
-        priority: 'Warning',
-      });
-    }
 
     res.json({ success: true });
   } catch (err: any) {

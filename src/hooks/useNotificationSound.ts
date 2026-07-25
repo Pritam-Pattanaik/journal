@@ -28,7 +28,8 @@ export function useNotificationSound() {
   }, []);
 
   const playSound = (type: 'Critical' | 'Warning' | 'Success' | 'Information') => {
-    if (!soundEnabled || !audioCtxRef.current) return;
+    const currentState = useNotificationStore.getState();
+    if (!currentState.soundEnabled || !audioCtxRef.current) return;
     
     // If context is suspended (due to autoplay policy), try to resume it
     if (audioCtxRef.current.state === 'suspended') {

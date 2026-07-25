@@ -4,6 +4,7 @@ import { Search, RefreshCcw, Crosshair, BarChart2, Activity, Settings, Download,
 import { cn } from '../../lib/cn';
 import { useLiveChartData } from '../../hooks/useLiveMarketData';
 import { SkeletonLoader } from '../ui/SkeletonLoader';
+import { isMarketOpen } from '../../lib/dateUtils';
 
 const TIMEFRAMES = ['1D', '5D', '1M', '3M', '6M', '1Y', 'YTD', 'Max'];
 
@@ -173,10 +174,17 @@ export default function InteractiveMarketChart() {
             </div>
             
             {timeframe === '1D' && !loading && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success/10 border border-success/20 backdrop-blur-md shadow-sm">
-                <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-                <span className="text-[9px] font-bold uppercase tracking-widest text-success">Live</span>
-              </div>
+              isMarketOpen() ? (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success/10 border border-success/20 backdrop-blur-md shadow-sm">
+                  <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-success">Live</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-2 border border-border backdrop-blur-md shadow-sm">
+                  <div className="w-1.5 h-1.5 rounded-full bg-tertiary" />
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-tertiary">Closed</span>
+                </div>
+              )
             )}
           </div>
           

@@ -117,14 +117,7 @@ router.post('/sync/:broker', authenticate, async (req: AuthRequest, res: Respons
     return res.json({ success: true, count: 0, alreadySyncing: true });
   }
 
-  // Create "Sync Started" Notification
-  await createNotification({
-    userId: req.userId!,
-    title: 'Trade Sync Started',
-    description: `Synchronizing trades from ${broker.toUpperCase()}`,
-    category: 'Trading',
-    priority: 'Information',
-  });
+
 
   try {
     const forceFullSync = req.query.full === 'true';

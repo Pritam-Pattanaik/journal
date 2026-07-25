@@ -522,9 +522,9 @@ export default function AICoach() {
                 )}
               </div>
             </div>
-            <p className="text-center text-xs text-tertiary mt-2">
-              Lunar AI can make mistakes. Consider verifying critical trading metrics.
-            </p>
+            <div className="text-center text-[11px] text-tertiary mt-2.5 px-4 leading-relaxed font-sans">
+              <span className="font-semibold text-secondary">Institutional AI Advisory:</span> Lunar AI utilizes probabilistic large language models that may exhibit hallucination or statistical approximation variance. Suggestions generated do not constitute licensed institutional financial advisory or definitive trading instructions. Always independently verify quantitative metrics against actual clearinghouse brokerage ledgers.
+            </div>
           </div>
         </div>
       </div>

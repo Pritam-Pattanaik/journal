@@ -13,6 +13,7 @@ import { NotificationPanel } from '../notifications';
 import { cn } from '../../lib/cn';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import UserProfileDropdown from './UserProfileDropdown';
+import { prefetchRoute } from '../../lib/prefetch';
 
 type NavItem = { 
   name: string; 
@@ -259,6 +260,7 @@ export default function Sidebar() {
               const LinkContent = (
                 <Link
                   to={item.path}
+                  onMouseEnter={() => prefetchRoute(item.path)}
                   className={cn(
                     "relative flex items-center rounded-lg transition-all duration-200 group h-10",
                     desktopSidebarExpanded ? "px-3 gap-3" : "justify-center",

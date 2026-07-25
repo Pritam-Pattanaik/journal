@@ -16,16 +16,36 @@ import { getLocalYYYYMMDD } from '../lib/dateUtils';
 import StatCard from '../components/dashboard/StatCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/cn';
+import { useUrlState } from '../hooks/useUrlState';
 
 export default function Trades() {
   const { trades, dailySummaries, loading, fetchTrades, addTrade, updateTrade, deleteTrade } = useTradeStore();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [marketFilter, setMarketFilter] = useState('All');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [dateFilter, setDateFilter] = useState('all');
+  
+  const { params: urlState, setParam: setUrlParam } = useUrlState({
+    search: '',
+    market: 'All',
+    status: 'All',
+    date: 'all',
+    view: 'table',
+  });
+
+  const searchQuery = String(urlState.search || '');
+  const setSearchQuery = (val: string) => setUrlParam('search', val);
+
+  const marketFilter = String(urlState.market || 'All');
+  const setMarketFilter = (val: string) => setUrlParam('market', val);
+
+  const statusFilter = String(urlState.status || 'All');
+  const setStatusFilter = (val: string) => setUrlParam('status', val);
+
+  const dateFilter = String(urlState.date || 'all');
+  const setDateFilter = (val: string) => setUrlParam('date', val);
+
+  const viewMode = (String(urlState.view || 'table')) as 'table' | 'calendar';
+  const setViewMode = (val: 'table' | 'calendar') => setUrlParam('view', val);
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [tradeToEdit, setTradeToEdit] = useState<Trade | null>(null);
-  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
 
   const [selectedTrades, setSelectedTrades] = useState<Set<string>>(new Set());
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });

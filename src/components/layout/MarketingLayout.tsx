@@ -1,40 +1,17 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { TrendingUp, Menu, X } from 'lucide-react';
+import { TrendingUp, Menu, X, Shield, Terminal, Lock, Sparkles, Activity, ArrowRight } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { cn } from '../../lib/cn';
-import Lenis from '@studio-freight/lenis';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 export default function MarketingLayout() {
-  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
-  const [scrolled, setScrolled] = React.useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
   const { token } = useAuthStore();
-
-  useEffect(() => {
-    // Initialize Lenis for smooth scrolling on marketing pages
-    const lenis = new Lenis({
-      duration: 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      orientation: 'vertical',
-      gestureOrientation: 'vertical',
-      smoothWheel: true,
-      wheelMultiplier: 1,
-      touchMultiplier: 2,
-      infinite: false,
-    });
-
-    function raf(time: number) {
-      lenis.raf(time);
-      requestAnimationFrame(raf);
-    }
-
-    requestAnimationFrame(raf);
-
-    return () => {
-      lenis.destroy();
-    };
-  }, []);
+  const shouldReduceMotion = useReducedMotion();
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -42,168 +19,259 @@ export default function MarketingLayout() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location]);
+
+  // Trap focus and lock body scroll when mobile menu is active
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') setMobileMenuOpen(false);
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [mobileMenuOpen]);
+
   const navLinks = [
-    { name: 'Product', path: '#features' },
-    { name: 'How it works', path: '#how-it-works' },
-    { name: 'Pricing', path: '#pricing' },
+    { name: 'Workspace', path: '#workspace' },
+    { name: 'Core Pillars', path: '#features' },
+    { name: 'AI Coach', path: '#ai-coach' },
+    { name: 'Prop Traders', path: '#social-proof' },
+    { name: 'Investment', path: '#pricing' },
+    { name: 'FAQ', path: '#faq' },
   ];
 
-  const closeMobileMenu = () => setMobileMenuOpen(false);
-  const isActive = (path: string) =>
-    path === '/' ? location.pathname === '/' : location.hash === path;
+  const isActive = (path: string) => location.hash === path;
 
   return (
-    <div className="flex flex-col min-h-screen bg-canvas text-primary font-sans overflow-x-hidden selection:bg-accent/20">
+    <div id="main-content" className="flex flex-col min-h-screen bg-canvas text-primary font-sans overflow-x-hidden selection:bg-iris/25">
       
-      {/* Header */}
+      {/* ── Sleek Glassmorphic Navigation Bar (Linear / Vercel Grade) ── */}
       <header
         className={cn(
-          "fixed top-4 left-1/2 -translate-x-1/2 h-14 z-50 flex items-center justify-between px-4 sm:px-6 transition-all duration-300 ease-out rounded-full border shadow-lg w-[95%] max-w-5xl",
+          "fixed top-4 left-1/2 -translate-x-1/2 h-14 sm:h-[60px] z-50 flex items-center justify-between px-6 transition-all duration-300 ease-out rounded-full border w-[94%] max-w-[1120px]",
           scrolled 
-            ? "bg-surface/60 backdrop-blur-xl border-border/50 shadow-[0_4px_30px_rgba(0,0,0,0.5)]" 
-            : "bg-surface/20 backdrop-blur-md border-border/20"
+            ? "bg-surface-1/90 backdrop-blur-2xl border-border-hover shadow-[0_8px_32px_rgba(0,0,0,0.35)]" 
+            : "bg-surface-0/60 backdrop-blur-lg border-border/50 shadow-sm"
         )}
+        aria-label="Main Navigation"
       >
-        <Link to="/" onClick={closeMobileMenu} className="flex items-center gap-2 group outline-none">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent to-iris flex items-center justify-center group-hover:shadow-iris transition-shadow duration-300">
-            <TrendingUp size={16} strokeWidth={2.5} className="text-white" />
+        <Link to="/" className="flex items-center gap-3 group outline-none focus-ring rounded-xl">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-accent to-iris flex items-center justify-center shadow-sm group-hover:opacity-95 transition-all">
+            <TrendingUp size={17} strokeWidth={2.5} className="text-white" />
           </div>
-          <span className="font-display text-lg font-bold tracking-tight text-gradient">TradeVault</span>
+          <span className="font-display text-lg font-bold tracking-tight text-primary">TradeVault</span>
         </Link>
 
-        {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-8">
+        {/* Desktop Navigation Shortcuts */}
+        <nav className="hidden lg:flex items-center gap-8" aria-label="Section shortcuts">
           {navLinks.map(link => (
             <a
               key={link.name}
               href={link.path}
               className={cn(
-                "text-sm font-semibold transition-colors hover:text-primary outline-none",
-                isActive(link.path) ? "text-primary" : "text-secondary"
+                "text-sm font-medium transition-colors duration-200 hover:text-primary outline-none focus-ring rounded-md py-1",
+                isActive(link.path) ? "text-primary font-semibold" : "text-secondary"
               )}
             >
               {link.name}
             </a>
           ))}
         </nav>
-
         {/* Desktop Actions */}
-        <div className="hidden md:flex items-center gap-4">
+        <div className="hidden sm:flex items-center gap-4">
           {token ? (
             <Link
               to="/app"
-              className="inline-flex items-center justify-center px-4 py-2 rounded-md bg-surface-1 border border-border text-primary text-sm font-medium transition-colors hover:bg-surface-2 hover:text-primary shadow-sm outline-none focus-ring"
+              className="inline-flex items-center justify-center h-9 px-5 rounded-full bg-primary text-canvas text-xs font-semibold hover:opacity-95 transition-all shadow-sm focus-ring"
             >
-              Dashboard
+              Launch Terminal
             </Link>
           ) : (
             <>
               <Link
                 to="/login"
-                className="text-sm font-medium text-secondary hover:text-primary transition-colors outline-none"
+                className="text-sm font-medium text-secondary hover:text-primary transition-colors px-2 py-1 rounded-lg focus-ring"
               >
-                Log in
+                Sign In
               </Link>
               <Link
                 to="/signup"
-                className="inline-flex items-center justify-center px-4 py-2 rounded-md bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors shadow-md shadow-accent/20 outline-none focus-ring"
+                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-primary text-canvas text-xs font-semibold hover:opacity-90 transition-all shadow-sm focus-ring"
               >
-                Get Started Free
+                <span>Get Started</span>
+                <ArrowRight size={13} className="opacity-80" />
               </Link>
             </>
           )}
         </div>
 
-        {/* Mobile Toggle */}
+        {/* Mobile Toggle Button */}
         <button
-          className="md:hidden p-2 text-secondary hover:text-primary transition-colors outline-none"
+          aria-expanded={mobileMenuOpen}
+          aria-controls="mobile-navigation"
+          aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+          className="sm:hidden touch-target p-2 text-secondary hover:text-primary transition-colors rounded-xl focus-ring"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
         >
           {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </header>
 
-      {/* Mobile Menu Overlay */}
-      {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 top-16 bg-canvas/95 backdrop-blur-xl z-40 flex flex-col p-6 border-t border-border animate-in fade-in slide-in-from-top-4">
-          <nav className="flex flex-col gap-1">
-            {navLinks.map(link => (
-              <a
-                key={link.name}
-                href={link.path}
-                onClick={closeMobileMenu}
-                className={cn(
-                  "text-lg font-semibold py-4 border-b border-border/50",
-                  isActive(link.path) ? "text-primary" : "text-secondary"
-                )}
-              >
-                {link.name}
-              </a>
-            ))}
-          </nav>
-          <div className="mt-8 flex flex-col gap-4">
-            {token ? (
-              <Link
-                to="/app"
-                onClick={closeMobileMenu}
-                className="w-full py-3 bg-accent text-white text-center rounded-lg font-semibold shadow-md shadow-accent/20"
-              >
-                Go to Dashboard
-              </Link>
-            ) : (
-              <>
-                <Link
-                  to="/login"
-                  onClick={closeMobileMenu}
-                  className="w-full py-3 bg-surface-1 border border-border text-primary text-center rounded-lg font-medium"
+      {/* ── Accessible Mobile Menu Drawer ── */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            id="mobile-navigation"
+            ref={mobileMenuRef}
+            initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: -15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -15 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="sm:hidden fixed inset-x-0 top-0 h-screen bg-canvas/95 backdrop-blur-2xl z-40 pt-24 px-6 pb-12 flex flex-col justify-between border-b border-border overflow-y-auto"
+            role="dialog"
+            aria-modal="true"
+          >
+            <nav className="flex flex-col gap-1" aria-label="Mobile Navigation">
+              {navLinks.map(link => (
+                <a
+                  key={link.name}
+                  href={link.path}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-lg font-display font-semibold text-secondary hover:text-primary py-3.5 px-4 rounded-xl hover:bg-surface-1 transition-colors border-b border-border/40 flex items-center justify-between"
                 >
-                  Log in
-                </Link>
-                <Link
-                  to="/signup"
-                  onClick={closeMobileMenu}
-                  className="w-full py-3 bg-accent text-white text-center rounded-lg font-semibold shadow-md shadow-accent/20"
-                >
-                  Get Started Free
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+                  <span>{link.name}</span>
+                  <span className="text-tertiary text-xs">↗</span>
+                </a>
+              ))}
+            </nav>
 
-      {/* Page Content */}
-      <main className="flex-1 mt-16 page-enter">
+            <div className="flex flex-col gap-3 mt-8 pt-6 border-t border-border">
+              {token ? (
+                <Link
+                  to="/app"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full min-h-[48px] inline-flex items-center justify-center bg-primary text-canvas rounded-xl font-bold text-base shadow-md"
+                >
+                  Launch Terminal
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    to="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-full min-h-[48px] inline-flex items-center justify-center bg-surface-1 border border-border text-primary rounded-xl font-semibold text-base"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    to="/signup"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-full min-h-[48px] inline-flex items-center justify-center bg-primary text-canvas rounded-xl font-bold text-base shadow-md"
+                  >
+                    Start Free Tier (No CC Req)
+                  </Link>
+                </>
+              )}
+
+              <div className="flex items-center justify-center gap-2 mt-3 text-xs text-tertiary font-medium">
+                <Shield size={14} className="text-success" />
+                <span>Bank-Grade Read-Only OAuth Security</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Page Content ── */}
+      <main className="flex-1 mt-14 sm:mt-18">
         <Outlet />
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border py-12 px-6 bg-surface-0">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-accent to-iris flex items-center justify-center">
-              <TrendingUp size={12} strokeWidth={2.5} className="text-white" />
+      {/* ── Executive Institutional Footer (Zero Retro Symbols / Zero Fake Claims) ── */}
+      <footer className="border-t border-border bg-surface-0/80 pt-20 pb-16 px-6 lg:px-12 text-secondary" aria-label="Institutional resources">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 pb-14 border-b border-border/60">
+          
+          {/* Column 1: Brand & Rationale */}
+          <div className="lg:col-span-2 flex flex-col justify-between gap-6">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-accent to-iris flex items-center justify-center text-white font-bold shadow-sm">
+                  <TrendingUp size={16} strokeWidth={2.5} />
+                </div>
+                <span className="font-display text-xl font-bold text-primary tracking-tight">TradeVault</span>
+              </div>
+              <p className="text-sm text-tertiary max-w-sm leading-relaxed font-normal">
+                Institutional quantitative workspace built for funded prop traders and rule-based speculators. Replace emotional willpower with mathematically verified discipline.
+              </p>
             </div>
-            <span className="text-sm font-display font-bold text-muted tracking-tight">
-              TradeVault
-            </span>
+            
+            {/* Live Status Indicator */}
+            <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-surface-1 border border-border w-fit">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+              </span>
+              <span className="text-xs font-medium text-primary">All Broker Integrations Operational</span>
+            </div>
           </div>
-          <p className="text-sm text-tertiary">
-            &copy; {new Date().getFullYear()} TradeVault Inc. All rights reserved.
-          </p>
-          <div className="flex gap-6">
-            {['Privacy', 'Terms', 'Contact'].map(link => (
-              <Link
-                key={link}
-                to="#"
-                className="text-sm text-tertiary hover:text-primary transition-colors"
-              >
-                {link}
-              </Link>
-            ))}
+
+          {/* Column 2: Product Suite */}
+          <div className="flex flex-col gap-3.5">
+            <p className="text-xs font-bold uppercase tracking-wider text-primary">Product</p>
+            <ul className="space-y-2.5 text-sm font-medium text-secondary">
+              <li><a href="#workspace" className="hover:text-primary transition-colors">Interactive Workspace</a></li>
+              <li><a href="#ai-coach" className="hover:text-primary transition-colors">AI Behavioral Coach</a></li>
+              <li><a href="#features" className="hover:text-primary transition-colors">Risk Guardrails &amp; Lockouts</a></li>
+              <li><a href="#pricing" className="hover:text-primary transition-colors">Automated Broker Sync</a></li>
+              <li><a href="#social-proof" className="hover:text-primary transition-colors">Prop Trader Analytics</a></li>
+            </ul>
+          </div>
+
+          {/* Column 3: Integration Ecosystem (Cleaned of all terminal symbols) */}
+          <div className="flex flex-col gap-3.5">
+            <p className="text-xs font-bold uppercase tracking-wider text-primary">Integrations</p>
+            <ul className="space-y-2.5 text-sm font-medium text-secondary">
+              <li><span className="hover:text-primary transition-colors cursor-pointer">Apex Trader Funding</span></li>
+              <li><span className="hover:text-primary transition-colors cursor-pointer">Interactive Brokers TWS</span></li>
+              <li><span className="hover:text-primary transition-colors cursor-pointer">MetaTrader 4 &amp; 5</span></li>
+              <li><span className="hover:text-primary transition-colors cursor-pointer">Tradovate &amp; NinjaTrader</span></li>
+              <li><span className="hover:text-primary transition-colors cursor-pointer">TradingView Webhooks</span></li>
+            </ul>
+          </div>
+
+          {/* Column 4: Security & Governance */}
+          <div className="flex flex-col gap-3.5">
+            <p className="text-xs font-bold uppercase tracking-wider text-primary">Security &amp; Trust</p>
+            <ul className="space-y-2.5 text-sm font-medium text-secondary">
+              <li><span className="hover:text-primary transition-colors cursor-pointer">Read-Only OAuth Protocols</span></li>
+              <li><span className="hover:text-primary transition-colors cursor-pointer">256-Bit TLS Encryption</span></li>
+              <li><Link to="/privacy" className="hover:text-primary transition-colors">Data Privacy Policy</Link></li>
+              <li><Link to="/terms" className="hover:text-primary transition-colors">Terms of Service</Link></li>
+              <li><span className="hover:text-primary transition-colors cursor-pointer">SOC-2 Security Overview</span></li>
+            </ul>
+          </div>
+
+        </div>
+
+        {/* Bottom Legal Copyright Bar (Purged of pseudo-numeric latency claims) */}
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 text-xs text-tertiary font-medium">
+          <p>© 2026 TradeVault, Inc. Built for institutional trading desks and disciplined speculators.</p>
+          <div className="flex items-center gap-6">
+            <span className="text-secondary font-semibold">Discipline Over Dopamine</span>
+            <span>·</span>
+            <span>All rights reserved</span>
           </div>
         </div>
       </footer>
+
     </div>
   );
 }

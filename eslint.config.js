@@ -28,6 +28,17 @@ export default defineConfig([
       ],
       '@typescript-eslint/no-unused-vars': 'warn',
       '@typescript-eslint/no-explicit-any': 'off',
+      'no-restricted-imports': [
+        'warn',
+        {
+          patterns: [
+            {
+              group: ['**/server/**'],
+              message: 'Modular Monolith Governance: Direct importing of server/backend codebase files into React UI domain is strictly prohibited.',
+            },
+          ],
+        },
+      ],
     },
   },
 ])

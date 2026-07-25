@@ -155,6 +155,9 @@ export interface TradingRules {
   maxLossPerTrade?: number | null;       // INR
   allowedInstruments?: string[] | null;  // CE | PE | FUT | EQ
   allowedMarkets?: string[] | null;      // F&O | NSE | BSE | MCX
+  killSwitchEnabled?: boolean | null;    // Prop Trading emergency lock
+  coolOffUntil?: string | null;          // ISO datetime timestamp for 24-hr lock
+  syncCadence?: 'STREAMING_REALTIME' | 'PERIODIC_15M' | 'EOD_CLOSE' | 'MANUAL' | null;
 }
 
 export interface DashboardStats {

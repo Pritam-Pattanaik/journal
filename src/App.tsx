@@ -13,7 +13,10 @@ import { useUIStore } from './stores/uiStore';
 import { useAutoSync } from './hooks/useAutoSync';
 import { AuroraBackground } from './components/ui/AuroraBackground';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
+import { AsyncStateBoundary } from './components/ui/AsyncStateBoundary';
 import { cn } from './lib/cn';
+import { initTelemetryObservers } from './lib/telemetry';
+import { TelemetryBanner } from './components/layout/TelemetryBanner';
 
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const Trades = React.lazy(() => import('./pages/Trades'));
@@ -62,9 +65,10 @@ function MainLayout() {
           {/* Scrollable Page Wrapper */}
           <PageWrapper>
             <ErrorBoundary>
-              <Suspense fallback={<PageLoadingFallback />}>
-                <Routes>
-                  <Route path="/" element={profile?.role === 'SUPER_ADMIN' ? <AdminOverview /> : <Dashboard />} />
+              <AsyncStateBoundary>
+                <Suspense fallback={<PageLoadingFallback />}>
+                  <Routes>
+                    <Route path="/" element={profile?.role === 'SUPER_ADMIN' ? <AdminOverview /> : <Dashboard />} />
 
                   <Route path="/trades" element={<Trades />} />
                   <Route path="/analytics" element={<Analytics />} />
@@ -118,6 +122,7 @@ function MainLayout() {
                   <Route path="*" element={<Navigate to="/app" replace />} />
                 </Routes>
               </Suspense>
+              </AsyncStateBoundary>
             </ErrorBoundary>
           </PageWrapper>
         </div>
@@ -128,6 +133,10 @@ function MainLayout() {
 
 export default function App() {
   useAutoSync();
+
+  React.useEffect(() => {
+    initTelemetryObservers();
+  }, []);
 
   return (
     <>
@@ -152,6 +161,7 @@ export default function App() {
         } />
       </Routes>
     </Suspense>
+    <TelemetryBanner />
     <Toaster position="bottom-right" richColors expand={false} />
     </>
   );

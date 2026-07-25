@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { api, BASE_URL } from '../lib/api';
 import { AiConversation, AiMessage } from '../types';
+import { streamAIInference } from '../lib/aiStreamClient';
 
 export interface CoachMemory {
   id: string;
@@ -166,63 +167,14 @@ export const useInsightStore = create<InsightState>((set, get) => ({
     abortController = new AbortController();
 
     try {
-      // We cannot use standard API wrapper for SSE, use native fetch
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch(`${BASE_URL}/ai/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'X-Requested-With': 'XMLHttpRequest'
+      await streamAIInference({
+        endpoint: '/ai/chat',
+        payload: { conversationId: activeConversationId, message: content },
+        signal: abortController.signal,
+        onToken: (_token, accumulated) => {
+          set({ streamingMessage: accumulated });
         },
-        body: JSON.stringify({ conversationId: activeConversationId, message: content }),
-        signal: abortController.signal
       });
-
-      if (!response.ok || !response.body) {
-        throw new Error('Failed to start chat stream');
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let done = false;
-      let fullAssistantMessage = '';
-
-      while (!done) {
-        const { value, done: readerDone } = await reader.read();
-        if (readerDone) {
-          done = true;
-          break;
-        }
-
-        const chunkString = decoder.decode(value, { stream: true });
-        const lines = chunkString.split('\n');
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const dataStr = line.replace('data: ', '').trim();
-            if (dataStr === '[DONE]') {
-              done = true;
-              break;
-            }
-            if (dataStr) {
-              try {
-                const parsed = JSON.parse(dataStr);
-                if (parsed.chunk) {
-                  fullAssistantMessage += parsed.chunk;
-                  set({ streamingMessage: fullAssistantMessage });
-                }
-                if (parsed.error) {
-                  throw new Error(parsed.error);
-                }
-              } catch (e) {
-                // Ignore parse errors on partial chunks
-              }
-            }
-          }
-        }
-      }
 
       // Finish streaming, commit to messages array
       set(state => ({
