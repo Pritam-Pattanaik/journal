@@ -33,6 +33,8 @@ model User {
   goals              Goal[]
   newsBookmarks      NewsBookmark[]
   notifications      Notification[]
+  watchlist          UserWatchlist[]
+
 
   @@map("users")
 }
@@ -416,4 +418,157 @@ model Notification {
   @@index([userId, isRead])
   @@index([userId, category])
   @@map("notifications")
+}
+
+// ─── AI News Engine Models ────────────────────────────────────────────────────
+
+model NewsRawItem {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  source       String   // "NSE" | "BSE" | "RBI" | "PIB" | "NEWSDATA" | "MACRO"
+  externalId   String?  @map("external_id")
+  dedupeHash   String   @unique @map("dedupe_hash") // SHA-256 of normalised headline+source+date
+  headline     String
+  body         String?
+  url          String?
+  publishedAt  DateTime @map("published_at")
+  rawPayload   Json     @map("raw_payload")
+  status       String   @default("PENDING") // PENDING | TRIAGED | SCORED | DELIVERED | FAILED
+  failureReason String? @map("failure_reason")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  triage       NewsTriage?
+  impact       NewsImpact?
+
+  @@index([source, status])
+  @@index([publishedAt])
+  @@index([status, createdAt])
+  @@map("news_raw_items")
+}
+
+model NewsTriage {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  rawItemId    String   @unique @map("raw_item_id") @db.Uuid
+  relevant     Boolean
+  category     String   // earnings | regulatory | macro | global | other
+  urgency      String   // breaking | routine
+  modelVersion String   @map("model_version")
+  latencyMs    Int      @map("latency_ms")
+  tokensIn     Int?     @map("tokens_in")
+  tokensOut    Int?     @map("tokens_out")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  rawItem      NewsRawItem @relation(fields: [rawItemId], references: [id], onDelete: Cascade)
+
+  @@index([relevant, urgency])
+  @@map("news_triage")
+}
+
+model NewsImpact {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  rawItemId           String   @unique @map("raw_item_id") @db.Uuid
+  sectorImpact        String[] @map("sector_impact")
+  direction           String   // positive | negative | neutral | mixed
+  confidence          String   // high | medium | low
+  rationale           String   // ≤200 words, sector-level only (EDUCATIONAL_MODE)
+  historicalAnalogues Json     @map("historical_analogues")
+  mode                String   @default("EDUCATIONAL_MODE")
+  disclaimer          String   // Mandatory SEBI disclaimer attached at generation time
+  modelVersion        String   @map("model_version")
+  latencyMs           Int      @map("latency_ms")
+  tokensIn            Int?     @map("tokens_in")
+  tokensOut           Int?     @map("tokens_out")
+  humanReviewRequired Boolean  @default(true) @map("human_review_required")
+  humanApproved       Boolean? @map("human_approved")
+  humanNotes          String?  @map("human_notes")
+  complianceAuditId   String   @unique @map("compliance_audit_id") @db.Uuid
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  rawItem      NewsRawItem  @relation(fields: [rawItemId], references: [id], onDelete: Cascade)
+  auditLog     NewsAuditLog @relation(fields: [complianceAuditId], references: [id])
+  backtests    NewsBacktest[]
+
+  @@index([direction, confidence])
+  @@index([createdAt])
+  @@map("news_impact")
+}
+
+model NewsAuditLog {
+  // Immutable compliance record — no UPDATE or DELETE in application code.
+  // Required under SEBI regulations as evidence that AI outputs were reviewed.
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  rawItemId        String   @map("raw_item_id") @db.Uuid
+  inputSnapshot    Json     @map("input_snapshot")   // Full prompt sent to model
+  outputSnapshot   Json     @map("output_snapshot")  // Full raw model response
+  modelId          String   @map("model_id")         // e.g. "claude-haiku-4-5"
+  promptVersion    String   @map("prompt_version")   // e.g. "scoring-v1.0"
+  mode             String   @default("EDUCATIONAL_MODE")
+  compliancePassed Boolean  @map("compliance_passed")
+  complianceNotes  String?  @map("compliance_notes") // Why filter triggered (if any)
+  disclaimer       String
+  timestamp        DateTime @default(now())
+
+  impact           NewsImpact?
+
+  @@index([rawItemId])
+  @@index([timestamp])
+  @@map("news_audit_logs")
+}
+
+model NewsBacktest {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  impactId         String   @map("impact_id") @db.Uuid
+  sector           String
+  taggedDirection  String   @map("tagged_direction") // positive | negative | neutral | mixed
+  session1Return   Float?   @map("session1_return")  // actual index return after 1 session
+  session3Return   Float?   @map("session3_return")
+  session5Return   Float?   @map("session5_return")
+  directionMatch1  Boolean? @map("direction_match_1")
+  directionMatch3  Boolean? @map("direction_match_3")
+  directionMatch5  Boolean? @map("direction_match_5")
+  measuredAt       DateTime? @map("measured_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  impact           NewsImpact @relation(fields: [impactId], references: [id], onDelete: Cascade)
+
+  @@index([sector, taggedDirection])
+  @@map("news_backtests")
+}
+
+model UserWatchlist {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  type      String   // "sector" | "ticker"
+  value     String   // e.g. "Nifty Bank" | "RELIANCE"
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type, value])
+  @@index([userId])
+  @@map("user_watchlist")
+}
+
+model NewsDigest {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type      String   // "PRE_MARKET" | "EOD"
+  date      DateTime @db.Date
+  content   Json     // structured digest payload
+  itemCount Int      @default(0) @map("item_count")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([type, date])
+  @@index([date])
+  @@map("news_digests")
+}
+
+model PipelineMetric {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  metricName  String   @map("metric_name") // e.g. "items_ingested", "triage_pass_rate"
+  value       Float
+  source      String?  // optional source tag (NSE, BSE, etc.)
+  tags        Json?
+  recordedAt  DateTime @default(now()) @map("recorded_at")
+
+  @@index([metricName, recordedAt])
+  @@map("pipeline_metrics")
 }

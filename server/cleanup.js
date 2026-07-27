@@ -1,0 +1,1 @@
+const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); async function main() { await prisma.newsRawItem.updateMany({ where: { status: 'FAILED' }, data: { status: 'IGNORED', failureReason: 'Cleared for test' } }); console.log('Cleared'); } main().catch(console.error).finally(() => prisma.$disconnect());

@@ -13,6 +13,8 @@ import { cn } from '../lib/cn';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BrokerHealthCard } from '../components/settings/brokers/BrokerHealthCard';
 import { BrokerConnectionWizard } from '../components/settings/brokers/BrokerConnectionWizard';
+import { WatchlistSettings } from '../components/settings/WatchlistSettings';
+
 
 const INSTRUMENTS = ['CE', 'PE', 'FUT', 'EQ'];
 const MARKETS = ['F&O', 'NSE', 'BSE', 'MCX'];
@@ -25,7 +27,8 @@ export default function Settings() {
   useEffect(() => { fetchConnections(); fetchRules(); }, [fetchConnections, fetchRules]);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'brokers' | 'rules' | 'profile' | 'security'>('brokers');
+  const [activeTab, setActiveTab] = useState<'brokers' | 'rules' | 'profile' | 'security' | 'watchlist'>('brokers');
+
   const [wizardOpen, setWizardOpen] = useState(false);
 
   // Rules state
@@ -145,7 +148,9 @@ export default function Settings() {
     { id: 'rules', label: '🛡️ Risk & Discipline Rules' },
     { id: 'profile', label: '👤 Profile & Workspace' },
     { id: 'security', label: '🔐 Security & Data Vault' },
+    { id: 'watchlist', label: '📰 News Watchlist' },
   ];
+
 
   return (
     <div className="max-w-5xl mx-auto pb-28 space-y-8 font-sans animate-fadeIn">
@@ -526,8 +531,18 @@ export default function Settings() {
         </div>
       )}
 
+      {/* News Watchlist Tab */}
+      {activeTab === 'watchlist' && (
+        <div className="animate-fadeIn">
+          <div className="rounded-2xl border border-border bg-surface-1 p-6">
+            <WatchlistSettings />
+          </div>
+        </div>
+      )}
+
       {/* Guided Connection Wizard Modal */}
       <BrokerConnectionWizard isOpen={wizardOpen} onClose={() => setWizardOpen(false)} />
     </div>
   );
 }
+

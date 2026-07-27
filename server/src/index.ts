@@ -29,6 +29,8 @@ import searchRoutes from './routes/search';
 import notesRoutes from './routes/notes';
 import marketRoutes from './routes/market';
 import notificationRoutes from './routes/notifications';
+import newsEngineRoutes from './routes/news-engine';
+import { startNewsEngine, stopNewsEngine } from './news-engine';
 
 const app = express();
 
@@ -112,6 +114,14 @@ app.use('/api/reflections', reflectionsRoutes);
 app.use('/api/goals', goalsRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/notes', notesRoutes);
+app.use('/api/news-engine', newsEngineRoutes);
+
+// Start News Engine Pipeline (non-throwing — server boots regardless)
+startNewsEngine();
+
+// Graceful shutdown
+process.on('SIGTERM', () => { stopNewsEngine(); process.exit(0); });
+process.on('SIGINT', () => { stopNewsEngine(); process.exit(0); });
 
 // Start Server in development
 if (process.env.NODE_ENV !== 'production') {

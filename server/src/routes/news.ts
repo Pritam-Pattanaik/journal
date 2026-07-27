@@ -3,9 +3,21 @@ import { prisma } from '../db';
 import { authenticate } from '../middleware/auth';
 import { generateGroqJSON, streamGroqChat } from '../lib/ai/provider';
 
+// ─── SEBI Compliance Disclaimer ───────────────────────────────────────────────
+// Mandatory on every customer-facing AI-generated news analysis output.
+// This protects the platform under SEBI Research Analyst Regulations, 2014
+// and the 2024-25 SEBI finfluencer advisory framework.
+const EDUCATIONAL_DISCLAIMER =
+  '⚠️ Educational Use Only: This analysis is for educational purposes and market awareness only. ' +
+  'It does not constitute investment advice, research, or a recommendation to buy, sell, or hold ' +
+  'any security. Past sector observations do not guarantee future performance. Please consult a ' +
+  'SEBI-registered financial advisor before making investment decisions. TradeVault is not a ' +
+  'SEBI-registered Research Analyst.';
+
 const router = Router();
 
 // GET /api/news
+
 router.get('/', authenticate, async (req: any, res) => {
   try {
     const category = req.query.category || 'general';
@@ -126,41 +138,48 @@ router.get('/economic-calendar', authenticate, async (req: any, res) => {
 });
 
 // POST /api/news/enrich
+// COMPLIANCE NOTE: This endpoint is for educational market context only.
+// All AI-generated analysis carries a mandatory disclaimer. No investment
+// advice, buy/sell signals, or return predictions are made or implied.
 router.post('/enrich', authenticate, async (req: any, res) => {
   try {
     const { id, headline, url, publishedAt, source, summary, image } = req.body;
     
     // Check if already enriched
     let enriched = await prisma.enrichedNews.findUnique({ where: { id: String(id) } });
-    if (enriched) return res.json(enriched);
+    if (enriched) return res.json({ ...enriched, _disclaimer: EDUCATIONAL_DISCLAIMER });
 
-    // Call AI to enrich
-    const prompt = `You are a strict Market Intelligence AI. Analyze this news article summary and provide a structured JSON response. 
-NEVER predict prices or give investment advice. Strictly educational.
+    // Call AI to enrich — EDUCATIONAL_MODE only, no price predictions or buy/sell advice
+    const prompt = `You are a strict Market Intelligence AI operating in EDUCATIONAL MODE.
+Analyze this news article and provide a structured JSON response.
+
+CRITICAL RULES:
+- NEVER predict prices, returns, or percentage movements
+- NEVER give buy/sell/hold advice on specific securities
+- NEVER claim a specific accuracy or success rate for any analysis
+- Provide ONLY factual context and sector-level educational commentary
 
 Article:
 Headline: ${headline}
 Summary: ${summary || 'No summary provided, infer from headline.'}
 
-Return JSON strictly matching this schema:
+Return JSON strictly matching this schema (no additional fields):
 {
-  "tldr": "1 sentence extremely short summary",
-  "aiSummary": "1-2 paragraph detailed objective summary answering: What happened, Why, and Who is affected.",
-  "whyItMatters": "Concise explanation of why this is relevant to traders.",
-  "historicalContext": "Brief mention of past similar events",
+  "tldr": "1 sentence factual summary of what happened",
+  "aiSummary": "1-2 paragraph objective summary: What happened, Why it occurred, Who is affected at sector level.",
+  "whyItMatters": "Why this is educationally relevant to understanding market dynamics (sector-level only, no stock picks).",
+  "historicalContext": "Brief factual mention of past similar macro/sector events",
   "categories": ["Category1"],
   "sectors": ["Sector1"],
-  "companies": ["Company1"],
+  "companies": [],
   "financialTerms": [{"term": "Term", "definition": "Brief definition"}],
-  "shortTermImpact": "Immediate market reaction/expectations (1-2 sentences)",
-  "longTermImpact": "Structural/Long term implications (1-2 sentences)",
-  "whatToWatchNext": "Key upcoming events or levels to monitor",
-  "riskFactors": "Primary risks associated with this news",
-  "probability": 85, 
-  "confidence": 90,
+  "shortTermImpact": "What sector-level dynamics this may trigger in the near term (educational, no price targets)",
+  "longTermImpact": "What structural sector implications this may have long term (educational)",
+  "whatToWatchNext": "Key upcoming events or data releases relevant to this sector",
+  "riskFactors": "Primary macro or sector-level risks associated with this news",
   "marketImpact": [
-    {"asset": "Tech Stocks", "impact": "High", "sentiment": "Bullish"},
-    {"asset": "Bonds", "impact": "Medium", "sentiment": "Bearish"}
+    {"asset": "Nifty Bank", "impact": "High", "sentiment": "Negative"},
+    {"asset": "Nifty IT", "impact": "Low", "sentiment": "Neutral"}
   ]
 }`;
 
@@ -176,20 +195,25 @@ Return JSON strictly matching this schema:
         whyItMatters: aiData.whyItMatters || '',
         categories: aiData.categories || [],
         sectors: aiData.sectors || [],
-        companies: aiData.companies || [],
+        // In EDUCATIONAL_MODE, company-specific lists are intentionally limited
+        // to avoid "coded reference" risk under SEBI's finfluencer guidelines
+        companies: [],
         financialTerms: aiData.financialTerms || [],
         historicalContext: aiData.historicalContext || '',
         shortTermImpact: aiData.shortTermImpact || '',
         longTermImpact: aiData.longTermImpact || '',
         whatToWatchNext: aiData.whatToWatchNext || '',
         riskFactors: aiData.riskFactors || '',
-        probability: aiData.probability || 0,
-        confidence: aiData.confidence || 0,
+        // probability/confidence fields are intentionally not stored for customer-facing use
+        // as they constitute track-record claims under SEBI regulations
+        probability: 0,
+        confidence: 0,
         marketImpact: aiData.marketImpact || []
       }
     });
     
-    res.json(enriched);
+    // Always attach the educational disclaimer to every enriched response
+    res.json({ ...enriched, _disclaimer: EDUCATIONAL_DISCLAIMER });
   } catch (error) {
     console.error('Enrichment error:', error);
     res.status(500).json({ error: 'Failed to enrich news' });
