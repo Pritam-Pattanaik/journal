@@ -140,40 +140,27 @@ export default function Markets() {
 
         {/* ─── AI Intelligence Engine Tab ──────────────────────────────────── */}
         {activeTab === 'engine' && (
-          <div className="animate-in fade-in" style={{ minHeight: '70vh' }}>
-            {/* Engine header */}
-            <div style={{
-              padding: '20px 24px', marginBottom: '20px',
-              background: 'linear-gradient(135deg, rgba(139,92,246,0.08) 0%, rgba(59,130,246,0.04) 100%)',
-              borderRadius: '16px', border: '1px solid rgba(139,92,246,0.15)',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                <div>
-                  <h2 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: 700, color: 'rgba(255,255,255,0.95)' }}>
-                    ⚡ AI Market Intelligence Engine
-                  </h2>
-                  <p style={{ margin: 0, fontSize: '13px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.5' }}>
-                    Continuous NSE/BSE/RBI monitoring with AI sector-level impact analysis.
-                    All analysis is educational only — not investment advice.
-                  </p>
+          <div className="animate-in fade-in">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4 px-6 py-5 mb-5 rounded-2xl"
+              style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.07) 0%, rgba(59,130,246,0.03) 100%)', border: '1px solid rgba(139,92,246,0.14)' }}>
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-lg">⚡</span>
+                  <h2 className="text-[18px] font-bold text-white/90 m-0">AI Market Intelligence Engine</h2>
                 </div>
-                <div style={{
-                  flexShrink: 0, padding: '6px 12px', borderRadius: '8px',
-                  background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)',
-                }}>
-                  <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 700, letterSpacing: '0.5px' }}>
-                    EDUCATIONAL MODE
-                  </span>
-                </div>
+                <p className="text-[13px] text-white/45 leading-relaxed m-0">
+                  Continuous NSE/BSE/RBI monitoring with AI sector-level impact analysis.
+                  All analysis is educational only — not investment advice.
+                </p>
+              </div>
+              <div className="flex-shrink-0 px-3 py-1.5 rounded-lg" style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                <span className="text-[11px] font-bold tracking-wider text-emerald-400">EDUCATIONAL MODE</span>
               </div>
             </div>
 
-            {/* Full-width feed */}
-            <div style={{
-              background: 'rgba(255,255,255,0.02)', borderRadius: '16px',
-              border: '1px solid rgba(255,255,255,0.06)', padding: '20px',
-              minHeight: '60vh',
-            }}>
+            {/* Feed */}
+            <div className="rounded-2xl px-6 py-5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', minHeight: '60vh' }}>
               <NewsEngineFeed />
             </div>
           </div>
@@ -182,24 +169,22 @@ export default function Markets() {
         {/* ─── Today's Digest Tab ──────────────────────────────────────────── */}
         {activeTab === 'digest' && (
           <div className="animate-in fade-in">
-            <div style={{
-              padding: '20px 24px', marginBottom: '20px',
-              background: 'linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(139,92,246,0.04) 100%)',
-              borderRadius: '16px', border: '1px solid rgba(59,130,246,0.15)',
-            }}>
-              <h2 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: 700, color: 'rgba(255,255,255,0.95)' }}>
-                📰 Pre-Market Digest
-              </h2>
-              <p style={{ margin: 0, fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>
-                Published at 7:30 AM IST on trading days. Educational sector impact summary.
-              </p>
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4 px-6 py-5 mb-5 rounded-2xl"
+              style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.07) 0%, rgba(139,92,246,0.03) 100%)', border: '1px solid rgba(59,130,246,0.14)' }}>
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-lg">📰</span>
+                  <h2 className="text-[18px] font-bold text-white/90 m-0">Pre-Market Digest</h2>
+                </div>
+                <p className="text-[13px] text-white/45 leading-relaxed m-0">
+                  Published at 7:30 AM IST on trading days. AI-generated sector impact summary.
+                </p>
+              </div>
             </div>
 
-            <div style={{
-              maxWidth: '800px',
-              background: 'rgba(255,255,255,0.02)', borderRadius: '16px',
-              border: '1px solid rgba(255,255,255,0.06)', padding: '24px',
-            }}>
+            {/* Content — max readable width */}
+            <div className="max-w-3xl rounded-2xl px-6 py-5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
               <DigestPanel />
             </div>
           </div>

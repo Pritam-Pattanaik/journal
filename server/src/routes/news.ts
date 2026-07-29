@@ -21,7 +21,7 @@ const router = Router();
 router.get('/', authenticate, async (req: any, res) => {
   try {
     const category = req.query.category || 'general';
-    const apiKey = process.env.FINNHUB_API_KEY;
+    const apiKey = process.env.MARKETAUX_API_KEY;
     
     if (!apiKey) {
       // Mock data if no API key is provided
@@ -46,13 +46,13 @@ router.get('/', authenticate, async (req: any, res) => {
         // Distribute articles over the last 35 days
         const daysAgo = i === 0 ? 0 : i === 1 ? 1 : i < 8 ? Math.floor(Math.random() * 5) + 2 : Math.floor(Math.random() * 25) + 8;
         mockArticles.push({
-          id: i + 1,
+          id: String(i + 1),
           category: 'markets',
           headline: headlines[i % headlines.length] + (i > 9 ? ` (Update ${i})` : ''),
           url: `https://example.com/news/${i + 1}`,
           publishedAt: now - (daysAgo * daySeconds) - Math.floor(Math.random() * 3600),
           source: 'Mock News Network',
-          summary: 'This is a mocked news summary to demonstrate the UI layout and features. The actual Finnhub API would provide real summaries here.',
+          summary: 'This is a mocked news summary to demonstrate the UI layout and features. The actual MarketAux API would provide real summaries here.',
           image: ''
         });
       }
@@ -63,22 +63,26 @@ router.get('/', authenticate, async (req: any, res) => {
       return res.json(mockArticles);
     }
 
-    const response = await fetch(`https://finnhub.io/api/v1/news?category=${category}&token=${apiKey}`);
+    const response = await fetch(`https://api.marketaux.com/v1/news/all?api_token=${apiKey}&language=en&countries=us,in`);
     if (!response.ok) {
       throw new Error('Failed to fetch news from provider');
     }
     const data = await response.json();
     
+    if (!data || !data.data || !Array.isArray(data.data)) {
+      throw new Error('Invalid response format from MarketAux API');
+    }
+
     // Map to generic format
-    const formatted = data.map((item: any) => ({
-      id: item.id,
-      category: item.category,
-      headline: item.headline,
+    const formatted = data.data.map((item: any) => ({
+      id: item.uuid,
+      category: category,
+      headline: item.title,
       url: item.url,
-      publishedAt: item.datetime,
+      publishedAt: Math.floor(new Date(item.published_at).getTime() / 1000),
       source: item.source,
-      summary: item.summary,
-      image: item.image
+      summary: item.description || item.snippet,
+      image: item.image_url
     }));
     
     res.json(formatted);
@@ -90,51 +94,18 @@ router.get('/', authenticate, async (req: any, res) => {
 
 // GET /api/news/economic-calendar
 router.get('/economic-calendar', authenticate, async (req: any, res) => {
-  try {
-    const apiKey = process.env.FINNHUB_API_KEY;
-    
-    if (!apiKey) {
-      return res.json([
-        {
-          id: 1,
-          event: 'Fed Interest Rate Decision',
-          impact: 'high',
-          time: new Date(Date.now() + 86400000).toISOString(),
-          country: 'US',
-          estimate: '5.25%',
-          actual: null
-        }
-      ]);
+  // MarketAux does not provide an economic calendar. Returning mock/static data.
+  res.json([
+    {
+      id: 1,
+      event: 'Fed Interest Rate Decision',
+      impact: 'high',
+      time: new Date(Date.now() + 86400000).toISOString(),
+      country: 'US',
+      estimate: '5.25%',
+      actual: null
     }
-    
-    // Finnhub calendar requires from/to dates
-    const today = new Date();
-    const from = today.toISOString().split('T')[0];
-    const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const to = nextWeek.toISOString().split('T')[0];
-
-    const response = await fetch(`https://finnhub.io/api/v1/calendar/economic?from=${from}&to=${to}&token=${apiKey}`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch economic calendar');
-    }
-    
-    const data = await response.json();
-    const formatted = data.economicCalendar.map((item: any) => ({
-      id: item.event + item.time,
-      event: item.event,
-      impact: item.impact || 'medium',
-      time: item.time,
-      country: item.country,
-      estimate: item.estimate,
-      actual: item.actual,
-      previous: item.previous
-    }));
-
-    res.json(formatted);
-  } catch (error) {
-    console.error('Economic calendar error:', error);
-    res.status(500).json({ error: 'Failed to fetch economic calendar' });
-  }
+  ]);
 });
 
 // POST /api/news/enrich

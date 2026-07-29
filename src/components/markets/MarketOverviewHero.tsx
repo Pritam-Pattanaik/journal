@@ -8,7 +8,7 @@ import { SkeletonLoader } from '../ui/SkeletonLoader';
 
 export default function MarketOverviewHero() {
   const [time, setTime] = useState(new Date());
-  const { data: markets, loading, error } = useLiveMarketData(5000); // Poll every 5s
+  const { data: markets, loading, error } = useLiveMarketData();
 
   // Clock
   useEffect(() => {

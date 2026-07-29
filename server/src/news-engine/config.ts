@@ -24,12 +24,7 @@ export const FLAGS = {
   BREAKING_ALERTS_ENABLED: process.env.BREAKING_ALERTS_ENABLED !== 'false',
 
   /** Per-source kill switches */
-  NSE_POLLER_ENABLED: process.env.NSE_POLLER_ENABLED !== 'false',
-  BSE_POLLER_ENABLED: process.env.BSE_POLLER_ENABLED !== 'false',
-  RBI_POLLER_ENABLED: process.env.RBI_POLLER_ENABLED !== 'false',
-  PIB_POLLER_ENABLED: process.env.PIB_POLLER_ENABLED !== 'false',
-  MACRO_POLLER_ENABLED: process.env.MACRO_POLLER_ENABLED !== 'false',
-  NEWSDATA_POLLER_ENABLED: process.env.NEWSDATA_POLLER_ENABLED !== 'false',
+  MARKETAUX_POLLER_ENABLED: process.env.MARKETAUX_POLLER_ENABLED !== 'false',
 
   /**
    * ADVISORY_MODE — NEVER enable without SEBI RA registration.
@@ -103,47 +98,12 @@ export interface SourceConfig {
 }
 
 export const SOURCE_CONFIG: Record<string, SourceConfig> = {
-  NSE: {
-    intervalMs: 90_000,       // every 90 seconds
-    marketHoursOnly: true,    // only during 9:00–16:00 IST Mon–Fri
-    backoffBaseMs: 2_000,
-    maxRetries: 3,
-    timeoutMs: 10_000,
-  },
-  BSE: {
-    intervalMs: 90_000,
-    marketHoursOnly: true,
-    backoffBaseMs: 2_000,
-    maxRetries: 3,
-    timeoutMs: 10_000,
-  },
-  RBI: {
-    intervalMs: 600_000,      // every 10 minutes
-    marketHoursOnly: false,   // always-on (RBI announcements happen any time)
-    backoffBaseMs: 5_000,
-    maxRetries: 3,
-    timeoutMs: 10_000,
-  },
-  PIB: {
-    intervalMs: 600_000,
+  MARKETAUX: {
+    intervalMs: 900_000,      // every 15 minutes
     marketHoursOnly: false,
     backoffBaseMs: 5_000,
     maxRetries: 3,
-    timeoutMs: 10_000,
-  },
-  MACRO: {
-    intervalMs: 300_000,      // every 5 minutes
-    marketHoursOnly: false,
-    backoffBaseMs: 3_000,
-    maxRetries: 3,
-    timeoutMs: 10_000,
-  },
-  NEWSDATA: {
-    intervalMs: 300_000,
-    marketHoursOnly: false,
-    backoffBaseMs: 3_000,
-    maxRetries: 3,
-    timeoutMs: 10_000,
+    timeoutMs: 15_000,
   },
 };
 

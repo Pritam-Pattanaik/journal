@@ -1,5 +1,6 @@
-import { Router, Response } from 'express';
+import { Router, Response, Request } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { marketWorker } from '../services/MarketWorker';
 
 const router = Router();
 
@@ -11,88 +12,41 @@ const SYMBOLS = {
   vix: '^INDIAVIX'
 };
 
-const CACHE_TTL = 3000; // 3 seconds minimum cache to prevent hammering Yahoo
-let cachedQuotes: any = null;
-let lastFetch = 0;
-
 // GET /api/market/quotes
 router.get('/quotes', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const now = Date.now();
-    if (cachedQuotes && (now - lastFetch < CACHE_TTL)) {
-      res.json(cachedQuotes);
-      return;
-    }
-
-    // Fetch all symbols in parallel
-    const promises = Object.entries(SYMBOLS).map(async ([key, symbol]) => {
-      try {
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
-        const response = await fetch(url);
-        const data = await response.json();
-        
-        const meta = data?.chart?.result?.[0]?.meta;
-        if (!meta) throw new Error('Invalid data format');
-
-        const now = new Date();
-        const options = { timeZone: 'Asia/Kolkata', hour12: false, hour: 'numeric', minute: 'numeric', weekday: 'short' } as const;
-        const parts = new Intl.DateTimeFormat('en-US', options).formatToParts(now);
-        let hour = 0, minute = 0, weekday = '';
-        for (const part of parts) {
-          if (part.type === 'hour') hour = parseInt(part.value, 10);
-          if (part.type === 'minute') minute = parseInt(part.value, 10);
-          if (part.type === 'weekday') weekday = part.value;
-        }
-        
-        let status = 'CLOSED';
-        if (weekday !== 'Sat' && weekday !== 'Sun') {
-          const timeInMinutes = (hour === 24 ? 0 : hour) * 60 + minute;
-          const marketOpen = 9 * 60 + 15; // 09:15 AM
-          const marketClose = 15 * 60 + 30; // 03:30 PM
-          if (timeInMinutes >= marketOpen && timeInMinutes <= marketClose) {
-            status = 'OPEN';
-          }
-        }
-
-        const prevClose = meta.chartPreviousClose || meta.regularMarketPreviousClose;
-        const current = meta.regularMarketPrice;
-        const change = current - prevClose;
-        const pct = (change / prevClose) * 100;
-
-        return {
-          id: key,
-          name: key === 'nifty' ? 'NIFTY 50' : 
-                key === 'banknifty' ? 'BANK NIFTY' : 
-                key === 'finnifty' ? 'FINNIFTY' : 
-                key === 'sensex' ? 'SENSEX' : 
-                'INDIA VIX',
-          value: current,
-          change: change,
-          pct: pct,
-          trend: change >= 0 ? 'up' : 'down',
-          status: status,
-          updatedAt: meta.regularMarketTime * 1000,
-          sparkline: data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []
-        };
-      } catch (err) {
-        console.error(`Error fetching ${symbol}:`, err);
-        return null;
-      }
-    });
-
-    const results = await Promise.all(promises);
-    const validResults = results.filter(r => r !== null);
-    
-    if (validResults.length > 0) {
-      cachedQuotes = validResults;
-      lastFetch = Date.now();
-    }
-
-    res.json(validResults);
+    const quotes = marketWorker.getCache();
+    res.json(quotes);
   } catch (err: any) {
     console.error('Get market quotes error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// GET /api/market/stream (Server-Sent Events)
+router.get('/stream', authenticate, (req: AuthRequest, res: Response) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+  });
+
+  // Send initial data immediately
+  const initialCache = marketWorker.getCache();
+  if (initialCache.length > 0) {
+    res.write(`data: ${JSON.stringify(initialCache)}\n\n`);
+  }
+
+  // Listener for future updates
+  const updateListener = (data: any) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  marketWorker.on('update', updateListener);
+
+  req.on('close', () => {
+    marketWorker.removeListener('update', updateListener);
+  });
 });
 
 // GET /api/market/chart/:symbol

@@ -1,7 +1,10 @@
-import React from 'react';
-import { Clock, ExternalLink, Bookmark, Brain, Flame } from 'lucide-react';
-import { Badge } from '../ui/Badge';
-import { Button } from '../ui/Button';
+/**
+ * BreakingNewsTimeline — Live news from the AI Engine
+ * Uses the real news-engine feed as its data source instead of mock data
+ */
+import React, { useEffect, useState } from 'react';
+import { Flame, Brain, ExternalLink, Clock, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { useNewsStore } from '../../stores/newsStore';
 
 export interface NewsItem {
   id: string;
@@ -14,71 +17,262 @@ export interface NewsItem {
   readTime: string;
 }
 
-const NEWS_MOCK: NewsItem[] = [
-  { id: '1', title: 'RBI maintains status quo on repo rate, changes stance to neutral', source: 'Reuters', time: '10:00 AM', impact: 'high', sector: 'Banking', category: 'RBI', readTime: '3 min' },
-  { id: '2', title: 'TCS Q1 results exceed street estimates, declares ₹10 dividend', source: 'Bloomberg', time: '09:15 AM', impact: 'high', sector: 'IT', category: 'Results', readTime: '5 min' },
-  { id: '3', title: 'Crude oil prices surge 2% amid Middle East tensions', source: 'Financial Times', time: '08:30 AM', impact: 'medium', sector: 'Energy', category: 'Commodities', readTime: '2 min' },
-  { id: '4', title: 'Auto sales show marginal decline in June due to monsoon delays', source: 'Economic Times', time: 'Yesterday', impact: 'low', sector: 'Auto', category: 'Economy', readTime: '4 min' },
-];
+const IMPACT_COLORS = {
+  high:   { dot: '#ef4444', bg: 'rgba(239,68,68,0.12)',   text: '#ef4444' },
+  medium: { dot: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  text: '#f59e0b' },
+  low:    { dot: '#10b981', bg: 'rgba(16,185,129,0.12)',  text: '#10b981' },
+} as const;
+
+// Map news-engine confidence → impact level
+function confidenceToImpact(conf: string): 'high' | 'medium' | 'low' {
+  if (conf === 'high') return 'high';
+  if (conf === 'medium') return 'medium';
+  return 'low';
+}
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'Just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+// Map direction to category tag
+const DIRECTION_LABEL: Record<string, string> = {
+  positive: 'Bullish',
+  negative: 'Bearish',
+  neutral:  'Neutral',
+  mixed:    'Mixed',
+};
 
 interface BreakingNewsTimelineProps {
   onAnalyze: (item: NewsItem) => void;
 }
 
+const CATEGORY_FILTERS = ['All', 'RBI', 'Results', 'Macro', 'Global'];
+
 export default function BreakingNewsTimeline({ onAnalyze }: BreakingNewsTimelineProps) {
+  const { engineFeed, loadingFeed, fetchEngineFeed } = useNewsStore();
+  const [activeFilter, setActiveFilter] = useState('All');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    // Only fetch if we don't have data yet (avoid double-fetch when AI Intelligence tab already loaded it)
+    if (engineFeed.length === 0) {
+      fetchEngineFeed({ limit: 20 });
+    }
+  }, []);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchEngineFeed({ limit: 20 });
+    setTimeout(() => setIsRefreshing(false), 600);
+  };
+
+  // Convert engine feed to NewsItem format, sorted by recency
+  const liveItems = engineFeed
+    .slice()
+    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
+    .slice(0, 8)
+    .map(item => ({
+      id: item.id,
+      title: item.headline,
+      source: item.source,
+      time: timeAgo(item.publishedAt),
+      impact: confidenceToImpact(item.confidence),
+      sector: item.sectors[0] || 'General',
+      category: DIRECTION_LABEL[item.direction] || 'News',
+      readTime: '2 min',
+      url: item.url,
+      urgency: item.urgency,
+      direction: item.direction,
+    }));
+
+  const breakingItems = liveItems.filter(i => i.urgency === 'breaking');
+
   return (
-    <div className="card p-5">
-      <div className="flex items-center justify-between mb-6">
+    <div
+      className="flex flex-col"
+      style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.07)', padding: '20px' }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Flame className="w-5 h-5 text-danger" />
-          <h3 className="font-display font-bold text-primary">Breaking News</h3>
+          <Flame size={16} className="text-red-400" />
+          <h3 className="text-[14px] font-bold text-white/90">Breaking News</h3>
+          {breakingItems.length > 0 && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>
+              {breakingItems.length}
+            </span>
+          )}
         </div>
-        <div className="flex gap-2">
-          <Badge variant="default" className="text-[10px] cursor-pointer hover:bg-surface-2 transition-colors">All</Badge>
-          <Badge variant="default" className="text-[10px] cursor-pointer hover:bg-surface-2 transition-colors">RBI</Badge>
-          <Badge variant="default" className="text-[10px] cursor-pointer hover:bg-surface-2 transition-colors">Results</Badge>
+        <div className="flex items-center gap-2">
+          {/* Live indicator */}
+          <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-semibold">
+            {loadingFeed
+              ? <WifiOff size={10} />
+              : <Wifi size={10} />}
+            {loadingFeed ? 'Loading' : 'Live'}
+          </span>
+          <button
+            onClick={handleRefresh}
+            className="p-1 rounded-md text-white/30 hover:text-white/60 transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
+          </button>
         </div>
       </div>
 
-      <div className="relative border-l border-border ml-3 space-y-6 pb-4">
-        {NEWS_MOCK.map((item, i) => (
-          <div key={item.id} className="relative pl-6 group">
-            {/* Timeline Dot */}
-            <div className={`absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full border-2 border-surface-0 ${item.impact === 'high' ? 'bg-danger' : item.impact === 'medium' ? 'bg-warning' : 'bg-success'} shadow-sm`} />
-            
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-tertiary">
-                <span className="text-secondary">{item.time}</span>
-                <span>•</span>
-                <span>{item.source}</span>
-                <span>•</span>
-                <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {item.readTime}</span>
-              </div>
-              
-              <h4 className="text-[15px] font-bold text-primary leading-tight group-hover:text-accent transition-colors cursor-pointer" onClick={() => onAnalyze(item)}>
-                {item.title}
-              </h4>
-              
-              <div className="flex items-center gap-2 mt-1">
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-surface-2 text-secondary">{item.sector}</span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-surface-2 text-secondary">{item.category}</span>
-              </div>
-              
-              <div className="flex items-center gap-2 mt-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                <Button variant="secondary" size="sm" className="h-7 text-[11px] gap-1.5" onClick={() => onAnalyze(item)}>
-                  <Brain className="w-3.5 h-3.5 text-accent" /> AI Summary
-                </Button>
-                <button className="p-1.5 text-tertiary hover:text-secondary hover:bg-surface-2 rounded-md transition-colors" title="Bookmark">
-                  <Bookmark className="w-4 h-4" />
-                </button>
-                <button className="p-1.5 text-tertiary hover:text-secondary hover:bg-surface-2 rounded-md transition-colors" title="Original Source">
-                  <ExternalLink className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
+      {/* Category filter pills */}
+      <div className="flex gap-1.5 flex-wrap mb-4">
+        {CATEGORY_FILTERS.map(f => (
+          <button
+            key={f}
+            onClick={() => setActiveFilter(f)}
+            className="text-[10px] font-bold px-2.5 py-1 rounded-full transition-all"
+            style={{
+              background: activeFilter === f ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.05)',
+              color: activeFilter === f ? '#a78bfa' : 'rgba(255,255,255,0.35)',
+              border: activeFilter === f ? '1px solid rgba(139,92,246,0.3)' : '1px solid rgba(255,255,255,0.06)',
+            }}
+          >
+            {f}
+          </button>
         ))}
       </div>
+
+      {/* Loading skeleton */}
+      {loadingFeed && liveItems.length === 0 && (
+        <div className="flex flex-col gap-3">
+          {[1,2,3].map(n => (
+            <div key={n} className="animate-pulse flex gap-3">
+              <div className="w-2 h-2 rounded-full mt-2 flex-shrink-0" style={{ background: 'rgba(255,255,255,0.1)' }} />
+              <div className="flex-1">
+                <div className="h-3 rounded mb-1.5" style={{ background: 'rgba(255,255,255,0.08)', width: '40%' }} />
+                <div className="h-4 rounded mb-1" style={{ background: 'rgba(255,255,255,0.06)', width: '100%' }} />
+                <div className="h-4 rounded" style={{ background: 'rgba(255,255,255,0.04)', width: '70%' }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Timeline */}
+      {!loadingFeed && liveItems.length > 0 && (
+        <div className="relative">
+          {/* Timeline line */}
+          <div
+            className="absolute left-[5px] top-2 bottom-2 w-px"
+            style={{ background: 'linear-gradient(180deg, rgba(139,92,246,0.3) 0%, rgba(255,255,255,0.04) 100%)' }}
+          />
+
+          <div className="flex flex-col gap-0 pl-5">
+            {liveItems.map((item, idx) => {
+              const impact = IMPACT_COLORS[item.impact];
+              const isBreaking = item.urgency === 'breaking';
+              return (
+                <div
+                  key={item.id}
+                  className="relative pb-5 group"
+                >
+                  {/* Timeline dot */}
+                  <div
+                    className="absolute -left-5 top-1.5 w-2.5 h-2.5 rounded-full border-2"
+                    style={{
+                      background: impact.dot,
+                      borderColor: '#0d1117',
+                      boxShadow: isBreaking ? `0 0 8px ${impact.dot}` : 'none',
+                    }}
+                  />
+                  {isBreaking && (
+                    <div
+                      className="absolute -left-5 top-1.5 w-2.5 h-2.5 rounded-full animate-ping"
+                      style={{ background: impact.dot, opacity: 0.4 }}
+                    />
+                  )}
+
+                  {/* Meta row */}
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    {isBreaking && (
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">
+                        ⚡ Breaking
+                      </span>
+                    )}
+                    <span className="text-[10px] font-bold text-white/50">{item.time}</span>
+                    <span className="text-[10px] text-white/25">·</span>
+                    <span className="text-[10px] font-semibold text-white/40">{item.source}</span>
+                  </div>
+
+                  {/* Headline */}
+                  <p
+                    className="text-[13px] font-semibold text-white/80 leading-snug mb-2 cursor-pointer group-hover:text-white/95 transition-colors"
+                    onClick={() => onAnalyze({
+                      id: item.id, title: item.title, source: item.source,
+                      time: item.time, impact: item.impact, sector: item.sector,
+                      category: item.category, readTime: item.readTime,
+                    })}
+                  >
+                    {item.title}
+                  </p>
+
+                  {/* Tags + actions */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                      className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                      style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.4)' }}
+                    >
+                      {item.sector}
+                    </span>
+                    <span
+                      className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                      style={{ background: impact.bg, color: impact.text }}
+                    >
+                      {item.impact} confidence
+                    </span>
+
+                    {/* Actions — show on hover */}
+                    <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => onAnalyze({
+                          id: item.id, title: item.title, source: item.source,
+                          time: item.time, impact: item.impact, sector: item.sector,
+                          category: item.category, readTime: item.readTime,
+                        })}
+                        className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold text-violet-400 hover:text-violet-300 transition-colors"
+                        style={{ background: 'rgba(139,92,246,0.1)' }}
+                      >
+                        <Brain size={10} /> AI Summary
+                      </button>
+                      {(item as any).url && (
+                        <a
+                          href={(item as any).url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-md text-white/25 hover:text-white/60 transition-colors"
+                        >
+                          <ExternalLink size={10} />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loadingFeed && liveItems.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-8 gap-2">
+          <p className="text-[13px] font-semibold text-white/30">No news yet</p>
+          <p className="text-[11px] text-white/20 text-center">Live items appear here during market hours</p>
+        </div>
+      )}
     </div>
   );
 }

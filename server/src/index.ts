@@ -31,6 +31,7 @@ import marketRoutes from './routes/market';
 import notificationRoutes from './routes/notifications';
 import newsEngineRoutes from './routes/news-engine';
 import { startNewsEngine, stopNewsEngine } from './news-engine';
+import { marketWorker } from './services/MarketWorker';
 
 const app = express();
 
@@ -118,10 +119,11 @@ app.use('/api/news-engine', newsEngineRoutes);
 
 // Start News Engine Pipeline (non-throwing — server boots regardless)
 startNewsEngine();
+marketWorker.start();
 
 // Graceful shutdown
-process.on('SIGTERM', () => { stopNewsEngine(); process.exit(0); });
-process.on('SIGINT', () => { stopNewsEngine(); process.exit(0); });
+process.on('SIGTERM', () => { stopNewsEngine(); marketWorker.stop(); process.exit(0); });
+process.on('SIGINT', () => { stopNewsEngine(); marketWorker.stop(); process.exit(0); });
 
 // Start Server in development
 if (process.env.NODE_ENV !== 'production') {

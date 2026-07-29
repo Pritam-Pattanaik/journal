@@ -15,8 +15,6 @@ import { AuroraBackground } from './components/ui/AuroraBackground';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { AsyncStateBoundary } from './components/ui/AsyncStateBoundary';
 import { cn } from './lib/cn';
-import { initTelemetryObservers } from './lib/telemetry';
-import { TelemetryBanner } from './components/layout/TelemetryBanner';
 
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const Trades = React.lazy(() => import('./pages/Trades'));
@@ -135,7 +133,6 @@ export default function App() {
   useAutoSync();
 
   React.useEffect(() => {
-    initTelemetryObservers();
   }, []);
 
   return (
@@ -161,7 +158,6 @@ export default function App() {
         } />
       </Routes>
     </Suspense>
-    <TelemetryBanner />
     <Toaster position="bottom-right" richColors expand={false} />
     </>
   );

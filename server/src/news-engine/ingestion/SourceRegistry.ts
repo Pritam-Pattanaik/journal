@@ -18,10 +18,7 @@ import { tagSectors, isIndiaRelevant } from '../processing/EntityTagger';
 import { prisma } from '../../db';
 import { queue, QUEUES } from '../queue/InProcessQueue';
 
-import { fetchNSEAnnouncements } from './sources/nse';
-import { fetchBSEAnnouncements } from './sources/bse';
-import { fetchRBIFeed, fetchPIBFeed } from './sources/rbi-pib';
-import { fetchMacroItems } from './sources/macro';
+import { fetchMarketAux } from './sources/marketaux';
 
 const rateLimiter = new RateLimiter(SOURCE_CONFIG);
 
@@ -140,29 +137,9 @@ async function ingestFromSource(
 
 // ─── Individual Source Poll Functions ────────────────────────────────────────
 
-async function pollNSE() {
-  if (!FLAGS.NSE_POLLER_ENABLED || !isMarketHours()) return;
-  await ingestFromSource('NSE', fetchNSEAnnouncements);
-}
-
-async function pollBSE() {
-  if (!FLAGS.BSE_POLLER_ENABLED || !isMarketHours()) return;
-  await ingestFromSource('BSE', fetchBSEAnnouncements);
-}
-
-async function pollRBI() {
-  if (!FLAGS.RBI_POLLER_ENABLED) return;
-  await ingestFromSource('RBI', fetchRBIFeed);
-}
-
-async function pollPIB() {
-  if (!FLAGS.PIB_POLLER_ENABLED) return;
-  await ingestFromSource('PIB', fetchPIBFeed);
-}
-
-async function pollMacro() {
-  if (!FLAGS.MACRO_POLLER_ENABLED) return;
-  await ingestFromSource('MACRO', fetchMacroItems);
+async function pollMarketAux() {
+  if (!FLAGS.MARKETAUX_POLLER_ENABLED) return;
+  await ingestFromSource('MARKETAUX', fetchMarketAux);
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -175,23 +152,11 @@ export function startSourceRegistry(): void {
 
   logger.info('[SourceRegistry] Starting all pollers...');
 
-  // NSE & BSE: every 90 seconds (uses cron every-minute + in-function interval check)
-  scheduledTasks.push(cron.schedule('* * * * *', async () => {
-    await pollNSE();
-    await pollBSE();
-  }));
-
-  // RBI + PIB: every 10 minutes
-  scheduledTasks.push(cron.schedule('*/10 * * * *', async () => {
-    await pollRBI();
-    await pollPIB();
-  }));
-
-  // Macro: every 5 minutes
-  scheduledTasks.push(cron.schedule('*/5 * * * *', pollMacro));
+  // MarketAux: every 15 minutes
+  scheduledTasks.push(cron.schedule('*/15 * * * *', pollMarketAux));
 
   // Run immediately on startup to populate initial data
-  Promise.allSettled([pollNSE(), pollBSE(), pollRBI(), pollPIB(), pollMacro()])
+  Promise.allSettled([pollMarketAux()])
     .then(() => logger.info('[SourceRegistry] Initial poll completed.'));
 
   logger.info('[SourceRegistry] All pollers scheduled.');

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '../lib/api';
+import { api, BASE_URL } from '../lib/api';
 
 export interface MarketQuote {
   id: string;
@@ -14,64 +14,93 @@ export interface MarketQuote {
   flash?: 'up' | 'down' | null;
 }
 
-export function useLiveMarketData(pollingInterval = 3000) {
+export function useLiveMarketData() {
   const [data, setData] = useState<MarketQuote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
+    let eventSource: EventSource | null = null;
+    let timeoutId: NodeJS.Timeout | null = null;
     
-    const fetchQuotes = async () => {
+    const initializeData = async () => {
       try {
-        const response = await api.get('/market/quotes');
-        if (!isMounted) return;
-        
-        // Merge with previous data to detect flashes
-        setData(prevData => {
-          const newQuotes = response as MarketQuote[];
-          return newQuotes.map(newQuote => {
-            const prevQuote = prevData.find(p => p.id === newQuote.id);
-            let flash: 'up' | 'down' | null = null;
-            
-            if (prevQuote && prevQuote.value !== newQuote.value) {
-              flash = newQuote.value > prevQuote.value ? 'up' : 'down';
-            }
-            
-            return { ...newQuote, flash };
-          });
-        });
-        
-        setError(null);
-        setLoading(false);
-        
-        // Clear flashes after a short delay
-        setTimeout(() => {
-          if (isMounted) {
-            setData(curr => curr.map(q => ({ ...q, flash: null })));
-          }
-        }, 300);
-
-      } catch (err: any) {
-        if (!isMounted) return;
-        console.error('Failed to fetch market quotes:', err);
-        setError('Market data unavailable');
-        // Do not set loading to false immediately on error if we already have data
-        // Let it just fail silently in the background instead of breaking the UI
-        if (data.length === 0) {
+        const response = await api.get<MarketQuote[]>('/market/quotes');
+        if (isMounted && response) {
+          setData(response);
+          setLoading(false);
+          setError(null);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError('Market data unavailable');
           setLoading(false);
         }
       }
     };
+    
+    const connectSSE = () => {
+      const token = localStorage.getItem('token');
+      // Pass token via query params since EventSource doesn't support headers
+      eventSource = new EventSource(`${BASE_URL}/market/stream?token=${token}`);
+      
+      eventSource.onmessage = (event) => {
+        if (!isMounted) return;
+        try {
+          const newQuotes = JSON.parse(event.data) as MarketQuote[];
+          
+          setData(prevData => {
+            return newQuotes.map(newQuote => {
+              const prevQuote = prevData.find(p => p.id === newQuote.id);
+              let flash: 'up' | 'down' | null = null;
+              
+              if (prevQuote && prevQuote.value !== newQuote.value) {
+                flash = newQuote.value > prevQuote.value ? 'up' : 'down';
+              }
+              
+              return { ...newQuote, flash };
+            });
+          });
+          
+          setLoading(false);
+          setError(null);
+          
+          // Clear flashes after a short delay
+          if (timeoutId) clearTimeout(timeoutId);
+          timeoutId = setTimeout(() => {
+            if (isMounted) {
+              setData(curr => curr.map(q => ({ ...q, flash: null })));
+            }
+          }, 300);
+          
+        } catch (err) {
+          console.error('SSE Parsing error', err);
+        }
+      };
 
-    fetchQuotes();
-    const interval = setInterval(fetchQuotes, pollingInterval);
+      eventSource.onerror = (err) => {
+        console.error('SSE Error:', err);
+        eventSource?.close();
+        // Attempt to reconnect gracefully
+        if (isMounted) {
+            setTimeout(connectSSE, 5000);
+        }
+      };
+    };
+
+    initializeData().then(() => {
+       if (isMounted) connectSSE();
+    });
     
     return () => {
       isMounted = false;
-      clearInterval(interval);
+      if (timeoutId) clearTimeout(timeoutId);
+      if (eventSource) {
+        eventSource.close();
+      }
     };
-  }, [pollingInterval]); // data intentionally omitted from dependency array to avoid reset loops
+  }, []);
 
   return { data, loading, error };
 }
