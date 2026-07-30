@@ -10,6 +10,8 @@ import BreakingNewsTimeline, { NewsItem } from '../components/markets/BreakingNe
 import MarketIntelligenceCenter from '../components/markets/MarketIntelligenceCenter';
 import { NewsEngineFeed } from '../components/markets/NewsEngineFeed';
 import { DigestPanel } from '../components/markets/DigestPanel';
+import Watchlist from '../components/markets/Watchlist';
+import MarketSnapshots from '../components/markets/MarketSnapshots';
 
 type MarketTab = 'overview' | 'engine' | 'digest';
 
@@ -130,6 +132,10 @@ export default function Markets() {
 
               {/* Right Sidebar */}
               <div className="xl:col-span-4 flex flex-col gap-6">
+                <div className="h-[300px]">
+                  <Watchlist />
+                </div>
+                <MarketSnapshots />
                 <MarketAISummary type="daily-brief" />
                 <BreakingNewsTimeline onAnalyze={setSelectedArticle} />
                 <EconomicCalendar />

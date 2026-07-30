@@ -40,7 +40,7 @@ export async function deliverBreakingAlert(item: QueueItem): Promise<void> {
 
   try {
     // Find users with matching watchlist
-    let targetUserIds = await getUsersForSectors(sectorImpact);
+    const targetUserIds = await getUsersForSectors(sectorImpact);
 
     // Fallback: if no watchlist users, don't send to everyone — only notify users
     // who have set up a watchlist (respects their choice)

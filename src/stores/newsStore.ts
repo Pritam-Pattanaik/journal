@@ -188,7 +188,9 @@ export const useNewsStore = create<NewsState>((set, get) => ({
     try {
       const data = await api.get<{ sectors: string[] }>('/news-engine/sectors');
       set({ availableSectors: data.sectors });
-    } catch {}
+    } catch (e) {
+      console.warn('Failed to fetch available sectors:', e);
+    }
   },
 
   fetchWatchlist: async () => {
@@ -225,7 +227,9 @@ export const useNewsStore = create<NewsState>((set, get) => ({
     try {
       const data = await api.get<EngineHealth>('/news-engine/health');
       set({ engineHealth: data });
-    } catch {}
+    } catch (e) {
+      console.warn('Failed to fetch engine health:', e);
+    }
   },
 
   setSelectedSector: (sector) => {

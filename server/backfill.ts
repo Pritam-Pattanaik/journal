@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { assignDisciplineScores } from './src/lib/discipline/disciplineEngine.js';
 
 const prisma = new PrismaClient();
@@ -25,9 +25,9 @@ async function backfill() {
           disciplineRawScore: t.disciplineRawScore ?? null,
           confidence: t.confidence ?? null,
           tradingStyle: t.tradingStyle ?? null,
-          behaviourProfile: t.behaviourProfile ?? null,
-          disciplineBreakdown: t.disciplineBreakdown ?? null,
-          disciplineReasons: t.disciplineReasons ?? null,
+          behaviourProfile: t.behaviourProfile ? t.behaviourProfile as Prisma.InputJsonValue : Prisma.DbNull,
+          disciplineBreakdown: t.disciplineBreakdown ? t.disciplineBreakdown as Prisma.InputJsonValue : Prisma.DbNull,
+          disciplineReasons: t.disciplineReasons ? t.disciplineReasons as Prisma.InputJsonValue : Prisma.DbNull,
           disciplineVersion: t.disciplineVersion ?? 1,
         }
       });

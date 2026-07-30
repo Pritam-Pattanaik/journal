@@ -39,20 +39,15 @@ export default function Sidebar() {
     if (profile?.role === 'SUPER_ADMIN') {
       return [
         {
-          label: 'Admin',
+          label: 'Admin Portal',
           items: [
-            { name: 'Overview',   path: '/app',                icon: Shield },
-            { name: 'Users',      path: '/app/admin/users',    icon: Users },
-            { name: 'Trades',     path: '/app/admin/trades',   icon: BarChart3 },
-            { name: 'Brokers',    path: '/app/admin/brokers',  icon: Link2 },
-            { name: 'AI Monitor', path: '/app/admin/ai',       icon: Brain, hasNotification: true },
-            { name: 'Audit Logs', path: '/app/admin/audit',    icon: ScrollText },
+            { name: 'Admin Dashboard', path: '/app/admin', icon: Shield },
           ]
         },
         {
           label: 'System',
           items: [
-            { name: 'Settings',   path: '/app/admin/settings', icon: Settings },
+            { name: 'Settings', path: '/app/settings', icon: Settings },
           ]
         }
       ];

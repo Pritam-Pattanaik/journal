@@ -2,7 +2,7 @@ import React, { useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BellRing, X, Check, Trash2, Filter, Volume2, VolumeX, Search,
-  CheckCircle2
+  CheckCircle2, AlertTriangle
 } from 'lucide-react';
 import { useNotificationStore, NotificationFilter } from '../../stores/notificationStore';
 import { NotificationCard } from './NotificationCard';
@@ -15,7 +15,7 @@ const FILTERS: NotificationFilter[] = ['All', 'Trading', 'AI', 'Risk', 'Market',
 export function NotificationPanel() {
   const {
     notifications, filter, setFilter, isPanelOpen, setPanelOpen,
-    markAllAsRead, clearAll, soundEnabled, setSoundEnabled
+    markAllAsRead, clearAll, soundEnabled, setSoundEnabled, error, fetchNotifications
   } = useNotificationStore();
   
   const [isLoading, setIsLoading] = React.useState(true);
@@ -193,6 +193,26 @@ export function NotificationPanel() {
                       </div>
                     </motion.div>
                   ))
+                ) : error ? (
+                  <motion.div
+                    key="error"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center"
+                  >
+                    <div className="w-16 h-16 rounded-full bg-danger/10 flex items-center justify-center mb-4 border border-danger/30">
+                      <AlertTriangle className="w-8 h-8 text-danger" />
+                    </div>
+                    <h3 className="text-base font-bold text-primary mb-1">Failed to load</h3>
+                    <p className="text-sm text-tertiary">{error}</p>
+                    <button 
+                      onClick={() => fetchNotifications()}
+                      className="mt-6 px-4 py-2 bg-surface-2 hover:bg-surface-3 text-secondary font-bold text-xs rounded-lg transition-colors"
+                    >
+                      Try Again
+                    </button>
+                  </motion.div>
                 ) : filteredNotifications.length === 0 ? (
                   <motion.div
                     key="empty"

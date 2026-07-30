@@ -91,8 +91,25 @@ router.get('/stats', authenticate, requireRoles(['SUPER_ADMIN']), async (_req: A
     const recentUsers = await prisma.user.count({ where: { createdAt: { gte: thirtyDaysAgo } } });
     const prevUsers = await prisma.user.count({ where: { createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } } });
 
+    const recentTrades = await prisma.trade.count({ where: { createdAt: { gte: thirtyDaysAgo } } });
+    const prevTrades = await prisma.trade.count({ where: { createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } } });
+
     const stats = tradeStats[0] || { total: 0, totalPnl: 0, wins: 0 };
     const winRate = stats.total > 0 ? ((stats.wins / stats.total) * 100) : 0;
+
+    let userGrowth = 0;
+    if (prevUsers > 0) {
+      userGrowth = Math.round(((recentUsers - prevUsers) / prevUsers) * 100);
+    } else if (recentUsers > 0) {
+      userGrowth = 100;
+    }
+
+    let tradeGrowth = 0;
+    if (prevTrades > 0) {
+      tradeGrowth = Math.round(((recentTrades - prevTrades) / prevTrades) * 100);
+    } else if (recentTrades > 0) {
+      tradeGrowth = 100;
+    }
 
     res.json({
       totalUsers: userCount,
@@ -101,7 +118,8 @@ router.get('/stats', authenticate, requireRoles(['SUPER_ADMIN']), async (_req: A
       winRate: Math.round(winRate * 100) / 100,
       activeBrokers: brokerStats,
       aiInsights: aiCount,
-      userGrowth: { recent: recentUsers, previous: prevUsers },
+      userGrowth,
+      tradeGrowth,
     });
   } catch (err: any) {
     console.error('Admin stats error:', err);

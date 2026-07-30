@@ -9,6 +9,8 @@ import morgan from 'morgan';
 import path from 'path';
 import dns from 'dns';
 import { logger } from './lib/logger';
+import helmet from 'helmet';
+import csurf from 'csurf';
 
 // Force IPv4 resolution for Neon/Prisma stability
 dns.setDefaultResultOrder('ipv4first');
@@ -65,6 +67,15 @@ app.use(cors({
 
 app.use(express.json());
 app.use(cookieParser());
+app.use(helmet());
+
+const csrfProtection = csurf({ 
+  cookie: { 
+    httpOnly: true, 
+    secure: process.env.NODE_ENV === 'production', 
+    sameSite: 'lax' 
+  } 
+});
 
 // Logging middleware
 const morganFormat = process.env.NODE_ENV !== 'production' ? 'dev' : 'combined';
@@ -80,17 +91,12 @@ app.use(
 app.use(express.static(path.join(process.cwd(), 'public')));
 app.get('/', (_req, res) => res.redirect('/api-tester.html'));
 
-// Stateless CSRF Protection Middleware
-app.use((req, res, next) => {
-  // Only apply to state-mutating requests
-  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
-    // If it's a cross-origin or simple request using cookies, this header proves it was initiated by our JS (CORS preflight enforced)
-    if (req.headers['x-requested-with'] !== 'XMLHttpRequest') {
-      res.status(403).json({ error: 'CSRF token validation failed. Missing X-Requested-With header.' });
-      return;
-    }
-  }
-  next();
+// CSRF Protection Middleware
+app.use('/api', csrfProtection);
+
+// CSRF Token endpoint
+app.get('/api/auth/csrf', (req, res) => {
+  res.json({ csrfToken: req.csrfToken() });
 });
 
 // Health check endpoint

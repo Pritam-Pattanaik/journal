@@ -1,6 +1,7 @@
 import { Router, Response, Request } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { marketWorker } from '../services/MarketWorker';
+import { redis } from '../lib/redis';
 
 const router = Router();
 
@@ -73,6 +74,18 @@ router.get('/chart/:symbol', authenticate, async (req: AuthRequest, res: Respons
     }
 
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=${interval}&range=${range}`;
+    const cacheKey = `market:chart:${ticker}:${timeframe}`;
+
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        res.json(JSON.parse(cached));
+        return;
+      }
+    } catch (e) {
+      console.warn('Redis cache get failed for chart:', e);
+    }
+
     const response = await fetch(url);
     const data = await response.json();
     
@@ -95,6 +108,12 @@ router.get('/chart/:symbol', authenticate, async (req: AuthRequest, res: Respons
           value: quotes.close[i] // for line chart
         });
       }
+    }
+
+    try {
+      await redis.set(cacheKey, JSON.stringify(chartData), 'EX', 60);
+    } catch (e) {
+      console.warn('Redis cache set failed for chart:', e);
     }
 
     res.json(chartData);

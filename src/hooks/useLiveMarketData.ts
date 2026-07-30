@@ -22,7 +22,7 @@ export function useLiveMarketData() {
   useEffect(() => {
     let isMounted = true;
     let eventSource: EventSource | null = null;
-    let timeoutId: NodeJS.Timeout | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
     
     const initializeData = async () => {
       try {

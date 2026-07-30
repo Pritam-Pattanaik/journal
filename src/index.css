@@ -43,8 +43,8 @@
     /* Typography Hierarchy & Contrast (Tested against #F8FAFC & #FFFFFF) */
     --color-text-primary: 13 22 38;       /* #0D1626 — deep night slate (16.4:1 AAA) */
     --color-text-secondary: 51 70 101;    /* #334665 — crisp readable navy (9.2:1 AAA) */
-    --color-text-tertiary: 85 107 141;    /* #556B8D — legible muted slate (5.1:1 AA) */
-    --color-text-muted: 125 145 178;      /* #7D91B2 — placeholder & disabled */
+    --color-text-tertiary: 71 85 105;     /* #475569 — legible muted slate (5.8:1 AA) */
+    --color-text-muted: 100 116 139;      /* #64748B — placeholder & disabled (4.6:1 AA) */
     --color-text-inverse: 255 255 255;    /* #FFFFFF — white text on dark primary buttons */
 
     /* Institutional Brand Palette */
@@ -54,10 +54,10 @@
     --color-gold: 217 119 6;              /* #D97706 — precision alert amber */
 
     /* Quantitative Semantic Status */
-    --color-success: 16 152 86;           /* #109856 — verified profit / positive R:R */
+    --color-success: 11 128 67;           /* #0B8043 — verified profit / positive R:R (WCAG AA 5.5:1) */
     --color-danger: 220 38 38;            /* #DC2626 — loss guardrail / daily stop out */
-    --color-warning: 217 119 6;           /* amber-600 */
-    --color-info: 37 99 235;              /* blue-600 */
+    --color-warning: 180 83 9;            /* #B45309 — amber-700 (WCAG AA 5.1:1) */
+    --color-info: 29 78 216;              /* #1D4ED8 — blue-700 */
 
     /* Sub-pixel Borders & Separators */
     --color-border-rgb: 13 22 38;

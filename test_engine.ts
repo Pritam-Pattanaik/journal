@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-restricted-imports
 import { assignDisciplineScores } from './server/src/lib/discipline/disciplineEngine.js';
 const tradesToInsert = [{
   userId: 'test',

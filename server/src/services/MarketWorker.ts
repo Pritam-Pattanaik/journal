@@ -28,6 +28,7 @@ class MarketWorker extends EventEmitter {
 
   constructor() {
     super();
+    this.setMaxListeners(0);
   }
 
   public start() {

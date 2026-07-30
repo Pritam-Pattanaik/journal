@@ -6,7 +6,7 @@ import Header from './components/layout/Header';
 import PageWrapper from './components/layout/PageWrapper';
 import MarketingLayout from './components/layout/MarketingLayout';
 import ProtectedRoute from './components/layout/ProtectedRoute';
-import AdminRoute from './components/layout/AdminRoute';
+import AdminLayout from './components/layout/AdminLayout';
 import { PageLoadingFallback } from './components/ui/PageLoadingFallback';
 import { useAuthStore } from './stores/authStore';
 import { useUIStore } from './stores/uiStore';
@@ -28,9 +28,13 @@ const Strategies = React.lazy(() => import('./pages/Strategies'));
 const Settings = React.lazy(() => import('./pages/Settings'));
 const Login = React.lazy(() => import('./pages/auth/Login'));
 const Signup = React.lazy(() => import('./pages/auth/Signup'));
+const ForgotPassword = React.lazy(() => import('./pages/auth/ForgotPassword'));
+const ResetPassword = React.lazy(() => import('./pages/auth/ResetPassword'));
 const Home = React.lazy(() => import('./pages/marketing/Home'));
 const About = React.lazy(() => import('./pages/marketing/About'));
 const Pricing = React.lazy(() => import('./pages/marketing/Pricing'));
+const Privacy = React.lazy(() => import('./pages/marketing/Privacy'));
+const Terms = React.lazy(() => import('./pages/marketing/Terms'));
 const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard'));
 const AdminOverview = React.lazy(() => import('./pages/admin/AdminOverview'));
 const AdminUsers = React.lazy(() => import('./pages/admin/AdminUsers'));
@@ -66,7 +70,7 @@ function MainLayout() {
               <AsyncStateBoundary>
                 <Suspense fallback={<PageLoadingFallback />}>
                   <Routes>
-                    <Route path="/" element={profile?.role === 'SUPER_ADMIN' ? <AdminOverview /> : <Dashboard />} />
+                    <Route path="/" element={profile?.role === 'SUPER_ADMIN' ? <Navigate to="/app/admin" replace /> : <Dashboard />} />
 
                   <Route path="/trades" element={<Trades />} />
                   <Route path="/analytics" element={<Analytics />} />
@@ -77,46 +81,7 @@ function MainLayout() {
                   <Route path="/ai-coach" element={<AICoach />} />
                   <Route path="/strategies" element={<Strategies />} />
                   <Route path="/settings" element={<Settings />} />
-                  <Route path="/admin" element={
-                    <AdminRoute>
-                      <AdminDashboard />
-                    </AdminRoute>
-                  } />
-                  <Route path="/admin/users" element={
-                    <AdminRoute>
-                      <AdminUsers />
-                    </AdminRoute>
-                  } />
-                  <Route path="/admin/users/:id" element={
-                    <AdminRoute>
-                      <AdminUserDetail />
-                    </AdminRoute>
-                  } />
-                  <Route path="/admin/trades" element={
-                    <AdminRoute>
-                      <AdminTrades />
-                    </AdminRoute>
-                  } />
-                  <Route path="/admin/brokers" element={
-                    <AdminRoute>
-                      <AdminBrokers />
-                    </AdminRoute>
-                  } />
-                  <Route path="/admin/ai" element={
-                    <AdminRoute>
-                      <AdminAIMonitor />
-                    </AdminRoute>
-                  } />
-                  <Route path="/admin/audit" element={
-                    <AdminRoute>
-                      <AdminAuditLogs />
-                    </AdminRoute>
-                  } />
-                  <Route path="/admin/settings" element={
-                    <AdminRoute>
-                      <AdminSystemSettings />
-                    </AdminRoute>
-                  } />
+                  <Route path="/admin/*" element={<Navigate to="/app/admin" replace />} />
                   <Route path="*" element={<Navigate to="/app" replace />} />
                 </Routes>
               </Suspense>
@@ -144,11 +109,15 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
           <Route path="/pricing" element={<Pricing />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
         </Route>
 
         {/* Auth Pages (Standalone Layout) */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* Protected Dashboard App */}
         <Route path="/app/*" element={
@@ -156,6 +125,23 @@ export default function App() {
             <MainLayout />
           </ProtectedRoute>
         } />
+        
+        {/* Admin App */}
+        <Route path="/app/admin" element={
+          <ProtectedRoute>
+            <AdminLayout />
+          </ProtectedRoute>
+        }>
+          <Route index element={<AdminOverview />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="users/:id" element={<AdminUserDetail />} />
+          <Route path="trades" element={<AdminTrades />} />
+          <Route path="brokers" element={<AdminBrokers />} />
+          <Route path="ai" element={<AdminAIMonitor />} />
+          <Route path="audit" element={<AdminAuditLogs />} />
+          <Route path="settings" element={<AdminSystemSettings />} />
+          <Route path="*" element={<Navigate to="/app/admin" replace />} />
+        </Route>
       </Routes>
     </Suspense>
     <Toaster position="bottom-right" richColors expand={false} />

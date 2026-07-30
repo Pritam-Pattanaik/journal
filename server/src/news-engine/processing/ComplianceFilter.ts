@@ -108,7 +108,7 @@ export function sanitiseScoringOutput(raw: unknown): {
     };
   }
 
-  let output = { ...parsed.data };
+  const output = { ...parsed.data };
 
   // Step 2: Truncate rationale
   output.rationale = truncateRationale(output.rationale);

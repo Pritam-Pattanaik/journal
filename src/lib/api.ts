@@ -21,11 +21,34 @@ function getToken(): string | null {
   return localStorage.getItem('token');
 }
 
+let csrfToken: string | null = null;
+
+async function getCsrfToken(): Promise<string> {
+  if (csrfToken) return csrfToken;
+  try {
+    const res = await fetch(`${BASE_URL}/auth/csrf`, { credentials: 'include' });
+    const data = await res.json();
+    csrfToken = data.csrfToken;
+    return csrfToken || '';
+  } catch (err) {
+    console.error('Failed to fetch CSRF token', err);
+    return '';
+  }
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
+  const isMutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method || 'GET');
+  let csrf = '';
+  
+  if (isMutation) {
+    csrf = await getCsrfToken();
+  }
+
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
-    'x-requested-with': 'XMLHttpRequest', // Anti-CSRF header
+    'x-requested-with': 'XMLHttpRequest', // Legacy Anti-CSRF header
+    ...(csrf ? { 'CSRF-Token': csrf } : {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers || {}),
   };

@@ -195,78 +195,104 @@ export default function MarketingLayout() {
         <Outlet />
       </main>
 
-      {/* ── Executive Institutional Footer (Zero Retro Symbols / Zero Fake Claims) ── */}
-      <footer className="border-t border-border bg-surface-0/80 pt-20 pb-16 px-6 lg:px-12 text-secondary" aria-label="Institutional resources">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 pb-14 border-b border-border/60">
+      {/* ── Executive Institutional Footer ── */}
+      <footer className="border-t border-border bg-surface-0/80 pt-20 pb-12 px-6 lg:px-12 text-secondary" aria-label="Institutional resources">
+        <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-8 gap-y-12 pb-14 border-b border-border/60">
           
-          {/* Column 1: Brand & Rationale */}
-          <div className="lg:col-span-2 flex flex-col justify-between gap-6">
-            <div className="space-y-4">
+          {/* Column 1: Brand, Description, Socials (Takes 2 cols on desktop) */}
+          <div className="col-span-2 lg:col-span-2 flex flex-col justify-between gap-8 pr-4">
+            <div className="space-y-5">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-accent to-iris flex items-center justify-center text-white font-bold shadow-sm">
-                  <TrendingUp size={16} strokeWidth={2.5} />
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-accent to-iris flex items-center justify-center text-white font-bold shadow-sm">
+                  <TrendingUp size={14} strokeWidth={2.5} />
                 </div>
-                <span className="font-display text-xl font-bold text-primary tracking-tight">TradeVault</span>
+                <span className="font-display text-lg font-bold text-primary tracking-tight">TradeVault</span>
               </div>
-              <p className="text-sm text-tertiary max-w-sm leading-relaxed font-normal">
-                Institutional quantitative workspace built for funded prop traders and rule-based speculators. Replace emotional willpower with mathematically verified discipline.
+              <p className="text-[13px] text-tertiary max-w-sm leading-relaxed font-medium">
+                The institutional quantitative workspace built for funded prop traders and rule-based speculators. Replace emotional willpower with mathematically verified discipline.
               </p>
+              
+              {/* Social Links (Placeholders) */}
+              <div className="flex items-center gap-4 pt-2">
+                {['Twitter', 'GitHub', 'Discord', 'LinkedIn'].map((platform) => (
+                  <a key={platform} href="#" aria-label={platform} className="text-tertiary hover:text-primary transition-colors">
+                    <div className="w-8 h-8 rounded-full bg-surface-1 border border-border flex items-center justify-center hover:bg-surface-2 transition-colors">
+                      <span className="text-[10px] font-bold">{platform[0]}</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
             </div>
             
             {/* Live Status Indicator */}
-            <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-surface-1 border border-border w-fit">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-1 border border-border w-fit shadow-xs">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
               </span>
-              <span className="text-xs font-medium text-primary">All Broker Integrations Operational</span>
+              <span className="text-[11px] font-semibold text-primary">Systems Operational</span>
             </div>
           </div>
 
-          {/* Column 2: Product Suite */}
-          <div className="flex flex-col gap-3.5">
-            <p className="text-xs font-bold uppercase tracking-wider text-primary">Product</p>
-            <ul className="space-y-2.5 text-sm font-medium text-secondary">
+          {/* Column 2: Product */}
+          <div className="flex flex-col gap-4">
+            <p className="text-[13px] font-bold text-primary">Product</p>
+            <ul className="space-y-3 text-[13px] font-medium text-tertiary">
               <li><a href="#workspace" className="hover:text-primary transition-colors">Interactive Workspace</a></li>
               <li><a href="#ai-coach" className="hover:text-primary transition-colors">AI Behavioral Coach</a></li>
-              <li><a href="#features" className="hover:text-primary transition-colors">Risk Guardrails &amp; Lockouts</a></li>
+              <li><a href="#features" className="hover:text-primary transition-colors">Risk Guardrails</a></li>
               <li><a href="#pricing" className="hover:text-primary transition-colors">Automated Broker Sync</a></li>
               <li><a href="#social-proof" className="hover:text-primary transition-colors">Prop Trader Analytics</a></li>
+              <li><a href="#" className="hover:text-primary transition-colors flex items-center gap-1.5">Changelog <span className="px-1.5 py-0.5 rounded-md bg-surface-2 text-[9px] font-bold text-primary">NEW</span></a></li>
             </ul>
           </div>
 
-          {/* Column 3: Integration Ecosystem (Cleaned of all terminal symbols) */}
-          <div className="flex flex-col gap-3.5">
-            <p className="text-xs font-bold uppercase tracking-wider text-primary">Integrations</p>
-            <ul className="space-y-2.5 text-sm font-medium text-secondary">
-              <li><span className="hover:text-primary transition-colors cursor-pointer">Apex Trader Funding</span></li>
-              <li><span className="hover:text-primary transition-colors cursor-pointer">Interactive Brokers TWS</span></li>
-              <li><span className="hover:text-primary transition-colors cursor-pointer">MetaTrader 4 &amp; 5</span></li>
-              <li><span className="hover:text-primary transition-colors cursor-pointer">Tradovate &amp; NinjaTrader</span></li>
-              <li><span className="hover:text-primary transition-colors cursor-pointer">TradingView Webhooks</span></li>
+          {/* Column 3: Resources */}
+          <div className="flex flex-col gap-4">
+            <p className="text-[13px] font-bold text-primary">Resources</p>
+            <ul className="space-y-3 text-[13px] font-medium text-tertiary">
+              <li><a href="#" className="hover:text-primary transition-colors">Trading Hub</a></li>
+              <li><a href="#" className="hover:text-primary transition-colors">API Documentation</a></li>
+              <li><a href="#" className="hover:text-primary transition-colors">Help Center</a></li>
+              <li><a href="#" className="hover:text-primary transition-colors">System Status</a></li>
+              <li><a href="#" className="hover:text-primary transition-colors">Engineering Blog</a></li>
             </ul>
           </div>
 
-          {/* Column 4: Security & Governance */}
-          <div className="flex flex-col gap-3.5">
-            <p className="text-xs font-bold uppercase tracking-wider text-primary">Security &amp; Trust</p>
-            <ul className="space-y-2.5 text-sm font-medium text-secondary">
-              <li><span className="hover:text-primary transition-colors cursor-pointer">Read-Only OAuth Protocols</span></li>
-              <li><span className="hover:text-primary transition-colors cursor-pointer">256-Bit TLS Encryption</span></li>
-              <li><Link to="/privacy" className="hover:text-primary transition-colors">Data Privacy Policy</Link></li>
+          {/* Column 4: Contact / Company */}
+          <div className="flex flex-col gap-4">
+            <p className="text-[13px] font-bold text-primary">Company</p>
+            <ul className="space-y-3 text-[13px] font-medium text-tertiary">
+              <li><Link to="/about" className="hover:text-primary transition-colors">About Us</Link></li>
+              <li><a href="#" className="hover:text-primary transition-colors">Careers</a></li>
+              <li><a href="#" className="hover:text-primary transition-colors">Contact Sales</a></li>
+              <li><a href="#" className="hover:text-primary transition-colors">Partners</a></li>
+              <li><a href="#" className="hover:text-primary transition-colors">Press Kit</a></li>
+            </ul>
+          </div>
+
+          {/* Column 5: Legal */}
+          <div className="flex flex-col gap-4">
+            <p className="text-[13px] font-bold text-primary">Legal</p>
+            <ul className="space-y-3 text-[13px] font-medium text-tertiary">
+              <li><Link to="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
               <li><Link to="/terms" className="hover:text-primary transition-colors">Terms of Service</Link></li>
-              <li><span className="hover:text-primary transition-colors cursor-pointer">SOC-2 Security Overview</span></li>
+              <li><a href="#" className="hover:text-primary transition-colors">Cookie Policy</a></li>
+              <li><a href="#" className="hover:text-primary transition-colors">Security Overview</a></li>
+              <li><a href="#" className="hover:text-primary transition-colors">Data Processing</a></li>
             </ul>
           </div>
 
         </div>
 
-        {/* Bottom Legal Copyright Bar (Purged of pseudo-numeric latency claims) */}
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 text-xs text-tertiary font-medium">
-          <p>© 2026 TradeVault, Inc. Built for institutional trading desks and disciplined speculators.</p>
-          <div className="flex items-center gap-6">
-            <span className="text-secondary font-semibold">Discipline Over Dopamine</span>
-            <span>·</span>
+        {/* Bottom Bar */}
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 pt-8 text-[12px] text-tertiary font-medium">
+          <p>© 2026 TradeVault, Inc. Designed and implemented by the TradeVault Team.</p>
+          <div className="flex items-center gap-4 sm:gap-6">
+            <span className="text-secondary font-semibold hidden sm:inline-block">Discipline Over Dopamine</span>
+            <span className="hidden sm:inline-block">·</span>
+            <a href="#" className="hover:text-primary transition-colors">Terms</a>
+            <a href="#" className="hover:text-primary transition-colors">Privacy</a>
             <span>All rights reserved</span>
           </div>
         </div>

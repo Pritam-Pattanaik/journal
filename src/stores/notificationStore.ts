@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { api, BASE_URL } from '../lib/api';
 
 export type NotificationCategory = 'Trading' | 'Risk' | 'Market' | 'AI' | 'Reports';
 export type NotificationPriority = 'Critical' | 'Warning' | 'Success' | 'Information';
@@ -25,6 +26,7 @@ interface NotificationState {
   soundEnabled: boolean;
   soundVolume: number;
   isConnected: boolean; // For SSE state
+  error: string | null;
   
   // Actions
   fetchNotifications: () => Promise<void>;
@@ -51,19 +53,15 @@ export const useNotificationStore = create<NotificationState>()(
       soundEnabled: true,
       soundVolume: 0.5,
       isConnected: false,
+      error: null,
 
       fetchNotifications: async () => {
         try {
-          const res = await fetch('/api/notifications', {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-          });
-          if (!res.ok) throw new Error('Failed to fetch');
-          const data = await res.json();
-          set({ notifications: data });
-        } catch (error) {
+          const data = await api.get<NotificationItem[]>('/notifications');
+          set({ notifications: data, error: null });
+        } catch (error: any) {
           console.error('[Notifications] Fetch error:', error);
+          set({ error: error.message || 'Failed to load notifications' });
         }
       },
 
@@ -76,7 +74,7 @@ export const useNotificationStore = create<NotificationState>()(
         }
 
         // Pass token in URL query since EventSource doesn't support headers directly
-        eventSource = new EventSource(`/api/notifications/stream?token=${token}`);
+        eventSource = new EventSource(`${BASE_URL}/notifications/stream?token=${token}`);
 
         eventSource.onopen = () => {
           console.log('[Notifications] SSE Connected');
@@ -105,9 +103,30 @@ export const useNotificationStore = create<NotificationState>()(
               actionUrl: parsed.actionUrl,
             };
 
-            set((state) => ({
-              notifications: [newItem, ...state.notifications]
-            }));
+            set((state) => {
+              // Grouping / De-duplication: Ignore exact same title within 5 minutes
+              const isDuplicate = state.notifications.some(n => 
+                !n.isRead && 
+                n.title === newItem.title && 
+                (newItem.timestamp - n.timestamp) < 5 * 60 * 1000
+              );
+
+              if (isDuplicate) {
+                return state;
+              }
+
+              // Keep maximum of 50 notifications to prevent memory bloat
+              const updated = [newItem, ...state.notifications].slice(0, 50);
+              
+              return { notifications: updated, error: null };
+            });
+
+            // Auto-dismiss (mark as read) for Information and Success after 8 seconds
+            if (newItem.priority === 'Information' || newItem.priority === 'Success') {
+              setTimeout(() => {
+                get().markAsRead(newItem.id);
+              }, 8000);
+            }
           } catch (error) {
             console.error('[Notifications] Failed to parse SSE event:', error);
           }
@@ -123,10 +142,7 @@ export const useNotificationStore = create<NotificationState>()(
         }));
 
         try {
-          await fetch(`/api/notifications/${id}/read`, {
-            method: 'PATCH',
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-          });
+          await api.patch(`/notifications/${id}/read`, {});
         } catch (e) {
           console.error('Failed to mark read', e);
         }
@@ -138,10 +154,7 @@ export const useNotificationStore = create<NotificationState>()(
         }));
 
         try {
-          await fetch(`/api/notifications/read-all`, {
-            method: 'PATCH',
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-          });
+          await api.patch(`/notifications/read-all`, {});
         } catch (e) {
           console.error('Failed to mark all read', e);
         }
@@ -151,10 +164,7 @@ export const useNotificationStore = create<NotificationState>()(
         set({ notifications: [] });
 
         try {
-          await fetch(`/api/notifications`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-          });
+          await api.delete(`/notifications`);
         } catch (e) {
           console.error('Failed to clear all', e);
         }
@@ -166,10 +176,7 @@ export const useNotificationStore = create<NotificationState>()(
         }));
 
         try {
-          await fetch(`/api/notifications/${id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-          });
+          await api.delete(`/notifications/${id}`);
         } catch (e) {
           console.error('Failed to delete', e);
         }
