@@ -2,16 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Zap, TrendingUp, BarChart2 } from 'lucide-react';
 import MarketOverviewHero from '../components/markets/MarketOverviewHero';
 import InteractiveMarketChart from '../components/markets/InteractiveMarketChart';
-import MarketAISummary from '../components/markets/MarketAISummary';
+import LiveAISummary from '../components/markets/LiveAISummary';
 import MarketBreadth from '../components/markets/MarketBreadth';
-import SectorHeatmap from '../components/markets/SectorHeatmap';
-import EconomicCalendar from '../components/markets/EconomicCalendar';
+import LiveSectorHeatmap from '../components/markets/LiveSectorHeatmap';
+import EnhancedEconomicCalendar from '../components/markets/EnhancedEconomicCalendar';
 import BreakingNewsTimeline, { NewsItem } from '../components/markets/BreakingNewsTimeline';
 import MarketIntelligenceCenter from '../components/markets/MarketIntelligenceCenter';
 import { NewsEngineFeed } from '../components/markets/NewsEngineFeed';
 import { DigestPanel } from '../components/markets/DigestPanel';
-import Watchlist from '../components/markets/Watchlist';
-import MarketSnapshots from '../components/markets/MarketSnapshots';
+import LiveWatchlist from '../components/markets/LiveWatchlist';
 
 type MarketTab = 'overview' | 'engine' | 'digest';
 
@@ -24,8 +23,9 @@ const TAB_CONFIG: { id: MarketTab; label: string; icon: React.ReactNode; badge?:
 export default function Markets() {
   const [selectedArticle, setSelectedArticle] = useState<NewsItem | null>(null);
   const [activeTab, setActiveTab] = useState<MarketTab>('overview');
+  const [selectedSymbol, setSelectedSymbol] = useState('nifty');
 
-  // Check URL params for tab on mount (allows deep-linking from notifications)
+  // Deep-link support via URL params
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab') as MarketTab;
@@ -60,7 +60,7 @@ export default function Markets() {
             source: selectedArticle.source,
             url: '',
             publishedAt: Date.now() / 1000 - 3600,
-            summary: "Market analysis requested..."
+            summary: 'Market analysis requested...',
           }} />
         </div>
       </div>
@@ -113,32 +113,37 @@ export default function Markets() {
         {/* ─── Market Overview Tab ─────────────────────────────────────────── */}
         {activeTab === 'overview' && (
           <div className="animate-in fade-in">
-            <MarketOverviewHero />
+            <MarketOverviewHero activeSymbol={selectedSymbol} onSelectSymbol={setSelectedSymbol} />
 
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 mt-8">
               {/* Left Main Column */}
               <div className="xl:col-span-8 flex flex-col gap-6">
-                <InteractiveMarketChart />
+                <InteractiveMarketChart symbol={selectedSymbol} onSymbolChange={setSelectedSymbol} />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <MarketAISummary type="market-summary" />
+                  {/* AI Summary — NOW LIVE */}
+                  <LiveAISummary />
                   <MarketBreadth />
                 </div>
 
                 <div className="mt-2">
-                  <SectorHeatmap />
+                  {/* Sector Heatmap — NOW LIVE */}
+                  <LiveSectorHeatmap />
                 </div>
               </div>
 
               {/* Right Sidebar */}
               <div className="xl:col-span-4 flex flex-col gap-6">
-                <div className="h-[300px]">
-                  <Watchlist />
+                {/* Watchlist — NOW LIVE */}
+                <div className="h-[380px]">
+                  <LiveWatchlist />
                 </div>
-                <MarketSnapshots />
-                <MarketAISummary type="daily-brief" />
+
+                {/* Breaking News — uses AI engine feed */}
                 <BreakingNewsTimeline onAnalyze={setSelectedArticle} />
-                <EconomicCalendar />
+
+                {/* Economic Calendar — NOW LIVE */}
+                <EnhancedEconomicCalendar />
               </div>
             </div>
           </div>
@@ -147,7 +152,6 @@ export default function Markets() {
         {/* ─── AI Intelligence Engine Tab ──────────────────────────────────── */}
         {activeTab === 'engine' && (
           <div className="animate-in fade-in">
-            {/* Header */}
             <div className="flex items-start justify-between gap-4 px-6 py-5 mb-5 rounded-2xl"
               style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.07) 0%, rgba(59,130,246,0.03) 100%)', border: '1px solid rgba(139,92,246,0.14)' }}>
               <div>
@@ -164,8 +168,6 @@ export default function Markets() {
                 <span className="text-[11px] font-bold tracking-wider text-emerald-400">EDUCATIONAL MODE</span>
               </div>
             </div>
-
-            {/* Feed */}
             <div className="rounded-2xl px-6 py-5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', minHeight: '60vh' }}>
               <NewsEngineFeed />
             </div>
@@ -175,7 +177,6 @@ export default function Markets() {
         {/* ─── Today's Digest Tab ──────────────────────────────────────────── */}
         {activeTab === 'digest' && (
           <div className="animate-in fade-in">
-            {/* Header */}
             <div className="flex items-start justify-between gap-4 px-6 py-5 mb-5 rounded-2xl"
               style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.07) 0%, rgba(139,92,246,0.03) 100%)', border: '1px solid rgba(59,130,246,0.14)' }}>
               <div>
@@ -188,8 +189,6 @@ export default function Markets() {
                 </p>
               </div>
             </div>
-
-            {/* Content — max readable width */}
             <div className="max-w-3xl rounded-2xl px-6 py-5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
               <DigestPanel />
             </div>

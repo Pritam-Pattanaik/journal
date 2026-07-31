@@ -27,7 +27,7 @@ router.post('/signup', lockService.authRateLimit(), async (req: Request, res: Re
   try {
     const parsed = signupSchema.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.errors[0].message });
+      res.status(400).json({ error: parsed.error.issues[0].message });
       return;
     }
     const { email, password, fullName } = parsed.data;
@@ -70,7 +70,7 @@ router.post('/login', lockService.authRateLimit(), async (req: Request, res: Res
   try {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.errors[0].message });
+      res.status(400).json({ error: parsed.error.issues[0].message });
       return;
     }
     const { email, password } = parsed.data;
@@ -147,7 +147,7 @@ router.post('/forgot-password', lockService.authRateLimit(), async (req: Request
   try {
     const parsed = forgotPasswordSchema.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.errors[0].message });
+      res.status(400).json({ error: parsed.error.issues[0].message });
       return;
     }
     const { email } = parsed.data;
@@ -187,7 +187,7 @@ router.post('/reset-password', lockService.authRateLimit(), async (req: Request,
   try {
     const parsed = resetPasswordSchema.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.errors[0].message });
+      res.status(400).json({ error: parsed.error.issues[0].message });
       return;
     }
     const { token, password } = parsed.data;

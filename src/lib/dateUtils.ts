@@ -39,7 +39,7 @@ export function isMarketOpen(): boolean {
   
   if (weekday === 'Sat' || weekday === 'Sun') return false;
   
-  const timeInMinutes = (hour === 24 ? 0 : hour) * 60 + minute;
+  const timeInMinutes = hour * 60 + minute; // Intl.DateTimeFormat never returns 24 — midnight is always 0
   const marketOpen = 9 * 60 + 15; // 09:15 AM
   const marketClose = 15 * 60 + 30; // 03:30 PM
   

@@ -42,3 +42,28 @@ export interface DisciplineResult {
   disciplineBreakdown: any;
   reasons: string[];
 }
+export interface DailyDisciplineSummary {
+  date: string;
+  averageDiscipline: number;
+  highestDiscipline: number;
+  lowestDiscipline: number;
+  ruleViolations: number;
+  revengeCount: number;
+  oversizingCount: number;
+  averageHoldTimeMinutes: number;
+  openingTradeCount: number;
+  lateTradeCount: number;
+  totalScoredTrades: number;
+}
+
+export interface PersonalRules {
+  windowStart?: string;
+  windowEnd?: string;
+  maxTradesPerDay?: number;
+  maxConsecutiveLosses?: number;
+  maxDrawdown?: number;
+  maxDailyLoss?: number;
+  maxLossPerTrade?: number;
+  allowedInstruments?: string[];
+  allowedMarkets?: string[];
+}

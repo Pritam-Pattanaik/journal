@@ -83,8 +83,16 @@ interface TooltipData {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function InteractiveMarketChart() {
-  const [symbol, setSymbol]       = useState('nifty');
+interface Props {
+  symbol?: string;
+  onSymbolChange?: (sym: string) => void;
+}
+
+export default function InteractiveMarketChart({ symbol: propSymbol, onSymbolChange }: Props = {}) {
+  const [localSymbol, setLocalSymbol] = useState('nifty');
+  const symbol = propSymbol ?? localSymbol;
+  const setSymbol = onSymbolChange ?? setLocalSymbol;
+
   const [timeframe, setTimeframe] = useState('1D');
   const [chartType, setChartType] = useState<'area' | 'candle'>('area');
   const [magnet, setMagnet]       = useState(false);
@@ -412,7 +420,9 @@ export default function InteractiveMarketChart() {
                 "
               >
                 {SYMBOLS.map(s => (
-                  <option key={s.key} value={s.key}>{s.label}</option>
+                  <option key={s.key} value={s.key} className="bg-[#0d1117] text-white/90">
+                    {s.label}
+                  </option>
                 ))}
               </select>
               <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-white/40 text-[10px]">▾</span>
@@ -670,8 +680,8 @@ function ToolBtn({ active, standalone, children, className, ...props }: ToolBtnP
 // ─── OHLC Tooltip ─────────────────────────────────────────────────────────────
 
 function OHLCTooltip({ tooltip, isPositive }: { tooltip: TooltipData; isPositive: boolean }) {
-  const TOOLTIP_W = 160;
-  const TOOLTIP_H = 110;
+  const TOOLTIP_W = 180;
+  const TOOLTIP_H = 135;
   const OFFSET    = 16;
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -701,27 +711,41 @@ function OHLCTooltip({ tooltip, isPositive }: { tooltip: TooltipData; isPositive
     <div
       ref={containerRef}
       style={{ top: pos.top, left: pos.left, width: TOOLTIP_W }}
-      className="absolute z-30 pointer-events-none"
+      className="absolute z-30 pointer-events-none transition-all duration-75 ease-out"
     >
-      <div className="bg-[#131922]/95 backdrop-blur-xl border border-white/[0.10] rounded-xl shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className={cn(
-          'px-3 py-2 text-[11px] font-bold font-mono border-b border-white/[0.07]',
-          isPositive ? 'text-emerald-400' : 'text-red-400',
-        )}>
-          {fmt(tooltip.price)}
+      <div className="bg-[#1A2235]/95 backdrop-blur-xl border border-white/[0.15] rounded-xl shadow-[0_16px_40px_-8px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col">
+        {/* Top: Time */}
+        <div className="px-3.5 py-1.5 text-[9px] font-bold tracking-widest text-white/50 uppercase border-b border-white/[0.05] bg-white/[0.02]">
+          {tooltip.time}
         </div>
-        {/* OHLC rows */}
-        <div className="px-3 py-2 grid grid-cols-2 gap-x-3 gap-y-1">
+
+        {/* Middle: Price & Change */}
+        <div className="px-3.5 py-2.5 border-b border-white/[0.05] flex items-center justify-between">
+          <span className={cn(
+            'text-[17px] font-display font-bold tabular-nums tracking-tight',
+            isPositive ? 'text-emerald-400' : 'text-red-400',
+          )}>
+            {fmt(tooltip.price)}
+          </span>
+          <span className={cn(
+            'text-[10px] font-bold px-1.5 py-0.5 rounded-md',
+            isPositive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400',
+          )}>
+            {isPositive ? '+' : ''}{tooltip.pctChange.toFixed(2)}%
+          </span>
+        </div>
+
+        {/* Bottom: OHLC */}
+        <div className="px-3.5 py-2.5 grid grid-cols-2 gap-x-4 gap-y-1.5 bg-black/20">
           {[
             ['O', tooltip.open],
             ['H', tooltip.high],
             ['L', tooltip.low],
             ['C', tooltip.close],
           ].map(([lbl, val]) => (
-            <div key={lbl as string} className="flex items-center gap-1.5">
-              <span className="text-[9px] font-bold text-white/30 w-3">{lbl}</span>
-              <span className="text-[10px] font-mono text-white/70">{fmt(val as number)}</span>
+            <div key={lbl as string} className="flex items-center justify-between">
+              <span className="text-[9px] font-bold text-white/40">{lbl}</span>
+              <span className="text-[10px] font-mono font-medium text-white/90 tabular-nums">{fmt(val as number)}</span>
             </div>
           ))}
         </div>

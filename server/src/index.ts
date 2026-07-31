@@ -29,7 +29,7 @@ import reflectionsRoutes from './routes/reflections';
 import goalsRoutes from './routes/goals';
 import searchRoutes from './routes/search';
 import notesRoutes from './routes/notes';
-import marketRoutes from './routes/market';
+import marketRoutes from './routes/marketV2';
 import notificationRoutes from './routes/notifications';
 import newsEngineRoutes from './routes/news-engine';
 import { startNewsEngine, stopNewsEngine } from './news-engine';

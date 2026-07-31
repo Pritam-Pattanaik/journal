@@ -1,3 +1,5 @@
+import { getCsrfToken, BASE_URL } from './api';
+
 export interface StreamOptions {
   endpoint: string;
   payload: Record<string, any>;
@@ -21,17 +23,21 @@ export async function streamAIInference({
   signal,
 }: StreamOptions): Promise<string> {
   let accumulatedText = '';
-  const baseUrl = (import.meta.env?.VITE_API_URL || '') + endpoint;
-  const token = localStorage.getItem('auth_token') || '';
+  const baseUrl = endpoint.startsWith('/api') ? endpoint : `${BASE_URL}${endpoint}`;
+  const token = localStorage.getItem('token') || '';
+  const csrf = await getCsrfToken();
 
   try {
     const response = await fetch(baseUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-requested-with': 'XMLHttpRequest',
+        ...(csrf ? { 'CSRF-Token': csrf } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         'Accept': 'text/event-stream, application/json',
       },
+      credentials: 'include',
       body: JSON.stringify(payload),
       signal,
     });
@@ -81,7 +87,7 @@ export async function streamAIInference({
             }
             try {
               const parsed = JSON.parse(dataStr);
-              const tokenContent = parsed.token || parsed.text || parsed.content || '';
+              const tokenContent = parsed.chunk || parsed.token || parsed.text || parsed.content || '';
               accumulatedText += tokenContent;
               onToken(tokenContent, accumulatedText);
             } catch {

@@ -6,7 +6,12 @@ import { cn } from '../../lib/cn';
 import { useLiveMarketData } from '../../hooks/useLiveMarketData';
 import { SkeletonLoader } from '../ui/SkeletonLoader';
 
-export default function MarketOverviewHero() {
+interface Props {
+  activeSymbol?: string;
+  onSelectSymbol?: (symbol: string) => void;
+}
+
+export default function MarketOverviewHero({ activeSymbol, onSelectSymbol }: Props = {}) {
   const [time, setTime] = useState(new Date());
   const { data: markets, loading, error } = useLiveMarketData();
 
@@ -68,21 +73,44 @@ export default function MarketOverviewHero() {
               const isUp = market.change >= 0;
               const colorClass = isUp ? 'text-success' : 'text-danger';
               const strokeColor = isUp ? 'rgb(var(--color-success))' : 'rgb(var(--color-danger))';
-              const bgFlashClass = market.flash === 'up' ? 'bg-success/10 border-success/30' : market.flash === 'down' ? 'bg-danger/10 border-danger/30' : 'bg-surface-0 border-border/50 hover:border-border-hover';
+              
+              const isActive = activeSymbol && activeSymbol.toLowerCase() === market.id.toLowerCase();
+              const isClickable = !!onSelectSymbol;
+
+              // Theming logic for active/inactive/flash states
+              // Ensures ALL text remains fully readable (P0 UX fix)
+              let bgClass = 'bg-surface-0 border-border/50';
+              let nameColor = 'text-secondary';
+              let priceColor = 'text-primary';
+
+              if (isActive) {
+                bgClass = 'bg-surface-elevated border-white/20 shadow-lg';
+                nameColor = 'text-white/80';
+                priceColor = 'text-white font-black';
+              } else if (market.flash === 'up') {
+                bgClass = 'bg-success/10 border-success/30';
+              } else if (market.flash === 'down') {
+                bgClass = 'bg-danger/10 border-danger/30';
+              }
 
               return (
                 <motion.div
                   key={market.id}
+                  onClick={() => isClickable && onSelectSymbol(market.id)}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: i * 0.05 }}
                   className={cn(
                     "w-[220px] shrink-0 rounded-xl border p-4 relative overflow-hidden group transition-all duration-300 shadow-sm backdrop-blur-xl",
-                    bgFlashClass
+                    isClickable && "cursor-pointer hover:border-border-hover",
+                    !isActive && "hover:bg-surface-1",
+                    bgClass
                   )}
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <span className="text-[11px] font-bold uppercase tracking-widest text-secondary group-hover:text-primary transition-colors">{market.name}</span>
+                    <span className={cn("text-[11px] font-bold uppercase tracking-widest transition-colors", nameColor, !isActive && "group-hover:text-primary")}>
+                      {market.name}
+                    </span>
                     <div className="flex items-center gap-1.5 bg-surface-elevated/50 px-2 py-0.5 rounded-full border border-border-subtle">
                       <span className={cn("w-1.5 h-1.5 rounded-full animate-pulse", market.status === 'OPEN' || market.status === '24/7' ? 'bg-success' : 'bg-tertiary')} />
                       <span className="text-[9px] font-bold text-tertiary">{market.status}</span>
@@ -90,7 +118,7 @@ export default function MarketOverviewHero() {
                   </div>
 
                   <div className="flex flex-col mb-3">
-                    <span className={cn("text-xl font-display font-bold tabular-nums tracking-tight transition-colors duration-300", market.flash ? (market.flash === 'up' ? 'text-success' : 'text-danger') : 'text-primary')}>
+                    <span className={cn("text-xl font-display font-bold tabular-nums tracking-tight transition-colors duration-300", market.flash ? (market.flash === 'up' ? 'text-success' : 'text-danger') : priceColor)}>
                       {market.id === 'btc' ? '$' : ''}{formatNumber(market.value)}
                     </span>
                     <div className={cn("flex items-center gap-1 text-[11px] font-semibold mt-0.5 tabular-nums transition-colors duration-300", colorClass)}>

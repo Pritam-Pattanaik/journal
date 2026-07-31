@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { User } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 
-export function UserMessageBubble({ content, timestamp }: { content: string; timestamp?: Date }) {
+export default function UserMessageBubble({ content, timestamp }: { content: string; timestamp?: Date }) {
   const { profile } = useAuthStore();
   const displayTime = (timestamp || new Date()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
   

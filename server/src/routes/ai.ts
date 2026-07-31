@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { prisma } from '../db';
 import { authenticate } from '../middleware/auth';
 import { buildConversationContext } from '../lib/ai/promptBuilder';
-import { streamGroqChat, generateGroqJSON } from '../lib/ai/provider';
+import { getAIProvider } from '../lib/ai/providerFactory';
+import { generateGroqJSON } from '../lib/ai/provider'; // Will phase this out later if needed
 import { validateDisciplineEvaluation } from '../lib/ai/disciplineSchema';
 import { createNotification } from '../services/notificationService';
 
@@ -117,6 +118,35 @@ router.patch('/conversations/:id/pin', authenticate, async (req: any, res) => {
   }
 });
 
+router.post('/conversations/:id/duplicate', authenticate, async (req: any, res) => {
+  try {
+    const original = await prisma.aiConversation.findUnique({
+      where: { id: req.params.id, userId: req.userId },
+      include: { messages: { orderBy: { createdAt: 'asc' } } }
+    });
+    if (!original) return res.status(404).json({ error: 'Conversation not found' });
+
+    const duplicated = await prisma.aiConversation.create({
+      data: {
+        userId: req.userId,
+        title: `${original.title} (Copy)`,
+        messages: {
+          create: original.messages.map(m => ({
+            role: m.role,
+            content: m.content
+          }))
+        }
+      },
+      include: { messages: true }
+    });
+
+    res.json(duplicated);
+  } catch (error) {
+    console.error('Failed to duplicate conversation:', error);
+    res.status(500).json({ error: 'Failed to duplicate conversation' });
+  }
+});
+
 // Auto-generate a smart title for the conversation based on the first message
 router.patch('/conversations/:id/generate-title', authenticate, async (req: any, res) => {
   try {
@@ -213,8 +243,11 @@ router.post('/chat', authenticate, async (req: any, res) => {
       take: 30
     });
 
+    // We can fetch live market data if available (placeholder for actual implementation)
+    const marketSnapshot = null; 
+
     const recentMessages = conversation.messages.map(m => ({ role: m.role, content: m.content }));
-    const messagesContext = buildConversationContext(trades, journals, recentMessages, actualMessage, mode);
+    const messagesContext = buildConversationContext(trades, journals, marketSnapshot, recentMessages, actualMessage, mode);
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -230,7 +263,8 @@ router.post('/chat', authenticate, async (req: any, res) => {
     });
 
     try {
-      await streamGroqChat(messagesContext, (chunk) => {
+      const provider = getAIProvider();
+      await provider.streamChat(messagesContext, (chunk) => {
         aiFullResponse += chunk;
         res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
       }, abortController.signal);
@@ -258,6 +292,14 @@ router.post('/chat', authenticate, async (req: any, res) => {
       if (error.name === 'AbortError' || isAborted) {
         console.log('Stream aborted by client.');
       } else {
+        const errString = error.toString().toLowerCase();
+        if (error.status === 429 || errString.includes('429') || errString.includes('rate limit')) {
+          const friendlyMessage = '\n\n*(System Notice: Our AI provider is currently experiencing heavy load and rate limits. Please try your request again in a few minutes.)*';
+          res.write(`data: ${JSON.stringify({ chunk: friendlyMessage })}\n\n`);
+          res.write('data: [DONE]\n\n');
+          res.end();
+          return;
+        }
         throw error;
       }
     }

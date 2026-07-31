@@ -23,7 +23,7 @@ function getToken(): string | null {
 
 let csrfToken: string | null = null;
 
-async function getCsrfToken(): Promise<string> {
+export async function getCsrfToken(): Promise<string> {
   if (csrfToken) return csrfToken;
   try {
     const res = await fetch(`${BASE_URL}/auth/csrf`, { credentials: 'include' });

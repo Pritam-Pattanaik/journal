@@ -5,6 +5,7 @@ import {
   analyzeSymbolPerformance,
 } from './analytics';
 import { DISCIPLINE_PROMPT_SCHEMA } from './disciplineSchema';
+import { AIMessage } from './AIProvider';
 
 const EXPLAINABLE_AI_RULES = `
 Explainable AI (XAI) Format Requirement:
@@ -85,7 +86,14 @@ const MODE_PROMPTS: Record<string, string> = {
   journal: "Deep dive into their daily journal entries and connect notes to P&L results."
 };
 
-export function buildConversationContext(trades: any[], journals: any[], recentMessages: { role: string; content: string }[], newMessage: string, mode: string = 'general') {
+export function buildConversationContext(
+  trades: any[], 
+  journals: any[], 
+  marketSnapshot: any | null,
+  recentMessages: { role: string; content: string }[], 
+  newMessage: string, 
+  mode: string = 'general'
+) {
   // Sort data newest first
   const sortedTrades = [...trades].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const sortedJournals = [...journals].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -134,6 +142,9 @@ ${sortedJournals.slice(0, 5).map(j => {
   const d = typeof j.date === 'string' ? j.date.split('T')[0] : new Date(j.date).toISOString().split('T')[0];
   return `[${d}] Bias: ${j.marketBias || 'None'} | Mood: ${j.mood || 'None'} | Reflection: ${j.reflection?.substring(0, 100) || 'None'}`;
 }).join('\n')}
+
+LIVE MARKET SNAPSHOT:
+${marketSnapshot ? JSON.stringify(marketSnapshot, null, 2) : 'No live market data provided.'}
 =================================
 `;
   }
@@ -159,9 +170,9 @@ ${sortedJournals.slice(0, 5).map(j => {
 
   const finalSystemPrompt = BASE_PROMPT + "\n\nMODE INSTRUCTION: " + modeInstruction + autoReviewInstruction + "\n\n" + dataReport;
 
-  const messages = [
+  const messages: AIMessage[] = [
     { role: 'system', content: finalSystemPrompt },
-    ...truncatedMessages.map(m => ({ role: m.role, content: m.content })),
+    ...truncatedMessages.map(m => ({ role: m.role as AIMessage['role'], content: m.content })),
     { role: 'user', content: newMessage }
   ];
 

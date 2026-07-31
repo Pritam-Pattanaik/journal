@@ -1,52 +1,48 @@
+/**
+ * MarketWorker — SSE Broadcaster
+ *
+ * Refactored: Now uses MarketDataService (provider waterfall + caching).
+ * Responsible ONLY for:
+ * - Polling on a 5-second interval
+ * - Broadcasting updates via EventEmitter to SSE clients
+ * - Maintaining an in-memory cache for instant /quotes responses
+ *
+ * All actual data fetching logic lives in MarketDataService.
+ * MarketWorker is now a thin broadcast layer, not a data fetcher.
+ */
+
 import { EventEmitter } from 'events';
+import { marketDataService } from '../market/MarketDataService';
+import { MarketQuote, TRACKED_SYMBOLS } from '../market/types';
+import { logger } from '../lib/logger';
 
-const SYMBOLS = {
-  nifty: '^NSEI',
-  banknifty: '^NSEBANK',
-  finnifty: 'NIFTY_FIN_SERVICE.NS',
-  sensex: '^BSESN',
-  vix: '^INDIAVIX'
-};
-
-export interface MarketQuote {
-  id: string;
-  name: string;
-  value: number;
-  change: number;
-  pct: number;
-  trend: 'up' | 'down';
-  status: 'OPEN' | 'CLOSED' | '24/7';
-  updatedAt: number;
-  sparkline: number[];
-}
+const POLLING_INTERVAL_MS = 5_000; // 5 seconds as specified
 
 class MarketWorker extends EventEmitter {
   private cache: MarketQuote[] = [];
   private intervalId: NodeJS.Timeout | null = null;
   private isFetching = false;
-  private readonly POLLING_INTERVAL = 5000; // 5 seconds
 
   constructor() {
     super();
-    this.setMaxListeners(0);
+    this.setMaxListeners(0); // Unlimited SSE client listeners
   }
 
-  public start() {
+  public start(): void {
     if (this.intervalId) return;
-    
-    // Initial fetch
+
+    // Warm up cache immediately on start
     this.fetchData();
-    
-    // Start polling
-    this.intervalId = setInterval(() => this.fetchData(), this.POLLING_INTERVAL);
-    console.log('MarketWorker: Started polling Yahoo Finance');
+
+    this.intervalId = setInterval(() => this.fetchData(), POLLING_INTERVAL_MS);
+    logger.info(`[MarketWorker] Started — polling every ${POLLING_INTERVAL_MS / 1000}s via MarketDataService`);
   }
 
-  public stop() {
+  public stop(): void {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
-      console.log('MarketWorker: Stopped polling');
+      logger.info('[MarketWorker] Stopped');
     }
   }
 
@@ -54,81 +50,33 @@ class MarketWorker extends EventEmitter {
     return this.cache;
   }
 
-  private async fetchData() {
+  private async fetchData(): Promise<void> {
     if (this.isFetching) return;
     this.isFetching = true;
 
     try {
-      const promises = Object.entries(SYMBOLS).map(async ([key, symbol]) => {
-        try {
-          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
-          const response = await fetch(url);
-          const data = await response.json();
-          
-          const meta = data?.chart?.result?.[0]?.meta;
-          if (!meta) throw new Error('Invalid data format');
+      // MarketDataService handles: provider waterfall, caching, deduplication
+      const quotes = await marketDataService.getQuotes(TRACKED_SYMBOLS);
 
-          const now = new Date();
-          const options = { timeZone: 'Asia/Kolkata', hour12: false, hour: 'numeric', minute: 'numeric', weekday: 'short' } as const;
-          const parts = new Intl.DateTimeFormat('en-US', options).formatToParts(now);
-          let hour = 0, minute = 0, weekday = '';
-          for (const part of parts) {
-            if (part.type === 'hour') hour = parseInt(part.value, 10);
-            if (part.type === 'minute') minute = parseInt(part.value, 10);
-            if (part.type === 'weekday') weekday = part.value;
-          }
-          
-          let status = 'CLOSED';
-          if (weekday !== 'Sat' && weekday !== 'Sun') {
-            const timeInMinutes = (hour === 24 ? 0 : hour) * 60 + minute;
-            const marketOpen = 9 * 60 + 15; // 09:15 AM
-            const marketClose = 15 * 60 + 30; // 03:30 PM
-            if (timeInMinutes >= marketOpen && timeInMinutes <= marketClose) {
-              status = 'OPEN';
-            }
-          }
-
-          const prevClose = meta.chartPreviousClose || meta.regularMarketPreviousClose;
-          const current = meta.regularMarketPrice;
-          const change = current - prevClose;
-          const pct = (change / prevClose) * 100;
-
-          return {
-            id: key,
-            name: key === 'nifty' ? 'NIFTY 50' : 
-                  key === 'banknifty' ? 'BANK NIFTY' : 
-                  key === 'finnifty' ? 'FINNIFTY' : 
-                  key === 'sensex' ? 'SENSEX' : 
-                  'INDIA VIX',
-            value: current,
-            change: change,
-            pct: pct,
-            trend: change >= 0 ? 'up' : 'down',
-            status: status as MarketQuote['status'],
-            updatedAt: meta.regularMarketTime * 1000,
-            sparkline: data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []
-          };
-        } catch (err) {
-          console.error(`MarketWorker: Error fetching ${symbol}:`, err);
-          return null;
-        }
-      });
-
-      const results = await Promise.all(promises);
-      const validResults = results.filter((r): r is MarketQuote => r !== null);
-      
-      if (validResults.length > 0) {
-        const cacheStringified = JSON.stringify(this.cache);
-        const newResultsStringified = JSON.stringify(validResults);
-
-        // Only emit if the data actually changed to prevent unnecessary SSE spam
-        if (cacheStringified !== newResultsStringified) {
-          this.cache = validResults;
-          this.emit('update', this.cache);
-        }
+      if (quotes.length === 0) {
+        logger.warn('[MarketWorker] Empty quotes from service — keeping previous cache');
+        return;
       }
-    } catch (error) {
-      console.error('MarketWorker: Error during fetch cycle:', error);
+
+      // Only broadcast if data actually changed (prevents SSE spam)
+      const prevJSON = JSON.stringify(this.cache.map(q => `${q.id}:${q.price}`));
+      const nextJSON = JSON.stringify(quotes.map(q => `${q.id}:${q.price}`));
+
+      if (prevJSON !== nextJSON) {
+        this.cache = quotes;
+        this.emit('update', this.cache);
+      } else {
+        // Still update cache silently (timestamps etc.) but don't broadcast
+        this.cache = quotes;
+      }
+
+    } catch (err: any) {
+      logger.error(`[MarketWorker] Fetch cycle error: ${err.message}`);
     } finally {
       this.isFetching = false;
     }

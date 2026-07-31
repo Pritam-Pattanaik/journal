@@ -38,6 +38,9 @@ interface InsightState {
   archiveConversation: (id: string, isArchived: boolean) => Promise<void>;
   fetchCoachMemory: () => Promise<void>;
   stopGeneration: () => void;
+  regenerateResponse: () => Promise<void>;
+  duplicateConversation: (id: string) => Promise<void>;
+  exportConversation: (id: string) => void;
 }
 
 let abortController: AbortController | null = null;
@@ -132,12 +135,43 @@ export const useInsightStore = create<InsightState>((set, get) => ({
 
   archiveConversation: async (id: string, isArchived: boolean) => {
     try {
-      const updated = await api.patch<AiConversation>(`/ai/conversations/${id}/archive`, { isArchived });
-      set(state => ({
-        conversations: state.conversations.map(c => c.id === id ? { ...c, isArchived: updated.isArchived } : c)
-      }));
+      await api.patch(`/ai/conversations/${id}/archive`, { isArchived });
+      set({ conversations: get().conversations.map(c => 
+        c.id === id ? { ...c, isArchived } : c
+      )});
     } catch (error: any) {
-      set({ error: error.message || 'Failed to archive conversation' });
+      set({ error: 'Failed to archive conversation' });
+    }
+  },
+
+  duplicateConversation: async (id: string) => {
+    try {
+      const duplicated = await api.post<AiConversation>(`/ai/conversations/${id}/duplicate`);
+      set({ conversations: [duplicated, ...get().conversations] });
+      await get().setActiveConversation(duplicated.id);
+    } catch (error: any) {
+      set({ error: 'Failed to duplicate conversation' });
+    }
+  },
+
+  exportConversation: (id: string) => {
+    const state = get();
+    const conv = state.conversations.find(c => c.id === id);
+    if (!conv) return;
+    
+    // We export whatever is currently loaded if it's the active one
+    let exportText = `# ${conv.title}\n\n`;
+    if (state.activeConversationId === id) {
+      state.messages.forEach(m => {
+        exportText += `### ${m.role === 'user' ? 'You' : 'AI Mentor'}\n${m.content}\n\n`;
+      });
+      const blob = new Blob([exportText], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${conv.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
     }
   },
 
@@ -168,7 +202,7 @@ export const useInsightStore = create<InsightState>((set, get) => ({
 
     try {
       await streamAIInference({
-        endpoint: '/ai/chat',
+        endpoint: '/api/ai/chat',
         payload: { conversationId: activeConversationId, message: content },
         signal: abortController.signal,
         onToken: (_token, accumulated) => {
@@ -225,6 +259,61 @@ export const useInsightStore = create<InsightState>((set, get) => ({
   stopGeneration: () => {
     if (abortController) {
       abortController.abort();
+    }
+  },
+
+  regenerateResponse: async () => {
+    const { messages, activeConversationId } = get();
+    if (!activeConversationId || messages.length < 2) return;
+    
+    // Find the last user message
+    let lastUserMessageIndex = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        lastUserMessageIndex = i;
+        break;
+      }
+    }
+    
+    if (lastUserMessageIndex === -1) return;
+    
+    const lastUserMessage = messages[lastUserMessageIndex].content;
+    
+    // Trim the messages array to keep only up to the last user message
+    const newMessages = messages.slice(0, lastUserMessageIndex + 1);
+    
+    set({ messages: newMessages, isTyping: true, streamingMessage: '', error: null });
+    
+    abortController = new AbortController();
+
+    try {
+      await streamAIInference({
+        endpoint: '/api/ai/chat',
+        payload: { conversationId: activeConversationId, message: lastUserMessage, isRegeneration: true },
+        signal: abortController.signal,
+        onToken: (_token, accumulated) => {
+          set({ streamingMessage: accumulated });
+        },
+      });
+
+      set(state => ({
+        messages: [...state.messages, { role: 'assistant', content: state.streamingMessage }],
+        streamingMessage: '',
+        isTyping: false
+      }));
+
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        set(state => ({
+          messages: [...state.messages, { role: 'assistant', content: state.streamingMessage }],
+          streamingMessage: '',
+          isTyping: false
+        }));
+      } else {
+        set({ error: error.message || 'Chat request failed', isTyping: false });
+      }
+    } finally {
+      abortController = null;
     }
   },
 
