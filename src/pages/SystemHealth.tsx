@@ -8,7 +8,7 @@ import {
   Activity, BarChart3, Cpu, Server, Radio, Zap,
   CheckCircle, XCircle, RefreshCw,
 } from "lucide-react";
-import { api } from "../lib/api";
+import { api, BASE_URL } from "../lib/api";
 
 interface MarketHealth {
   providers: Record<string, {
@@ -137,7 +137,7 @@ export default function SystemHealth() {
 
   // SSE connectivity probe
   useEffect(() => {
-    const es = new EventSource(`${api.defaults.baseURL}/market/stream`, { withCredentials: true });
+    const es = new EventSource(`${BASE_URL}/market/stream`, { withCredentials: true });
     const timeout = setTimeout(() => { setSseConnected(false); es.close(); }, 8000);
     es.onmessage = () => { clearTimeout(timeout); setSseConnected(true); es.close(); };
     es.onerror = () => { clearTimeout(timeout); setSseConnected(false); es.close(); };
