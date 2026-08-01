@@ -86,7 +86,7 @@ function AISummarySkeleton() {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function LiveAISummary() {
-  const { summary, loading, error, refresh } = useAISummary();
+  const { summary, loading, retrying, error, refresh } = useAISummary();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>('');
 
@@ -105,7 +105,18 @@ export default function LiveAISummary() {
     setTimeout(() => setIsRefreshing(false), 800);
   }, [refresh]);
 
-  if (loading) return <AISummarySkeleton />;
+  if (loading) {
+    return (
+      <>
+        <AISummarySkeleton />
+        {retrying && (
+          <p className="text-[10px] text-tertiary text-center mt-1 opacity-70">
+            Retrying AI connection...
+          </p>
+        )}
+      </>
+    );
+  }
 
   if (error || !summary) {
     return (
@@ -118,24 +129,25 @@ export default function LiveAISummary() {
             <div>
               <h3 className="font-display font-bold text-primary flex items-center gap-2">
                 Today's Market Summary
-                <Sparkles className="w-4 h-4 text-accent animate-pulse" />
               </h3>
               <p className="text-xs text-tertiary mt-0.5">Live contextual analysis powered by AI</p>
             </div>
           </div>
           <div className="text-center py-6">
-            <Brain className="w-8 h-8 text-tertiary mx-auto mb-2 opacity-50" />
+            <AlertTriangle className="w-8 h-8 text-warning mx-auto mb-2 opacity-80" />
             <p className="text-sm text-secondary font-medium">
-              Market analysis is currently being updated
+              Unable to generate market summary
             </p>
-            <p className="text-xs text-tertiary mt-1 max-w-[200px] mx-auto">
-              Our AI is crunching the latest market data. Please check back in a few minutes.
+            <p className="text-xs text-tertiary mt-1 max-w-[240px] mx-auto">
+              The AI service is temporarily unavailable or experiencing high demand. Please try again.
             </p>
             <button
               onClick={handleRefresh}
-              className="mt-3 text-xs text-accent hover:text-accent-hover flex items-center gap-1 mx-auto transition-colors"
+              disabled={isRefreshing}
+              className="mt-4 px-4 py-1.5 rounded-lg text-xs font-medium text-surface-0 bg-accent hover:bg-accent-hover transition-colors disabled:opacity-50 flex items-center gap-2 mx-auto"
             >
-              <RefreshCw className="w-3 h-3" /> Retry
+              <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} /> 
+              {isRefreshing ? 'Retrying...' : 'Try Again'}
             </button>
           </div>
         </div>

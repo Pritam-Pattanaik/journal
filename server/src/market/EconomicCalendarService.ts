@@ -9,7 +9,7 @@
  * Events are normalized to CalendarEvent model.
  */
 
-import { redis } from '../lib/redis';
+import { redis, cache } from '../lib/redis';
 import { logger } from '../lib/logger';
 import { CalendarEvent, EventImpact } from './types';
 
@@ -164,12 +164,12 @@ export class EconomicCalendarService {
   async getEvents(limit = 30): Promise<CalendarEvent[]> {
     // Check cache
     try {
-      const cached = await redis.get(CACHE_KEY);
+      const cached = await cache.get(CACHE_KEY);
       if (cached) {
         const events: CalendarEvent[] = JSON.parse(cached);
         if (events.length > 0) return events.slice(0, limit);
       }
-    } catch {}
+    } catch { /* ignore */ }
 
     // Fetch live + merge with curated Indian events
     const [liveEvents, curatedEvents] = await Promise.all([
@@ -200,8 +200,8 @@ export class EconomicCalendarService {
 
     if (future.length > 0) {
       try {
-        await redis.setex(CACHE_KEY, CACHE_TTL_SEC, JSON.stringify(future));
-      } catch {}
+        await cache.setex(CACHE_KEY, CACHE_TTL_SEC, JSON.stringify(future));
+      } catch { /* ignore */ }
     }
 
     logger.info(`[EconomicCalendar] Serving ${future.length} events (${liveEvents.length} live + ${curatedEvents.length} curated)`);

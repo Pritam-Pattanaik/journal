@@ -58,8 +58,10 @@ export default function Markets() {
             id: selectedArticle.id,
             headline: selectedArticle.title,
             source: selectedArticle.source,
-            url: '',
-            publishedAt: Date.now() / 1000 - 3600,
+            url: (selectedArticle as any).url || '',
+            publishedAt: (selectedArticle as any).publishedAt
+              ? new Date((selectedArticle as any).publishedAt).getTime() / 1000
+              : Date.now() / 1000 - 3600,
             summary: 'Market analysis requested...',
           }} />
         </div>

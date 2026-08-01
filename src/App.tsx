@@ -44,6 +44,7 @@ const AdminBrokers = React.lazy(() => import('./pages/admin/AdminBrokers'));
 const AdminAIMonitor = React.lazy(() => import('./pages/admin/AdminAIMonitor'));
 const AdminAuditLogs = React.lazy(() => import('./pages/admin/AdminAuditLogs'));
 const AdminSystemSettings = React.lazy(() => import('./pages/admin/AdminSystemSettings'));
+const SystemHealth = React.lazy(() => import('./pages/SystemHealth'));
 
 function MainLayout() {
   const { profile } = useAuthStore();
@@ -81,6 +82,7 @@ function MainLayout() {
                   <Route path="/ai-coach" element={<AICoach />} />
                   <Route path="/strategies" element={<Strategies />} />
                   <Route path="/settings" element={<Settings />} />
+                  <Route path="/system-health" element={<SystemHealth />} />
                   <Route path="/admin/*" element={<Navigate to="/app/admin" replace />} />
                   <Route path="*" element={<Navigate to="/app" replace />} />
                 </Routes>
@@ -97,7 +99,16 @@ function MainLayout() {
 export default function App() {
   useAutoSync();
 
+  // Ctrl+Shift+D — navigate to developer diagnostics page
   React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+        e.preventDefault();
+        window.location.href = '/app/system-health';
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   return (

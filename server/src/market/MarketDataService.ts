@@ -15,17 +15,22 @@
  * Frontend never knows which provider served the data.
  */
 
-import { redis } from '../lib/redis';
+import { CACHE_KEYS, FALLBACK_QUOTES } from './config';
+import { MarketQuote, SectorPerformance } from './types';
+import { yahooProvider } from './providers/YahooProvider';
+import { moneyControlProvider } from './providers/MoneyControlProvider';
+import { investingComProvider } from './providers/InvestingComProvider';
+import { redis, cache } from '../lib/redis';
 import { logger } from '../lib/logger';
+import { YahooFinanceProvider } from './providers/YahooFinanceProvider';
+import { MoneyControlProvider } from './providers/MoneyControlProvider';
+import { InvestingComProvider } from './providers/InvestingComProvider';
 import {
-  MarketQuote, ChartCandle, SectorQuote,
+  ChartCandle,
   TRACKED_SYMBOLS, SECTOR_SYMBOLS, TIMEFRAME_MAP,
   SymbolDefinition, ProviderName,
 } from './types';
 import { IMarketProvider } from './providers/IMarketProvider';
-import { YahooFinanceProvider } from './providers/YahooFinanceProvider';
-import { MoneyControlProvider } from './providers/MoneyControlProvider';
-import { InvestingComProvider } from './providers/InvestingComProvider';
 
 // ─── Cache Keys ───────────────────────────────────────────────────────────────
 
@@ -80,17 +85,17 @@ function setStale<T>(key: string, data: T): void {
 
 // ─── Redis helper — never throws ─────────────────────────────────────────────
 
-async function redisGet(key: string): Promise<string | null> {
+async function getFromCache(key: string): Promise<string | null> {
   try {
-    return await redis.get(key);
+    return await cache.get(key);
   } catch {
     return null;
   }
 }
 
-async function redisSet(key: string, ttlSec: number, value: string): Promise<void> {
+async function setInCache(key: string, value: string, ttlSec: number): Promise<void> {
   try {
-    await redis.setex(key, ttlSec, value);
+    await cache.setex(key, ttlSec, value);
   } catch {
     // Redis unavailable — stale cache handles it
   }
@@ -153,12 +158,12 @@ class MarketDataService {
     const cacheKey = CACHE_KEYS.quotes;
 
     // 1. Try Redis (hot cache)
-    const cached = await redisGet(cacheKey);
+    const cached = await getFromCache(cacheKey);
     if (cached) {
       try {
         const parsed: MarketQuote[] = JSON.parse(cached);
         if (parsed.length > 0) return parsed;
-      } catch {}
+      } catch { /* ignore */ }
     }
 
     // 2. Deduped live fetch
@@ -177,7 +182,7 @@ class MarketDataService {
           quotes = merged;
         }
 
-        await redisSet(cacheKey, QUOTE_TTL_SEC, JSON.stringify(quotes));
+        await setInCache(cacheKey, QUOTE_TTL_SEC, JSON.stringify(quotes));
         setStale(cacheKey, quotes); // update stale cache on success
         return quotes;
       }
@@ -198,12 +203,12 @@ class MarketDataService {
   async getSectors(): Promise<SectorQuote[]> {
     const cacheKey = CACHE_KEYS.sectors;
 
-    const cached = await redisGet(cacheKey);
+    const cached = await getFromCache(cacheKey);
     if (cached) {
       try {
         const parsed: SectorQuote[] = JSON.parse(cached);
         if (parsed.length > 0) return parsed;
-      } catch {}
+      } catch { /* ignore */ }
     }
 
     return dedup(cacheKey, async () => {
@@ -237,7 +242,7 @@ class MarketDataService {
             provider: q.provider,
           }));
 
-        await redisSet(cacheKey, SECTOR_TTL_SEC, JSON.stringify(sectorQuotes));
+        await setInCache(cacheKey, SECTOR_TTL_SEC, JSON.stringify(sectorQuotes));
         setStale(cacheKey, sectorQuotes);
         return sectorQuotes;
       }
@@ -265,12 +270,12 @@ class MarketDataService {
     const cacheKey = CACHE_KEYS.chart(yahooTicker, tf.interval, tf.range);
 
     // Try Redis first
-    const cached = await redisGet(cacheKey);
+    const cached = await getFromCache(cacheKey);
     if (cached) {
       try {
         const parsed: ChartCandle[] = JSON.parse(cached);
         if (parsed.length > 0) return parsed;
-      } catch {}
+      } catch { /* ignore */ }
     }
 
     // Deduped live fetch
@@ -278,7 +283,7 @@ class MarketDataService {
       const candles = await this.fetchChartFromProviders(yahooTicker, tf.interval, tf.range);
 
       if (candles.length > 0) {
-        await redisSet(cacheKey, tf.cacheTtlSec, JSON.stringify(candles));
+        await setInCache(cacheKey, tf.cacheTtlSec, JSON.stringify(candles));
         setStale(cacheKey, candles);
         return candles;
       }
@@ -300,19 +305,28 @@ class MarketDataService {
     return {
       activeProvider: this.activeProvider,
       lastProviderSwitch: this.lastProviderSwitch,
-      providers: this.providers.map(p => ({
-        name: p.name,
-        healthy: p.isHealthy(),
-      })),
+      providers: Object.fromEntries(
+        this.providers.map(p => [
+          p.name,
+          {
+            name: p.name,
+            healthy: p.isHealthy(),
+            failCount: (p as any).failCount ?? 0,
+            lastSuccessAt: (p as any).lastSuccessAt ?? null,
+            lastFailAt: (p as any).lastFailAt ?? null,
+          }
+        ])
+      ),
       inFlightRequests: inFlight.size,
       staleCacheEntries: staleCache.size,
+      lastUpdate: Date.now(),
     };
   }
 
   // ─── Public: Force Refresh (bypass cache) ────────────────────────────────
 
   async forceRefreshQuotes(): Promise<MarketQuote[]> {
-    try { await redis.del(CACHE_KEYS.quotes); } catch {}
+    try { await redis.del(CACHE_KEYS.quotes); } catch { /* ignore */ }
     staleCache.delete(CACHE_KEYS.quotes);
     return this.getQuotes();
   }

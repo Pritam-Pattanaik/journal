@@ -231,7 +231,7 @@ export default function InteractiveMarketChart({ symbol: propSymbol, onSymbolCha
       chartRef.current  = null;
       seriesRef.current = null;
     };
-  }, []); // eslint-disable-line — runs once
+  }, []); // eslint-disable-line
 
   // ── Rebuild series when chart type changes ─────────────────────────────────
 
@@ -241,7 +241,7 @@ export default function InteractiveMarketChart({ symbol: propSymbol, onSymbolCha
 
     // Remove existing series
     if (seriesRef.current) {
-      try { chart.removeSeries(seriesRef.current as any); } catch {}
+      try { chart.removeSeries(seriesRef.current as any); } catch { /* ignore */ }
       seriesRef.current = null;
     }
 

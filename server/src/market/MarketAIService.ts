@@ -100,16 +100,29 @@ Respond ONLY with the JSON object. No other text.`;
 
 // ─── MarketAIService ─────────────────────────────────────────────────────────
 
+export interface MarketSummaryData {
+  sentiment: MarketSentiment;
+  highlights: string[];
+  risks: string[];
+  eventsToWatch: string[];
+  educationalInsight: string;
+  disclaimer: string;
+  generatedAt: number;
+}
+
 export class MarketAIService {
-  async generateSummaryJSON(): Promise<{
-    sentiment: MarketSentiment;
-    highlights: string[];
-    risks: string[];
-    eventsToWatch: string[];
-    educationalInsight: string;
-    disclaimer: string;
-    generatedAt: number;
-  } | null> {
+  private staleCache: MarketSummaryData | null = null;
+  private staleTimestamp: number = 0;
+  private readonly STALE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+  public getStaleSummary(): MarketSummaryData | null {
+    if (this.staleCache && (Date.now() - this.staleTimestamp < this.STALE_MAX_AGE_MS)) {
+      return this.staleCache;
+    }
+    return null;
+  }
+
+  async generateSummaryJSON(): Promise<MarketSummaryData | null> {
     if (!process.env.GROQ_API_KEY) {
       logger.warn('[MarketAI] GROQ_API_KEY not set — AI summary unavailable');
       return null;
@@ -126,38 +139,62 @@ export class MarketAIService {
     }
 
     const context = buildMarketContext(quotes, news);
+    const maxRetries = 3;
+    let attempt = 0;
+    let delay = 1000;
 
-    try {
-      const completion = await groq.chat.completions.create({
-        model: MODEL,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: `Analyze this market data and generate the summary JSON:\n\n${context}` },
-        ],
-        temperature: 0.3,
-        max_tokens: 600,
-        response_format: { type: 'json_object' },
-      });
+    while (attempt < maxRetries) {
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => abortController.abort(), 12000); // 12s timeout
 
-      const raw = completion.choices[0]?.message?.content;
-      if (!raw) throw new Error('Empty Groq response');
+      try {
+        const completion = await groq.chat.completions.create({
+          model: MODEL,
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content: `Analyze this market data and generate the summary JSON:\n\n${context}` },
+          ],
+          temperature: 0.3,
+          max_tokens: 600,
+          response_format: { type: 'json_object' },
+        }, {
+          signal: abortController.signal
+        } as any);
+        clearTimeout(timeoutId);
 
-      const parsed = JSON.parse(raw);
+        const raw = completion.choices[0]?.message?.content;
+        if (!raw) throw new Error('Empty Groq response');
 
-      return {
-        sentiment: parsed.sentiment ?? 'NEUTRAL',
-        highlights: Array.isArray(parsed.highlights) ? parsed.highlights.slice(0, 4) : [],
-        risks: Array.isArray(parsed.risks) ? parsed.risks.slice(0, 3) : [],
-        eventsToWatch: Array.isArray(parsed.eventsToWatch) ? parsed.eventsToWatch.slice(0, 3) : [],
-        educationalInsight: parsed.educationalInsight ?? '',
-        disclaimer: EDUCATIONAL_DISCLAIMER,
-        generatedAt: Date.now(),
-      };
+        const parsed = JSON.parse(raw);
 
-    } catch (err: any) {
-      logger.error(`[MarketAI] Groq API error: ${err.message}`);
-      return null;
+        const summaryData: MarketSummaryData = {
+          sentiment: parsed.sentiment ?? 'NEUTRAL',
+          highlights: Array.isArray(parsed.highlights) ? parsed.highlights.slice(0, 4) : [],
+          risks: Array.isArray(parsed.risks) ? parsed.risks.slice(0, 3) : [],
+          eventsToWatch: Array.isArray(parsed.eventsToWatch) ? parsed.eventsToWatch.slice(0, 3) : [],
+          educationalInsight: parsed.educationalInsight ?? '',
+          disclaimer: EDUCATIONAL_DISCLAIMER,
+          generatedAt: Date.now(),
+        };
+
+        this.staleCache = summaryData;
+        this.staleTimestamp = Date.now();
+        return summaryData;
+
+      } catch (err: any) {
+        clearTimeout(timeoutId);
+        attempt++;
+        logger.warn(`[MarketAI] Groq API attempt ${attempt} failed: ${err.message}`);
+        if (attempt >= maxRetries) {
+          logger.error(`[MarketAI] Groq API failed after ${maxRetries} attempts`);
+          return null;
+        }
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2; // Exponential backoff (1s, 2s, 4s)
+      }
     }
+    
+    return null;
   }
 
   async streamSummary(res: Response): Promise<void> {

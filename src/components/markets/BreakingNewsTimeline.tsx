@@ -60,11 +60,16 @@ export default function BreakingNewsTimeline({ onAnalyze }: BreakingNewsTimeline
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
-    // Only fetch if we don't have data yet (avoid double-fetch when AI Intelligence tab already loaded it)
+    // Fetch on mount if no data yet, also poll every 5 minutes for fresh news
     if (engineFeed.length === 0) {
       fetchEngineFeed({ limit: 20 });
     }
-  }, []);
+    const interval = setInterval(() => {
+      fetchEngineFeed({ limit: 20 });
+    }, 5 * 60_000);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchEngineFeed]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);

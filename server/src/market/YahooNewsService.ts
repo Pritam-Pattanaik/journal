@@ -11,7 +11,7 @@
  */
 
 import { XMLParser } from 'fast-xml-parser';
-import { redis } from '../lib/redis';
+import { redis, cache } from '../lib/redis';
 import { logger } from '../lib/logger';
 import { NewsArticle } from './types';
 import { createHash } from 'crypto';
@@ -47,7 +47,7 @@ function parseRssDate(dateStr: string): number {
   try {
     const parsed = new Date(dateStr).getTime();
     if (!isNaN(parsed)) return Math.floor(parsed / 1000);
-  } catch {}
+  } catch { /* ignore */ }
   return Math.floor(Date.now() / 1000);
 }
 
@@ -135,14 +135,14 @@ export class YahooNewsService {
   async getMarketNews(limit: number = MAX_ARTICLES): Promise<NewsArticle[]> {
     // Check cache
     try {
-      const cached = await redis.get(NEWS_CACHE_KEY);
+      const cached = await cache.get(NEWS_CACHE_KEY);
       if (cached) {
         const articles: NewsArticle[] = JSON.parse(cached);
         if (articles.length > 0) {
           return articles.slice(0, limit);
         }
       }
-    } catch {}
+    } catch { /* ignore */ }
 
     // Fetch all RSS feeds in parallel
     const allFeeds = [...RSS_FEEDS, ...SEARCH_FEEDS];
@@ -171,8 +171,8 @@ export class YahooNewsService {
     // Cache the results
     if (articles.length > 0) {
       try {
-        await redis.setex(NEWS_CACHE_KEY, NEWS_CACHE_TTL_SEC, JSON.stringify(articles));
-      } catch {}
+        await cache.setex(NEWS_CACHE_KEY, NEWS_CACHE_TTL_SEC, JSON.stringify(articles));
+      } catch { /* ignore */ }
     }
 
     return articles.slice(0, limit);
@@ -182,9 +182,9 @@ export class YahooNewsService {
     const cacheKey = `market:news:symbol:${symbols.sort().join(',')}`;
 
     try {
-      const cached = await redis.get(cacheKey);
+      const cached = await cache.get(cacheKey);
       if (cached) return JSON.parse(cached);
-    } catch {}
+    } catch { /* ignore */ }
 
     const symbolParam = symbols.map(s => encodeURIComponent(s)).join(',');
     const url = `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${symbolParam}&region=IN&lang=en-US`;
@@ -198,8 +198,8 @@ export class YahooNewsService {
 
     if (articles.length > 0) {
       try {
-        await redis.setex(cacheKey, 180, JSON.stringify(articles));
-      } catch {}
+        await cache.setex(cacheKey, 180, JSON.stringify(articles));
+      } catch { /* ignore */ }
     }
 
     return articles;

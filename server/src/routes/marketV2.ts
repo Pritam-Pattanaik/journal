@@ -29,7 +29,7 @@ import { yahooNewsService } from '../market/YahooNewsService';
 import { marketAIService } from '../market/MarketAIService';
 import { economicCalendarService } from '../market/EconomicCalendarService';
 import { logger } from '../lib/logger';
-import { redis } from '../lib/redis';
+import { redis, cache } from '../lib/redis';
 
 const router = Router();
 
@@ -148,24 +148,30 @@ router.get('/ai-summary', authenticate, async (_req: AuthRequest, res: Response)
   try {
     // Check cache
     try {
-      const cached = await redis.get(AI_CACHE_KEY);
+      const cached = await cache.get(AI_CACHE_KEY);
       if (cached) {
         res.json(JSON.parse(cached));
         return;
       }
-    } catch {}
+    } catch { /* ignore */ }
 
     const summary = await marketAIService.generateSummaryJSON();
 
     if (!summary) {
+      const stale = marketAIService.getStaleSummary();
+      if (stale) {
+        logger.warn('[Market Routes] AI summary generation failed, serving stale cache fallback');
+        res.json(stale);
+        return;
+      }
       res.status(503).json({ error: 'AI summary temporarily unavailable' });
       return;
     }
 
     // Cache the result
     try {
-      await redis.setex(AI_CACHE_KEY, AI_CACHE_TTL, JSON.stringify(summary));
-    } catch {}
+      await cache.setex(AI_CACHE_KEY, AI_CACHE_TTL, JSON.stringify(summary));
+    } catch { /* ignore */ }
 
     res.json(summary);
   } catch (err: any) {

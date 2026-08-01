@@ -19,6 +19,7 @@ import { prisma } from '../../db';
 import { queue, QUEUES } from '../queue/InProcessQueue';
 
 import { fetchMarketAux } from './sources/marketaux';
+import { yahooNewsService } from '../../market/YahooNewsService';
 
 const rateLimiter = new RateLimiter(SOURCE_CONFIG);
 
@@ -28,18 +29,25 @@ const scheduledTasks: cron.ScheduledTask[] = [];
 // ─── Market Hours Check ───────────────────────────────────────────────────────
 
 function isMarketHours(): boolean {
+  // Use Intl.DateTimeFormat to correctly handle IST (UTC+5:30) without DST issues
   const now = new Date();
-  // Convert to IST
-  const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
-  const istNow = new Date(now.getTime() + istOffset);
 
-  const day = istNow.getUTCDay(); // 0=Sun, 1=Mon ... 6=Sat
-  if (day === 0 || day === 6) return false; // Weekend
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    weekday: 'short',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: false,
+  }).formatToParts(now);
 
-  const hour = istNow.getUTCHours();
-  const minute = istNow.getUTCMinutes();
+  const weekday = parts.find(p => p.type === 'weekday')?.value ?? '';
+  const hour = parseInt(parts.find(p => p.type === 'hour')?.value ?? '0', 10);
+  const minute = parseInt(parts.find(p => p.type === 'minute')?.value ?? '0', 10);
+
+  // Skip weekends (Sat, Sun)
+  if (weekday === 'Sat' || weekday === 'Sun') return false;
+
   const timeInMinutes = hour * 60 + minute;
-
   const openMinutes = MARKET_HOURS.OPEN_HOUR * 60 + MARKET_HOURS.OPEN_MINUTE;
   const closeMinutes = MARKET_HOURS.CLOSE_HOUR * 60 + MARKET_HOURS.CLOSE_MINUTE;
 
@@ -142,6 +150,20 @@ async function pollMarketAux() {
   await ingestFromSource('MARKETAUX', fetchMarketAux);
 }
 
+async function pollYahooNews() {
+  await ingestFromSource('YAHOO_FINANCE', async () => {
+    const articles = await yahooNewsService.getMarketNews(50);
+    return articles.map(a => ({
+      headline: a.headline,
+      body: a.summary,
+      publishedAt: new Date(a.publishedAt * 1000), // convert epoch seconds to Date
+      url: a.url,
+      externalId: a.id,
+      rawPayload: { ...a }
+    }));
+  });
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export function startSourceRegistry(): void {
@@ -154,9 +176,12 @@ export function startSourceRegistry(): void {
 
   // MarketAux: every 15 minutes
   scheduledTasks.push(cron.schedule('*/15 * * * *', pollMarketAux));
+  
+  // Yahoo: every 10 minutes
+  scheduledTasks.push(cron.schedule('*/10 * * * *', pollYahooNews));
 
   // Run immediately on startup to populate initial data
-  Promise.allSettled([pollMarketAux()])
+  Promise.allSettled([pollMarketAux(), pollYahooNews()])
     .then(() => logger.info('[SourceRegistry] Initial poll completed.'));
 
   logger.info('[SourceRegistry] All pollers scheduled.');

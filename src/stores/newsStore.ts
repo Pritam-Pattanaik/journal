@@ -53,6 +53,8 @@ interface NewsState {
   enrichingId: string | null;
   fetchNews: (category?: string) => Promise<void>;
   fetchCalendar: () => Promise<void>;
+  newsError: string | null;
+  calendarError: string | null;
   enrichArticle: (article: any) => Promise<EnrichedNews | null>;
   bookmarkArticle: (id: string, notes?: string) => Promise<void>;
   linkTrade: (newsId: string, tradeId: string, reason?: string) => Promise<void>;
@@ -89,6 +91,8 @@ export const useNewsStore = create<NewsState>((set, get) => ({
   loadingNews: false,
   loadingCalendar: false,
   enrichingId: null,
+  newsError: null,
+  calendarError: null,
 
   // Engine state
   engineFeed: [],
@@ -105,22 +109,22 @@ export const useNewsStore = create<NewsState>((set, get) => ({
   // ─── Existing actions ─────────────────────────────────────────────────────
 
   fetchNews: async (category = 'general') => {
-    set({ loadingNews: true });
+    set({ loadingNews: true, newsError: null });
     try {
       const data = await api.get<any[]>(`/news?category=${category}`);
       set({ news: data, loadingNews: false });
-    } catch {
-      set({ loadingNews: false });
+    } catch (err: any) {
+      set({ loadingNews: false, newsError: err.message || 'Failed to load news' });
     }
   },
 
   fetchCalendar: async () => {
-    set({ loadingCalendar: true });
+    set({ loadingCalendar: true, calendarError: null });
     try {
       const data = await api.get<any[]>('/news/economic-calendar');
       set({ calendar: data, loadingCalendar: false });
-    } catch {
-      set({ loadingCalendar: false });
+    } catch (err: any) {
+      set({ loadingCalendar: false, calendarError: err.message || 'Failed to load calendar' });
     }
   },
 

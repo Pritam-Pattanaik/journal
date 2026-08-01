@@ -146,7 +146,7 @@ export const useInsightStore = create<InsightState>((set, get) => ({
 
   duplicateConversation: async (id: string) => {
     try {
-      const duplicated = await api.post<AiConversation>(`/ai/conversations/${id}/duplicate`);
+      const duplicated = await api.post<AiConversation>(`/ai/conversations/${id}/duplicate`, {});
       set({ conversations: [duplicated, ...get().conversations] });
       await get().setActiveConversation(duplicated.id);
     } catch (error: any) {

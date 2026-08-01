@@ -128,9 +128,14 @@ export function useLiveMarketData() {
       }
     };
 
-    const connectSSE = () => {
-      const token = localStorage.getItem('token');
-      eventSource = new EventSource(`${BASE_URL}/market/stream?token=${token}`);
+    const connectSSE = (retryCount = 0) => {
+      const MAX_RETRIES = 10;
+      const BASE_DELAY_MS = 5_000;
+      const MAX_DELAY_MS = 60_000;
+
+      // Use cookie-based auth instead of exposing JWT in URL query string
+      const url = `${BASE_URL}/market/stream`;
+      eventSource = new EventSource(url, { withCredentials: true });
 
       eventSource.onmessage = (event) => {
         if (!isMounted) return;
@@ -149,19 +154,29 @@ export function useLiveMarketData() {
               setData(curr => curr.map(q => ({ ...q, flash: null })));
             }
           }, 300);
-        } catch {}
+        } catch { /* ignore */ }
       };
 
       eventSource.onerror = () => {
         eventSource?.close();
-        if (isMounted) {
-          setTimeout(connectSSE, 5000);
+        eventSource = null;
+        if (!isMounted) return;
+
+        if (retryCount >= MAX_RETRIES) {
+          setError('Live market stream unavailable. Refresh to retry.');
+          return;
         }
+
+        // Exponential backoff: 5s, 10s, 20s, 40s ... max 60s
+        const delay = Math.min(BASE_DELAY_MS * Math.pow(2, retryCount), MAX_DELAY_MS);
+        setTimeout(() => {
+          if (isMounted) connectSSE(retryCount + 1);
+        }, delay);
       };
     };
 
     initializeData().then(() => {
-      if (isMounted) connectSSE();
+      if (isMounted) connectSSE(0);
     });
 
     return () => {
@@ -229,10 +244,11 @@ export function useLiveChartData(symbol: string, timeframe: string) {
     }
   }, [symbol, timeframe]);
 
+  // Include timeframe explicitly to ensure the interval is reset when timeframe changes
   useEffect(() => {
     fetchChart();
 
-    // 15-second refresh for intraday (1D)
+    // 15-second refresh for intraday (1D); cleared and not recreated for other timeframes
     let interval: ReturnType<typeof setInterval> | undefined;
     if (timeframe === '1D') {
       interval = setInterval(fetchChart, 15_000);
@@ -242,7 +258,7 @@ export function useLiveChartData(symbol: string, timeframe: string) {
       abortRef.current?.abort();
       if (interval) clearInterval(interval);
     };
-  }, [fetchChart]);
+  }, [fetchChart, timeframe]); // timeframe is already part of fetchChart via useCallback, but listed explicitly for clarity
 
   return { data, loading, error, refresh: fetchChart };
 }
@@ -285,29 +301,27 @@ export function useMarketSectors() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchSectors = async () => {
-      try {
-        const res = await api.get<SectorQuote[]>('/market/sectors');
-        if (isMounted && res?.length > 0) {
-          setSectors(res);
-          setError(null);
-        }
-      } catch (err: any) {
-        if (isMounted) setError('Sector data unavailable');
-      } finally {
-        if (isMounted) setLoading(false);
+  const fetchSectors = useCallback(async () => {
+    try {
+      const res = await api.get<SectorQuote[]>('/market/sectors');
+      if (res?.length > 0) {
+        setSectors(res);
+        setError(null);
       }
-    };
-
-    fetchSectors();
-    const interval = setInterval(fetchSectors, 15_000);
-    return () => { isMounted = false; clearInterval(interval); };
+    } catch (err: any) {
+      setError('Sector data unavailable');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  return { sectors, loading, error };
+  useEffect(() => {
+    fetchSectors();
+    const interval = setInterval(fetchSectors, 15_000);
+    return () => clearInterval(interval);
+  }, [fetchSectors]);
+
+  return { sectors, loading, error, refresh: fetchSectors };
 }
 
 // ─── useAISummary ─────────────────────────────────────────────────────────────
@@ -315,18 +329,38 @@ export function useMarketSectors() {
 export function useAISummary() {
   const [summary, setSummary] = useState<MarketSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [retrying, setRetrying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchSummary = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await api.get<MarketSummary>('/market/ai-summary');
-      setSummary(res);
-      setError(null);
-    } catch (err: any) {
-      setError('AI summary unavailable');
-    } finally {
-      setLoading(false);
+    let attempt = 0;
+    const maxRetries = 3;
+    let delay = 2000;
+
+    setLoading(true);
+    setRetrying(false);
+    setError(null);
+
+    while (attempt < maxRetries) {
+      try {
+        const res = await api.get<MarketSummary>('/market/ai-summary');
+        setSummary(res);
+        setError(null);
+        setLoading(false);
+        setRetrying(false);
+        return;
+      } catch (err: any) {
+        attempt++;
+        if (attempt >= maxRetries) {
+          setError('AI summary unavailable');
+          setLoading(false);
+          setRetrying(false);
+          return;
+        }
+        setRetrying(true);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2; // 2s, 4s, 8s
+      }
     }
   }, []);
 
@@ -337,7 +371,7 @@ export function useAISummary() {
     return () => clearInterval(interval);
   }, [fetchSummary]);
 
-  return { summary, loading, error, refresh: fetchSummary };
+  return { summary, loading, retrying, error, refresh: fetchSummary };
 }
 
 // ─── useEconomicCalendar ──────────────────────────────────────────────────────

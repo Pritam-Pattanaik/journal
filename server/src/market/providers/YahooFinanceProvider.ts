@@ -120,7 +120,7 @@ function extractSparkline(raw: any): number[] {
     if (Array.isArray(closes)) {
       return closes.filter((v: any) => typeof v === 'number' && isFinite(v)).slice(-20);
     }
-  } catch {}
+  } catch { /* ignore */ }
   return [];
 }
 
@@ -289,7 +289,7 @@ export class YahooFinanceProvider implements IMarketProvider {
       const results = await Promise.allSettled(
         symbols.map(async (def) => {
           const url = `${YF_CHART_URL}/${encodeURIComponent(def.symbol)}?interval=1m&range=1d&includePrePost=false&lang=en-US&region=US`;
-          const data = await fetchWithRetry(url, 0); // 0 retries per symbol — fail fast, service has overall retry
+          const data = await fetchWithRetry(url, 1); // 1 retry per symbol handles transient 429s
           return { def, data };
         })
       );

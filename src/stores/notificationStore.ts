@@ -73,8 +73,8 @@ export const useNotificationStore = create<NotificationState>()(
           eventSource.close();
         }
 
-        // Pass token in URL query since EventSource doesn't support headers directly
-        eventSource = new EventSource(`${BASE_URL}/notifications/stream?token=${token}`);
+        // Use cookie-based auth via withCredentials
+        eventSource = new EventSource(`${BASE_URL}/notifications/stream`, { withCredentials: true });
 
         eventSource.onopen = () => {
           console.log('[Notifications] SSE Connected');

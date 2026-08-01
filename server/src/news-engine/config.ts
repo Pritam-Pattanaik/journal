@@ -105,6 +105,13 @@ export const SOURCE_CONFIG: Record<string, SourceConfig> = {
     maxRetries: 3,
     timeoutMs: 15_000,
   },
+  YAHOO_FINANCE: {
+    intervalMs: 600_000,      // every 10 minutes
+    marketHoursOnly: false,
+    backoffBaseMs: 5_000,
+    maxRetries: 3,
+    timeoutMs: 15_000,
+  },
 };
 
 // ─── Sector Bucket Mapping ────────────────────────────────────────────────────
