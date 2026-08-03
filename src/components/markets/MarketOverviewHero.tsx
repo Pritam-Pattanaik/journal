@@ -128,21 +128,23 @@ export default function MarketOverviewHero({ activeSymbol, onSelectSymbol }: Pro
                   </div>
 
                   {/* Mini Sparkline */}
-                  <div className="h-10 w-full mt-2 opacity-70 group-hover:opacity-100 transition-opacity relative z-10">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={market.sparkline.map((val, idx) => ({ value: val, idx }))}>
-                        <YAxis domain={['auto', 'auto']} hide />
-                        <Line 
-                          type="monotone" 
-                          dataKey="value" 
-                          stroke={strokeColor} 
-                          strokeWidth={1.5} 
-                          dot={false}
-                          isAnimationActive={false} 
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
+                  {market.sparkline && market.sparkline.length > 0 && (
+                    <div className="h-10 w-full mt-2 opacity-70 group-hover:opacity-100 transition-opacity relative z-10">
+                      <ResponsiveContainer width="100%" height="100%" minWidth={10} minHeight={10}>
+                        <LineChart data={market.sparkline.map((val, idx) => ({ value: val, idx }))}>
+                          <YAxis domain={['auto', 'auto']} hide />
+                          <Line 
+                            type="monotone" 
+                            dataKey="value" 
+                            stroke={strokeColor} 
+                            strokeWidth={1.5} 
+                            dot={false}
+                            isAnimationActive={false} 
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
                 </motion.div>
               );
             })

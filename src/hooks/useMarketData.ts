@@ -248,10 +248,10 @@ export function useLiveChartData(symbol: string, timeframe: string) {
   useEffect(() => {
     fetchChart();
 
-    // 15-second refresh for intraday (1D); cleared and not recreated for other timeframes
+    // 5-minute refresh for intraday (1D) to avoid Yahoo 429 rate limits
     let interval: ReturnType<typeof setInterval> | undefined;
     if (timeframe === '1D') {
-      interval = setInterval(fetchChart, 15_000);
+      interval = setInterval(fetchChart, 5 * 60_000);
     }
 
     return () => {
@@ -317,7 +317,7 @@ export function useMarketSectors() {
 
   useEffect(() => {
     fetchSectors();
-    const interval = setInterval(fetchSectors, 15_000);
+    const interval = setInterval(fetchSectors, 2 * 60_000); // Refresh every 2 min
     return () => clearInterval(interval);
   }, [fetchSectors]);
 
@@ -333,34 +333,21 @@ export function useAISummary() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchSummary = useCallback(async () => {
-    let attempt = 0;
-    const maxRetries = 3;
-    let delay = 2000;
-
     setLoading(true);
     setRetrying(false);
     setError(null);
 
-    while (attempt < maxRetries) {
-      try {
-        const res = await api.get<MarketSummary>('/market/ai-summary');
-        setSummary(res);
-        setError(null);
-        setLoading(false);
-        setRetrying(false);
-        return;
-      } catch (err: any) {
-        attempt++;
-        if (attempt >= maxRetries) {
-          setError('AI summary unavailable');
-          setLoading(false);
-          setRetrying(false);
-          return;
-        }
-        setRetrying(true);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        delay *= 2; // 2s, 4s, 8s
-      }
+    try {
+      // Backend already handles retries with exponential backoff (up to 3 attempts).
+      // Frontend must NOT retry independently — it causes Groq duplicate calls (RCA-M08 fix).
+      const res = await api.get<MarketSummary>('/market/ai-summary');
+      setSummary(res);
+      setError(null);
+    } catch (err: any) {
+      setError('AI summary unavailable');
+    } finally {
+      setLoading(false);
+      setRetrying(false);
     }
   }, []);
 

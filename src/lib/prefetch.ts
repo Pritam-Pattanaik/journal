@@ -18,10 +18,6 @@ export function prefetchRoute(path: string) {
       case '/app':
       case '/app/': {
         import('../pages/Dashboard');
-        queryClient.prefetchQuery({
-          queryKey: ['dashboard-analytics'],
-          queryFn: () => api.get('/analytics/dashboard').catch(() => null),
-        });
         break;
       }
       case '/app/trades': {
@@ -36,7 +32,7 @@ export function prefetchRoute(path: string) {
         import('../pages/Journal');
         queryClient.prefetchQuery({
           queryKey: ['journal-entries'],
-          queryFn: () => api.get('/journal/entries').catch(() => null),
+          queryFn: () => api.get('/journal').catch(() => null),
         });
         break;
       }
@@ -44,16 +40,12 @@ export function prefetchRoute(path: string) {
         import('../pages/Analytics');
         queryClient.prefetchQuery({
           queryKey: ['expectancy-analytics'],
-          queryFn: () => api.get('/analytics/performance').catch(() => null),
+          queryFn: () => api.get('/analytics/risk').catch(() => null),
         });
         break;
       }
       case '/app/ai-coach': {
         import('../pages/AICoach');
-        queryClient.prefetchQuery({
-          queryKey: ['ai-insights'],
-          queryFn: () => api.get('/ai/insights').catch(() => null),
-        });
         break;
       }
       case '/app/strategies': {
@@ -68,7 +60,7 @@ export function prefetchRoute(path: string) {
         import('../pages/Markets');
         queryClient.prefetchQuery({
           queryKey: ['markets-news'],
-          queryFn: () => api.get('/news/latest').catch(() => null),
+          queryFn: () => api.get('/news-engine/feed').catch(() => null),
         });
         break;
       }

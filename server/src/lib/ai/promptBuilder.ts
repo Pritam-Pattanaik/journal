@@ -78,12 +78,14 @@ ${DISCIPLINE_PROMPT_SCHEMA}
 `;
 
 const MODE_PROMPTS: Record<string, string> = {
-  general: "Provide a balanced overview based on their question.",
-  performance: "Focus strictly on P&L, Win Rate, Profit Factor, Drawdowns, and mathematical edge.",
+  general:    "Provide a balanced overview based on their question.",
+  performance:"Focus strictly on P&L, Win Rate, Profit Factor, Drawdowns, and mathematical edge.",
   psychology: "Focus heavily on Journal notes, emotions, mistakes, mindset, and discipline score.",
-  risk: "Focus exclusively on average win vs average loss, R:R ratio, position sizing, stop loss hits, and risk ruin probabilities.",
-  strategy: "Focus on how different symbols, times of day, and setups are performing.",
-  journal: "Deep dive into their daily journal entries and connect notes to P&L results."
+  risk:       "Focus exclusively on average win vs average loss, R:R ratio, position sizing, stop loss hits, and risk ruin probabilities. Flag any reckless behavior.",
+  strategy:   "Focus on how different symbols, times of day, and setups are performing. Identify the best and worst strategies by profit factor.",
+  journal:    "Deep dive into their daily journal entries. Connect mood entries to P&L outcomes. Identify emotional triggers.",
+  premarket:  "This is a Pre-Market briefing. Provide a structured morning analysis: live market conditions (use LIVE MARKET SNAPSHOT), key levels to watch today, psychological reminders based on recent trade patterns, and 2-3 specific preparation points for today's session.",
+  postmarket: "This is a Post-Market debrief. Analyze today's trades only (filter by today's date). Score execution quality. Identify 1 mistake and 1 strength from today. Set one improvement goal for tomorrow.",
 };
 
 export function buildConversationContext(

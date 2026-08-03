@@ -15,18 +15,14 @@
  * Frontend never knows which provider served the data.
  */
 
-import { CACHE_KEYS, FALLBACK_QUOTES } from './config';
-import { MarketQuote, SectorPerformance } from './types';
-import { yahooProvider } from './providers/YahooProvider';
-import { moneyControlProvider } from './providers/MoneyControlProvider';
-import { investingComProvider } from './providers/InvestingComProvider';
+import { MarketQuote } from './types';
 import { redis, cache } from '../lib/redis';
 import { logger } from '../lib/logger';
 import { YahooFinanceProvider } from './providers/YahooFinanceProvider';
 import { MoneyControlProvider } from './providers/MoneyControlProvider';
 import { InvestingComProvider } from './providers/InvestingComProvider';
 import {
-  ChartCandle,
+  ChartCandle, SectorQuote,
   TRACKED_SYMBOLS, SECTOR_SYMBOLS, TIMEFRAME_MAP,
   SymbolDefinition, ProviderName,
 } from './types';
@@ -41,8 +37,8 @@ const CACHE_KEYS = {
   sectors: 'market:sectors:v2',
 };
 
-const QUOTE_TTL_SEC = 5;       // 5 seconds — matches polling interval
-const SECTOR_TTL_SEC = 10;     // 10 seconds for sectors
+const QUOTE_TTL_SEC = 60;      // 60 seconds — rate-limit friendly
+const SECTOR_TTL_SEC = 120;    // 2 minutes for sectors
 
 // ─── In-Flight Deduplication ──────────────────────────────────────────────────
 
@@ -182,7 +178,7 @@ class MarketDataService {
           quotes = merged;
         }
 
-        await setInCache(cacheKey, QUOTE_TTL_SEC, JSON.stringify(quotes));
+        await setInCache(cacheKey, JSON.stringify(quotes), QUOTE_TTL_SEC);
         setStale(cacheKey, quotes); // update stale cache on success
         return quotes;
       }
@@ -242,7 +238,7 @@ class MarketDataService {
             provider: q.provider,
           }));
 
-        await setInCache(cacheKey, SECTOR_TTL_SEC, JSON.stringify(sectorQuotes));
+        await setInCache(cacheKey, JSON.stringify(sectorQuotes), SECTOR_TTL_SEC);
         setStale(cacheKey, sectorQuotes);
         return sectorQuotes;
       }
@@ -283,7 +279,7 @@ class MarketDataService {
       const candles = await this.fetchChartFromProviders(yahooTicker, tf.interval, tf.range);
 
       if (candles.length > 0) {
-        await setInCache(cacheKey, tf.cacheTtlSec, JSON.stringify(candles));
+        await setInCache(cacheKey, JSON.stringify(candles), tf.cacheTtlSec);
         setStale(cacheKey, candles);
         return candles;
       }

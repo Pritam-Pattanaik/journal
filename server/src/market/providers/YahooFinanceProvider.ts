@@ -16,7 +16,14 @@ const YF_CHART_URL = `${YF_BASE}/v8/finance/chart`;
 const REQUEST_TIMEOUT_MS = 8_000;
 const MAX_RETRIES = 2;
 const BACKOFF_BASE_MS = 1_000;
-const HEALTH_RECOVERY_MS = 30_000; // 30 seconds — recover quickly from transient failures
+
+// Exponential recovery backoff: 3 fails=5m, 4=10m, 5=20m, 6+=60m
+// This prevents immediately re-triggering Yahoo IP bans after recovery
+function getHealthRecoveryMs(failCount: number): number {
+  if (failCount < 3) return 0;
+  const steps = failCount - 3; // 0, 1, 2, 3, ...
+  return Math.min(5 * 60_000 * Math.pow(2, steps), 60 * 60_000);
+}
 
 // Round-robin User-Agents to reduce fingerprinting
 const USER_AGENTS = [
@@ -258,8 +265,8 @@ export class YahooFinanceProvider implements IMarketProvider {
   isHealthy(): boolean {
     if (this.failCount < 3) return true;
     if (!this.lastFailAt) return true;
-    // Allow recovery after HEALTH_RECOVERY_MS
-    if (Date.now() - this.lastFailAt > HEALTH_RECOVERY_MS) {
+    // Exponential backoff: recover only after the computed delay
+    if (Date.now() - this.lastFailAt > getHealthRecoveryMs(this.failCount)) {
       this.failCount = 0;
       return true;
     }

@@ -186,6 +186,16 @@ export default function LiveAISummary() {
           </button>
         </div>
 
+        {/* Stale Data Warning Banner */}
+        {(summary as any).isStale && (
+          <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <p className="text-[11px] text-amber-300 font-medium">
+              Summary is {(summary as any).staleAgeMinutes} min old — AI is regenerating.
+            </p>
+          </div>
+        )}
+
         {/* Sentiment Badge */}
         <div
           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-bold mb-5"

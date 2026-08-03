@@ -1,38 +1,78 @@
-import React, { useEffect } from 'react';
-import { useInsightStore } from '../stores/insightStore';
+import React, { useEffect, useRef } from 'react';
+import { useInsightStore, startCoachMemoryPolling, stopCoachMemoryPolling } from '../stores/insightStore';
 import AICoachSidebar from '../components/ai/AICoachSidebar';
 import EmptyWorkspace from '../components/ai/EmptyWorkspace';
 import AIChatWorkspace from '../components/ai/AIChatWorkspace';
 
 export default function AICoach() {
-  const { activeConversationId, createConversation, setActiveConversation, fetchCoachMemory } = useInsightStore();
+  const {
+    activeConversationId,
+    createConversation,
+    setActiveConversation,
+    sendMessage,
+    fetchConversations,
+  } = useInsightStore();
 
+  const restoredRef = useRef(false);
+
+  // On mount: fetch conversations + restore last active session (RCA-A10 fix)
   useEffect(() => {
-    fetchCoachMemory(); // pre-fetch memory for any future context if needed
-  }, [fetchCoachMemory]);
+    const init = async () => {
+      await fetchConversations();
 
+      if (!restoredRef.current) {
+        restoredRef.current = true;
+        try {
+          const lastId = localStorage.getItem('lastActiveConversationId');
+          if (lastId) {
+            // Verify it still exists in the fetched list
+            const convs = useInsightStore.getState().conversations;
+            if (convs.some(c => c.id === lastId)) {
+              setActiveConversation(lastId);
+              return;
+            }
+          }
+      } catch { /* if restore fails, start with empty state */ }
+      }
+    };
+    init();
+  }, [fetchConversations, setActiveConversation]);
+
+  // Start coach memory background polling on mount, stop on unmount (RCA-A03 fix)
+  useEffect(() => {
+    startCoachMemoryPolling();
+    return () => stopCoachMemoryPolling();
+  }, []);
+
+  // Handle quick actions from EmptyWorkspace — direct prop, no event bus (RCA-A07 fix)
   const handleQuickAction = async (prompt: string) => {
-    // 1. Create a new session
-    const id = await createConversation();
-    setActiveConversation(id);
-    
-    // 2. The chat workspace component will automatically mount and we can pass the prompt to it, 
-    // or we can store an "initialPrompt" state somewhere. For simplicity, we can dispatch it through a global event or simply rely on the store.
-    // We will use a custom event for this quick action.
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('ai-quick-action', { detail: { prompt } }));
-    }, 100);
+    let convId = activeConversationId;
+
+    // Create a new session if none exists
+    if (!convId) {
+      try {
+        convId = await createConversation();
+        await setActiveConversation(convId);
+      } catch {
+        return;
+      }
+    }
+
+    // Directly send the message — no setTimeout, no window event
+    sendMessage(prompt);
   };
 
   return (
     <div className="flex w-full h-[calc(100vh-64px)] overflow-hidden">
-      {/* Column 2: AI Session Sidebar */}
+      {/* AI Session Sidebar */}
       <AICoachSidebar />
 
-      {/* Column 3: AI Workspace */}
+      {/* AI Workspace */}
       <div className="flex-1 flex flex-col h-full bg-canvas relative overflow-hidden">
         {activeConversationId ? (
-          <AIChatWorkspace conversationId={activeConversationId} />
+          <AIChatWorkspace
+            conversationId={activeConversationId}
+          />
         ) : (
           <EmptyWorkspace onSelectAction={handleQuickAction} />
         )}

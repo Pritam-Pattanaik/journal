@@ -3,9 +3,13 @@ import { prisma } from '../db';
 import { authenticate } from '../middleware/auth';
 import { buildConversationContext } from '../lib/ai/promptBuilder';
 import { getAIProvider } from '../lib/ai/providerFactory';
-import { generateGroqJSON } from '../lib/ai/provider'; // Will phase this out later if needed
+import { generateGroqJSON } from '../lib/ai/provider';
 import { validateDisciplineEvaluation } from '../lib/ai/disciplineSchema';
 import { createNotification } from '../services/notificationService';
+import { marketWorker } from '../services/MarketWorker';
+import { yahooNewsService } from '../market/YahooNewsService';
+import { logger } from '../lib/logger';
+import Groq from 'groq-sdk';
 
 const router = Router();
 
@@ -147,7 +151,7 @@ router.post('/conversations/:id/duplicate', authenticate, async (req: any, res) 
   }
 });
 
-// Auto-generate a smart title for the conversation based on the first message
+// Auto-generate a smart title for the conversation using Groq LLM
 router.patch('/conversations/:id/generate-title', authenticate, async (req: any, res) => {
   try {
     const conversationId = req.params.id;
@@ -160,21 +164,49 @@ router.patch('/conversations/:id/generate-title', authenticate, async (req: any,
       return res.status(404).json({ error: 'Conversation or messages not found' });
     }
 
-    // Extract the user's first raw prompt
     const firstMsg = conversation.messages[0].content;
-    const cleanMsg = firstMsg.replace(/^\[.*?\]\s*/, '').trim(); // strip [MODE:xyz]
-    
-    // Ensure title is derived strictly from the first message
-    const cleanAiTitle = cleanMsg.length > 60 ? cleanMsg.substring(0, 60) + '...' : cleanMsg;
+    const cleanMsg = firstMsg.replace(/^\[.*?\]\s*/, '').trim();
+    const firstAiMsg = conversation.messages[1]?.content ?? '';
+
+    let generatedTitle = cleanMsg.substring(0, 60);
+
+    // Try fast LLM title generation if API key is available
+    if (process.env.GROQ_API_KEY) {
+      try {
+        const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
+        const titleCompletion = await groqClient.chat.completions.create({
+          model: 'llama-3.1-8b-instant', // Fast, cheap model for titles
+          messages: [
+            {
+              role: 'system',
+              content: 'Generate a concise 3-6 word title for this trading conversation. Be specific — use trading symbols, strategies, or concepts. Return ONLY the title, nothing else. No quotes, no punctuation at the end.'
+            },
+            {
+              role: 'user',
+              content: `User message: ${cleanMsg.substring(0, 300)}\nAI response: ${firstAiMsg.substring(0, 200)}`
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 20,
+        });
+        const llmTitle = titleCompletion.choices[0]?.message?.content?.trim();
+        if (llmTitle && llmTitle.length > 3 && llmTitle.length < 80) {
+          generatedTitle = llmTitle;
+        }
+      } catch (titleErr) {
+        // Fallback to substring if LLM fails
+        logger.warn('[AI] Title generation LLM call failed, using fallback');
+      }
+    }
 
     const updated = await prisma.aiConversation.update({
       where: { id: conversationId },
-      data: { title: cleanAiTitle || 'New Conversation' }
+      data: { title: generatedTitle || 'New Conversation' }
     });
 
     res.json(updated);
   } catch (error) {
-    console.error('Failed to generate title:', error);
+    logger.error('[AI] Failed to generate title', { error });
     res.status(500).json({ error: 'Failed to generate title' });
   }
 });
@@ -195,7 +227,6 @@ router.patch('/conversations/:id/archive', authenticate, async (req: any, res) =
 
 // Streaming Chat Endpoint
 router.post('/chat', authenticate, async (req: any, res) => {
-  console.log('[AI-DEBUG-1] POST /chat hit. userId:', req.userId);
   const { conversationId, message } = req.body;
 
   if (!conversationId || !message) {
@@ -243,8 +274,36 @@ router.post('/chat', authenticate, async (req: any, res) => {
       take: 30
     });
 
-    // We can fetch live market data if available (placeholder for actual implementation)
-    const marketSnapshot = null; 
+    // Inject live market snapshot from MarketWorker cache (real-time, in-memory)
+    const liveQuotes = marketWorker.getCache();
+    let marketSnapshot: any = null;
+    if (liveQuotes && liveQuotes.length > 0) {
+      try {
+        // Build a compact market snapshot for the AI context
+        const keyIndices = liveQuotes.filter(q => ['nifty', 'sensex', 'banknifty', 'finnifty', 'vix'].includes(q.id));
+        const commodities = liveQuotes.filter(q => ['gold', 'crude', 'usdinr'].includes(q.id));
+        const topNews = await yahooNewsService.getMarketNews(5).catch(() => []);
+
+        marketSnapshot = {
+          timestamp: new Date().toISOString(),
+          indices: keyIndices.map(q => ({
+            name: q.name,
+            price: q.price,
+            changePercent: q.changePercent,
+            status: q.status,
+          })),
+          commodities: commodities.map(q => ({
+            name: q.name,
+            price: q.price,
+            changePercent: q.changePercent,
+          })),
+          topHeadlines: topNews.slice(0, 5).map(n => n.headline),
+        };
+      } catch (snapshotErr) {
+        logger.warn('[AI Chat] Failed to build market snapshot, proceeding without it');
+        marketSnapshot = null;
+      }
+    }
 
     const recentMessages = conversation.messages.map(m => ({ role: m.role, content: m.content }));
     const messagesContext = buildConversationContext(trades, journals, marketSnapshot, recentMessages, actualMessage, mode);
@@ -290,7 +349,7 @@ router.post('/chat', authenticate, async (req: any, res) => {
       res.end();
     } catch (error: any) {
       if (error.name === 'AbortError' || isAborted) {
-        console.log('Stream aborted by client.');
+        logger.info('[AI Chat] Stream aborted by client');
       } else {
         const errString = error.toString().toLowerCase();
         if (error.status === 429 || errString.includes('429') || errString.includes('rate limit')) {
@@ -304,7 +363,7 @@ router.post('/chat', authenticate, async (req: any, res) => {
       }
     }
   } catch (error) {
-    console.error('Chat endpoint error:', error);
+    logger.error('[AI Chat] Chat endpoint error', { error });
     if (!res.headersSent) {
       res.status(500).json({ error: 'Failed to process chat request' });
     }
@@ -390,9 +449,21 @@ Return JSON matching this schema exactly:
       breakdown: validated.breakdown,
     });
   } catch (error) {
-    console.error('Evaluate trade error:', error);
+    logger.error('[AI] Evaluate trade error', { error });
     res.status(500).json({ error: 'Failed to evaluate trade discipline' });
   }
+});
+
+// ─── POST /api/ai/feedback ────────────────────────────────────────────────────
+// Records thumbs up/down feedback on AI messages (stored in logs, not DB for now)
+router.post('/feedback', authenticate, async (req: any, res) => {
+  const { messageId, feedback } = req.body;
+  if (!feedback || !['up', 'down'].includes(feedback)) {
+    return res.status(400).json({ error: 'Invalid feedback value. Must be "up" or "down".' });
+  }
+  // Log feedback for future model fine-tuning (stored in structured logs)
+  logger.info('[AI Feedback]', { userId: req.userId, messageId, feedback });
+  res.json({ success: true, recorded: feedback });
 });
 
 export default router;

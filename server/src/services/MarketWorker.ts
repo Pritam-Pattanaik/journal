@@ -16,7 +16,7 @@ import { marketDataService } from '../market/MarketDataService';
 import { MarketQuote, TRACKED_SYMBOLS } from '../market/types';
 import { logger } from '../lib/logger';
 
-const POLLING_INTERVAL_MS = 5_000; // 5 seconds as specified
+const POLLING_INTERVAL_MS = 60_000; // 60 seconds to prevent Yahoo 429 rate limits
 
 class MarketWorker extends EventEmitter {
   private cache: MarketQuote[] = [];

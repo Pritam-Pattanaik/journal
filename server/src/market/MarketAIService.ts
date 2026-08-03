@@ -108,16 +108,23 @@ export interface MarketSummaryData {
   educationalInsight: string;
   disclaimer: string;
   generatedAt: number;
+  isStale?: boolean;         // true when served from stale cache
+  staleAgeMinutes?: number;  // how old the stale data is
 }
 
 export class MarketAIService {
   private staleCache: MarketSummaryData | null = null;
   private staleTimestamp: number = 0;
-  private readonly STALE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+  private readonly STALE_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes (was 24h — reduced to prevent silent stale data)
 
   public getStaleSummary(): MarketSummaryData | null {
     if (this.staleCache && (Date.now() - this.staleTimestamp < this.STALE_MAX_AGE_MS)) {
-      return this.staleCache;
+      // Annotate with staleness metadata before returning
+      return {
+        ...this.staleCache,
+        isStale: true,
+        staleAgeMinutes: Math.round((Date.now() - this.staleTimestamp) / 60_000),
+      };
     }
     return null;
   }

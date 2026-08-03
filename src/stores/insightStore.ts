@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api, BASE_URL } from '../lib/api';
+import { api } from '../lib/api';
 import { AiConversation, AiMessage } from '../types';
 import { streamAIInference } from '../lib/aiStreamClient';
 
@@ -40,10 +40,15 @@ interface InsightState {
   stopGeneration: () => void;
   regenerateResponse: () => Promise<void>;
   duplicateConversation: (id: string) => Promise<void>;
-  exportConversation: (id: string) => void;
+  exportConversation: (id: string) => Promise<void>;
 }
 
-let abortController: AbortController | null = null;
+// Per-conversation abort controllers — fixes P0 race condition (RCA-A01)
+// Module-level AbortController caused token interleaving when regenerating
+const abortControllers = new Map<string, AbortController>();
+
+// Coach memory polling interval ref
+let coachMemoryInterval: ReturnType<typeof setInterval> | null = null;
 
 export const useInsightStore = create<InsightState>((set, get) => ({
   conversations: [],
@@ -75,6 +80,8 @@ export const useInsightStore = create<InsightState>((set, get) => ({
         messages: [],
         loading: false
       }));
+      // Persist last active conversation id for auto-restore (RCA-A10 fix)
+      try { localStorage.setItem('lastActiveConversationId', response.id); } catch { /* non-critical */ }
       return response.id;
     } catch (error: any) {
       set({ error: error.message || 'Failed to create conversation', loading: false });
@@ -84,6 +91,13 @@ export const useInsightStore = create<InsightState>((set, get) => ({
 
   setActiveConversation: async (id: string | null) => {
     set({ activeConversationId: id, messages: [], streamingMessage: '', isTyping: false, error: null });
+
+    // Persist for auto-restore
+    try {
+      if (id) localStorage.setItem('lastActiveConversationId', id);
+      else localStorage.removeItem('lastActiveConversationId');
+    } catch { /* non-critical */ }
+
     if (!id) return;
     
     set({ loading: true });
@@ -98,17 +112,24 @@ export const useInsightStore = create<InsightState>((set, get) => ({
   deleteConversation: async (id: string) => {
     try {
       await api.delete(`/ai/conversations/${id}`);
+      // Cancel any active stream for this conversation
+      const ctrl = abortControllers.get(id);
+      if (ctrl) { ctrl.abort(); abortControllers.delete(id); }
+
       set(state => {
         const nextConvs = state.conversations.filter(c => c.id !== id);
+        const isActive = state.activeConversationId === id;
+        const newActiveId = isActive ? (nextConvs[0]?.id ?? null) : state.activeConversationId;
+        if (isActive) {
+          try { localStorage.removeItem('lastActiveConversationId'); } catch { /* non-critical */ }
+        }
         return {
           conversations: nextConvs,
-          activeConversationId: state.activeConversationId === id ? null : state.activeConversationId,
-          messages: state.activeConversationId === id ? [] : state.messages
+          activeConversationId: newActiveId,
+          messages: isActive ? [] : state.messages,
         };
       });
-    } catch (error: any) {
-      set({ error: error.message || 'Failed to delete conversation' });
-    }
+    } catch { /* Non-critical — ignore delete failures silently */ }
   },
 
   renameConversation: async (id: string, title: string) => {
@@ -154,25 +175,37 @@ export const useInsightStore = create<InsightState>((set, get) => ({
     }
   },
 
-  exportConversation: (id: string) => {
+  // Fixed: fetch messages for non-active conversations before exporting (RCA-A06 fix)
+  exportConversation: async (id: string) => {
     const state = get();
     const conv = state.conversations.find(c => c.id === id);
     if (!conv) return;
     
-    // We export whatever is currently loaded if it's the active one
-    let exportText = `# ${conv.title}\n\n`;
+    let exportMessages: AiMessage[] = [];
+
     if (state.activeConversationId === id) {
-      state.messages.forEach(m => {
-        exportText += `### ${m.role === 'user' ? 'You' : 'AI Mentor'}\n${m.content}\n\n`;
-      });
-      const blob = new Blob([exportText], { type: 'text/markdown' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${conv.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.md`;
-      a.click();
-      URL.revokeObjectURL(url);
+      exportMessages = state.messages;
+    } else {
+      try {
+        exportMessages = await api.get<AiMessage[]>(`/ai/conversations/${id}/messages`);
+      } catch {
+        import('../lib/notify').then(m => m.notify.error('Failed to fetch conversation for export'));
+        return;
+      }
     }
+    
+    let exportText = `# ${conv.title}\n\n`;
+    exportMessages.forEach(m => {
+      exportText += `### ${m.role === 'user' ? 'You' : 'AI Mentor'}\n${m.content}\n\n`;
+    });
+
+    const blob = new Blob([exportText], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${conv.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
   },
 
   sendMessage: async (content: string) => {
@@ -183,10 +216,19 @@ export const useInsightStore = create<InsightState>((set, get) => ({
     if (!activeConversationId) {
       try {
         const cleanContent = content.replace(/^\[.*?\]\s*/, '');
-        activeConversationId = await get().createConversation(cleanContent.substring(0, 30) + '...');
+        activeConversationId = await get().createConversation(cleanContent.substring(0, 30));
       } catch (e) {
-        return; // error handled in createConversation
+        return;
       }
+    }
+
+    const conversationId = activeConversationId;
+
+    // Cancel any existing stream for this conversation (P0 race condition fix — RCA-A01)
+    const existingCtrl = abortControllers.get(conversationId);
+    if (existingCtrl) {
+      existingCtrl.abort();
+      abortControllers.delete(conversationId);
     }
 
     // Optimistically add user message
@@ -198,13 +240,14 @@ export const useInsightStore = create<InsightState>((set, get) => ({
       error: null
     }));
 
-    abortController = new AbortController();
+    const controller = new AbortController();
+    abortControllers.set(conversationId, controller);
 
     try {
       await streamAIInference({
         endpoint: '/api/ai/chat',
-        payload: { conversationId: activeConversationId, message: content },
-        signal: abortController.signal,
+        payload: { conversationId, message: content },
+        signal: controller.signal,
         onToken: (_token, accumulated) => {
           set({ streamingMessage: accumulated });
         },
@@ -219,7 +262,6 @@ export const useInsightStore = create<InsightState>((set, get) => ({
 
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        console.log('Generation stopped');
         // Commit whatever was generated so far
         set(state => ({
           messages: [...state.messages, { role: 'assistant', content: state.streamingMessage }],
@@ -228,18 +270,17 @@ export const useInsightStore = create<InsightState>((set, get) => ({
         }));
       } else {
         set({ error: error.message || 'Chat request failed', isTyping: false });
-        // Import notify dynamically to avoid circular dependency if any
         import('../lib/notify').then(m => m.notify.error(error.message || 'Failed to generate response'));
       }
     } finally {
-      abortController = null;
-      // Refresh memory in case the AI detected patterns behind the scenes (legacy)
-      get().fetchCoachMemory();
-      
-      // Auto-generate title if this was the first message in a new conversation
-      if (isFirstMessage && activeConversationId) {
-        get().generateConversationTitle(activeConversationId);
+      abortControllers.delete(conversationId);
+
+      // Auto-generate title if this was the first message — non-blocking
+      if (isFirstMessage && conversationId) {
+        get().generateConversationTitle(conversationId);
       }
+      // Coach memory is NOT fetched per-message anymore (RCA-A03 fix)
+      // It is polled every 5 minutes via startCoachMemoryPolling()
     }
   },
 
@@ -252,13 +293,17 @@ export const useInsightStore = create<InsightState>((set, get) => ({
         )
       }));
     } catch (e) {
-      console.error('Failed to generate title:', e);
+      // Non-critical — title generation is a best-effort
     }
   },
 
   stopGeneration: () => {
-    if (abortController) {
-      abortController.abort();
+    const { activeConversationId } = get();
+    if (!activeConversationId) return;
+    const ctrl = abortControllers.get(activeConversationId);
+    if (ctrl) {
+      ctrl.abort();
+      abortControllers.delete(activeConversationId);
     }
   },
 
@@ -266,6 +311,13 @@ export const useInsightStore = create<InsightState>((set, get) => ({
     const { messages, activeConversationId } = get();
     if (!activeConversationId || messages.length < 2) return;
     
+    // Cancel any existing stream first
+    const existingCtrl = abortControllers.get(activeConversationId);
+    if (existingCtrl) {
+      existingCtrl.abort();
+      abortControllers.delete(activeConversationId);
+    }
+
     // Find the last user message
     let lastUserMessageIndex = -1;
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -278,19 +330,18 @@ export const useInsightStore = create<InsightState>((set, get) => ({
     if (lastUserMessageIndex === -1) return;
     
     const lastUserMessage = messages[lastUserMessageIndex].content;
-    
-    // Trim the messages array to keep only up to the last user message
     const newMessages = messages.slice(0, lastUserMessageIndex + 1);
     
     set({ messages: newMessages, isTyping: true, streamingMessage: '', error: null });
     
-    abortController = new AbortController();
+    const controller = new AbortController();
+    abortControllers.set(activeConversationId, controller);
 
     try {
       await streamAIInference({
         endpoint: '/api/ai/chat',
         payload: { conversationId: activeConversationId, message: lastUserMessage, isRegeneration: true },
-        signal: abortController.signal,
+        signal: controller.signal,
         onToken: (_token, accumulated) => {
           set({ streamingMessage: accumulated });
         },
@@ -310,10 +361,10 @@ export const useInsightStore = create<InsightState>((set, get) => ({
           isTyping: false
         }));
       } else {
-        set({ error: error.message || 'Chat request failed', isTyping: false });
+        set({ error: error.message || 'Regeneration failed', isTyping: false });
       }
     } finally {
-      abortController = null;
+      abortControllers.delete(activeConversationId);
     }
   },
 
@@ -326,3 +377,19 @@ export const useInsightStore = create<InsightState>((set, get) => ({
     }
   },
 }));
+
+// Start background coach memory polling (every 5 minutes)
+// This replaces per-message fetching (RCA-A03 fix)
+export function startCoachMemoryPolling() {
+  if (coachMemoryInterval) return;
+  const { fetchCoachMemory } = useInsightStore.getState();
+  fetchCoachMemory(); // Initial fetch
+  coachMemoryInterval = setInterval(fetchCoachMemory, 5 * 60_000);
+}
+
+export function stopCoachMemoryPolling() {
+  if (coachMemoryInterval) {
+    clearInterval(coachMemoryInterval);
+    coachMemoryInterval = null;
+  }
+}

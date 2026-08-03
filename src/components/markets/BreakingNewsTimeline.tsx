@@ -60,10 +60,8 @@ export default function BreakingNewsTimeline({ onAnalyze }: BreakingNewsTimeline
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
-    // Fetch on mount if no data yet, also poll every 5 minutes for fresh news
-    if (engineFeed.length === 0) {
-      fetchEngineFeed({ limit: 20 });
-    }
+    // Always fetch on mount to ensure fresh news on every page visit (RCA-M06 fix)
+    fetchEngineFeed({ limit: 20 });
     const interval = setInterval(() => {
       fetchEngineFeed({ limit: 20 });
     }, 5 * 60_000);
@@ -78,10 +76,10 @@ export default function BreakingNewsTimeline({ onAnalyze }: BreakingNewsTimeline
   };
 
   // Convert engine feed to NewsItem format, sorted by recency
-  const liveItems = engineFeed
+  const allLiveItems = engineFeed
     .slice()
     .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
-    .slice(0, 8)
+    .slice(0, 30)
     .map(item => ({
       id: item.id,
       title: item.headline,
@@ -94,7 +92,26 @@ export default function BreakingNewsTimeline({ onAnalyze }: BreakingNewsTimeline
       url: item.url,
       urgency: item.urgency,
       direction: item.direction,
+      // Category tags derived from sectors for filter matching
+      sectorTags: item.sectors.map((s: string) => s.toLowerCase()),
     }));
+
+  // Apply category filter (RCA-M07 fix: filter predicate was missing)
+  const FILTER_MAP: Record<string, string[]> = {
+    'All': [],
+    'RBI': ['rbi', 'monetary policy', 'interest rate', 'central bank'],
+    'Results': ['earnings', 'results', 'quarterly', 'profit', 'revenue'],
+    'Macro': ['macro', 'gdp', 'inflation', 'economy', 'fiscal', 'budget'],
+    'Global': ['global', 'fed', 'us market', 'china', 'world', 'international'],
+  };
+
+  const liveItems = activeFilter === 'All'
+    ? allLiveItems.slice(0, 8)
+    : allLiveItems.filter(item => {
+        const keywords = FILTER_MAP[activeFilter] ?? [];
+        const itemText = `${item.title} ${item.sector} ${item.sectorTags.join(' ')}`.toLowerCase();
+        return keywords.some(kw => itemText.includes(kw));
+      }).slice(0, 8);
 
   const breakingItems = liveItems.filter(i => i.urgency === 'breaking');
 
